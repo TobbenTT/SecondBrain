@@ -39,7 +39,23 @@ function initTables() {
             // Automation Pipeline columns
             'suggested_agent', 'suggested_skills',
             'execution_status', 'execution_output', 'execution_error',
-            'executed_at', 'executed_by'
+            'executed_at', 'executed_by',
+            // GTD Fields (from Jose's methodology)
+            'contexto',           // @email, @calle, @computador, @telefono, @oficina, @casa, @espera
+            'energia',            // baja, media, alta
+            'fecha_inicio',       // YYYY-MM-DD
+            'fecha_objetivo',     // YYYY-MM-DD target
+            'fecha_limite',       // YYYY-MM-DD hard deadline
+            'es_fecha_limite',    // 1=hard deadline, 0=flexible
+            'tipo_compromiso',    // comprometida, esta_semana, algun_dia, tal_vez
+            'proxima_accion',     // 1/0 — is this the next action for its project?
+            'subproyecto',        // sub-project grouping
+            'objetivo',           // area objective this supports
+            'notas',              // free-form notes
+            'completada',         // 1/0
+            'fecha_finalizacion', // DATETIME when completed
+            'parent_idea_id',     // FK to parent idea (for project→sub-task decomposition)
+            'is_project'          // 1=project, 0=single task/idea
         ];
         ideasColumnsToAdd.forEach(col => {
             db.run(`ALTER TABLE ideas ADD COLUMN ${col} TEXT`, (err) => {
@@ -200,6 +216,31 @@ function initTables() {
             UNIQUE(username, idea_id, date)
         )`);
 
+        // Material de Apoyo Table (reference materials linked to projects/ideas)
+        db.run(`CREATE TABLE IF NOT EXISTS material_apoyo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            url TEXT,
+            content TEXT,
+            tipo TEXT DEFAULT 'referencia',
+            related_idea_id INTEGER,
+            related_project_id TEXT,
+            related_area_id INTEGER,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // GTD Contexts Table (predefined GTD contexts)
+        db.run(`CREATE TABLE IF NOT EXISTS gtd_contexts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            icon TEXT,
+            description TEXT,
+            active INTEGER DEFAULT 1
+        )`, function(err) {
+            if (!err) seedGtdContexts();
+        });
+
         console.log('Database tables initialized.');
 
         // Seed areas after tables are created
@@ -274,6 +315,32 @@ function seedApiKeys() {
                     if (!err) console.log(`✅ API Key created: ${key}\n   Save this key for OpenClaw config.`);
                 }
             );
+        }
+    });
+}
+
+function seedGtdContexts() {
+    db.get('SELECT count(*) as count FROM gtd_contexts', [], (err, row) => {
+        if (err) return;
+        if (row.count === 0) {
+            console.log('🌱 Seeding GTD contexts...');
+            const contexts = [
+                { name: '@computador', icon: '💻', description: 'Tareas que requieren computador' },
+                { name: '@email', icon: '📧', description: 'Correos por enviar o responder' },
+                { name: '@telefono', icon: '📱', description: 'Llamadas por hacer' },
+                { name: '@oficina', icon: '🏢', description: 'Tareas presenciales en oficina' },
+                { name: '@calle', icon: '🚶', description: 'Diligencias fuera de oficina/casa' },
+                { name: '@casa', icon: '🏠', description: 'Tareas para hacer en casa' },
+                { name: '@espera', icon: '⏳', description: 'A la espera de alguien' },
+                { name: '@compras', icon: '🛒', description: 'Cosas por comprar' },
+                { name: '@investigar', icon: '🔍', description: 'Temas por investigar/Deep Research' },
+                { name: '@reunion', icon: '👥', description: 'Temas para discutir en reunion' },
+                { name: '@leer', icon: '📖', description: 'Material por leer/revisar' }
+            ];
+            const stmt = db.prepare('INSERT OR IGNORE INTO gtd_contexts (name, icon, description) VALUES (?, ?, ?)');
+            contexts.forEach(c => stmt.run(c.name, c.icon, c.description));
+            stmt.finalize();
+            console.log('✅ GTD contexts seeded.');
         }
     });
 }

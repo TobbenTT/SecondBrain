@@ -83,6 +83,21 @@
                     Analytics
                 </a>
             </div>
+            <div class="nav-section">
+                <span class="nav-label">GTD</span>
+                <a href="#gtd-board" class="nav-link" data-section="gtd-board">
+                    <span class="nav-icon">🎯</span>
+                    Proximas Acciones
+                </a>
+                <a href="#gtd-projects" class="nav-link" data-section="gtd-projects">
+                    <span class="nav-icon">📂</span>
+                    Proyectos GTD
+                </a>
+                <a href="#gtd-report" class="nav-link" data-section="gtd-report">
+                    <span class="nav-icon">📋</span>
+                    Reporte Diario
+                </a>
+            </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -781,6 +796,31 @@
                                 <button class="filter-chip" data-ifilter="distilled">💎 Destiladas</button>
                                 <button class="filter-chip" data-ifilter="expressed">🚀 Expresadas</button>
                                 <button class="filter-chip" data-ifilter="voice">🎤 Voz</button>
+                                <button class="filter-chip" data-ifilter="projects">📂 Proyectos</button>
+                                <button class="filter-chip" data-ifilter="next-actions">🎯 Proximas</button>
+                            </div>
+                            <!-- GTD Filters Row -->
+                            <div class="gtd-filters" id="gtdFilters">
+                                <select id="filterContexto" class="gtd-filter-select" onchange="applyGtdFilters()">
+                                    <option value="">📍 Contexto</option>
+                                </select>
+                                <select id="filterEnergia" class="gtd-filter-select" onchange="applyGtdFilters()">
+                                    <option value="">⚡ Energia</option>
+                                    <option value="baja">🟢 Baja</option>
+                                    <option value="media">🟡 Media</option>
+                                    <option value="alta">🔴 Alta</option>
+                                </select>
+                                <select id="filterCompromiso" class="gtd-filter-select" onchange="applyGtdFilters()">
+                                    <option value="">📌 Compromiso</option>
+                                    <option value="comprometida">Comprometida</option>
+                                    <option value="esta_semana">Esta Semana</option>
+                                    <option value="algun_dia">Algun Dia</option>
+                                    <option value="tal_vez">Tal Vez</option>
+                                </select>
+                                <select id="filterAssignee" class="gtd-filter-select" onchange="applyGtdFilters()">
+                                    <option value="">👤 Responsable</option>
+                                </select>
+                                <button class="btn-clear-filters" onclick="clearGtdFilters()" title="Limpiar filtros">✕</button>
                             </div>
                             <span class="ideas-count" id="ideasCount">0</span>
                             <% if (user && user.role==='admin' ) { %>
@@ -1022,6 +1062,61 @@
                 </div>
                 <div class="panel-body">
                     <canvas id="chartUserProductivity" height="200"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: GTD BOARD — Proximas Acciones por Contexto
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-gtd-board">
+            <div class="gtd-board-toolbar">
+                <div class="gtd-view-toggle">
+                    <button class="btn btn-sm active" onclick="loadGtdBoard('context')" id="gtdViewContext">📍 Por Contexto</button>
+                    <button class="btn btn-sm" onclick="loadGtdBoard('energy')" id="gtdViewEnergy">⚡ Por Energia</button>
+                    <button class="btn btn-sm" onclick="loadGtdBoard('assignee')" id="gtdViewAssignee">👤 Por Persona</button>
+                    <button class="btn btn-sm" onclick="loadGtdBoard('compromiso')" id="gtdViewCompromiso">📌 Por Compromiso</button>
+                </div>
+            </div>
+            <!-- Effectiveness Summary -->
+            <div class="gtd-effectiveness-row" id="gtdEffectiveness">
+                <div class="loading-sm"><div class="spinner-sm"></div></div>
+            </div>
+            <!-- GTD Board Columns -->
+            <div class="gtd-board-columns" id="gtdBoardColumns">
+                <div class="loading-sm"><div class="spinner-sm"></div></div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: GTD PROJECTS — Proyectos con Sub-tareas
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-gtd-projects">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📂 Proyectos GTD</h2>
+                    <span class="ideas-count" id="gtdProjectsCount">0</span>
+                </div>
+                <div class="panel-body" id="gtdProjectsList">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: GTD DAILY REPORT
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-gtd-report">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📋 Reporte Diario</h2>
+                    <button class="btn btn-sm btn-primary" onclick="generateDailyReport()" id="btnDailyReport">🔄 Generar Reporte</button>
+                </div>
+                <div class="panel-body">
+                    <div id="dailyReportStats" class="gtd-report-stats"></div>
+                    <div id="dailyReportContent" class="markdown-body" style="padding:16px;">
+                        <p style="color:var(--text-muted);">Haz click en "Generar Reporte" para crear el reporte del dia.</p>
+                    </div>
                 </div>
             </div>
         </section>

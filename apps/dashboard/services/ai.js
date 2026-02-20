@@ -28,6 +28,11 @@ const AGENT_CATEGORY_MAP = {
         categories: ['Contratos', 'HSE'],
         keywords: ['cumplimiento', 'compliance', 'auditoria', 'regulacion', 'normativo', 'permiso', 'legal', 'seguridad'],
         skills: ['core/audit-compliance-readiness.md']
+    },
+    'gtd': {
+        categories: [],
+        keywords: ['clasificar', 'organizar', 'descomponer', 'proxima accion', 'revision semanal', 'gtd', 'productividad'],
+        skills: ['core/classify-idea.md', 'core/decompose-project.md', 'core/identify-next-action.md', 'core/weekly-review.md']
     }
 };
 
@@ -153,6 +158,7 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
 
     Campos por cada idea:
     - tipo: (Tarea, Proyecto, Nota, Meta, Delegacion, Referencia)
+    - is_project: (true/false) true si esto es un PROYECTO que requiere multiples actividades
     - categoria: La categoria mas relevante de las areas corporativas
     - para_type: ("project" | "area" | "resource" | "archive")
     - suggested_area: El nombre del area de responsabilidad mas relevante (de la lista de areas). Debe ser exactamente uno de la lista.
@@ -169,6 +175,23 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
     - texto_limpio: El texto de esta idea limpio, sin muletillas ni ruido de voz. Si solo hay una idea, es el texto original limpio.
     - suggested_agent: El agente de automatizacion mas adecuado para ejecutar esta idea. Opciones: "staffing" (dotacion, turnos, personal), "training" (capacitacion, formacion), "finance" (presupuestos, costos, OPEX), "compliance" (auditorias, cumplimiento, contratos), o null si ninguno aplica o es simplemente informativa/nota.
     - suggested_skills: Array de nombres de archivos de skill que el agente deberia usar. Opciones: ["customizable/create-staffing-plan.md", "core/model-staffing-requirements.md", "customizable/create-training-plan.md", "core/model-opex-budget.md", "core/audit-compliance-readiness.md"]. Selecciona 1-2 skills mas relevantes, o [] si suggested_agent es null.
+
+    CAMPOS GTD (OBLIGATORIOS — analiza cada uno cuidadosamente):
+    - contexto: El contexto GTD donde se ejecuta esta accion. DEBE ser uno de: "@computador", "@email", "@telefono", "@oficina", "@calle", "@casa", "@espera", "@compras", "@investigar", "@reunion", "@leer". Elige el mas apropiado segun la naturaleza de la tarea.
+    - energia: Nivel de energia/concentracion requerido. DEBE ser: "baja", "media" o "alta".
+    - tipo_compromiso: Nivel de compromiso. DEBE ser: "comprometida" (hay deadline o compromiso firme), "esta_semana" (deberia hacerse esta semana), "algun_dia" (sin urgencia, cuando se pueda), "tal_vez" (idea que quizas nunca se haga).
+    - proxima_accion: (true/false) true si esta es la PROXIMA ACCION concreta de un proyecto o lista.
+    - objetivo: El objetivo del area al que contribuye esta accion (1 frase corta). Ej: "Mejorar la dotacion del proyecto ACME"
+    - notas: Cualquier nota adicional relevante o contexto util. null si no aplica.
+
+    SI is_project ES TRUE, agrega ademas:
+    - sub_tasks: Array de objetos, cada uno con:
+      - texto: Descripcion de la sub-tarea
+      - assigned_to: username responsable
+      - contexto: contexto GTD de la sub-tarea
+      - energia: energia requerida
+      - estimated_time: tiempo estimado
+      - es_proxima_accion: (true/false) solo UNA sub-tarea debe ser true (la primera en ejecutarse)
     `;
 
     try {
@@ -451,4 +474,115 @@ Este output sera guardado como entregable del sistema SecondBrain.
     }
 }
 
-module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent };
+// ─── Decompose Project into Sub-tasks (GTD) ─────────────────────────────────
+async function decomposeProject(projectText, context = "", users = [], areas = []) {
+    const userList = users.length > 0
+        ? users.map(u => `- ${u.username} (${u.role}, Dept: ${u.department || 'General'}, Expertise: ${u.expertise || 'General'})`).join('\n')
+        : '- david (admin, Direccion)\n- gonzalo (manager, Operaciones)\n- jose (analyst, Finanzas)';
+
+    const areaList = areas.length > 0
+        ? areas.map(a => a.name).join(', ')
+        : 'Operaciones, HSE, Finanzas, Contratos, Ejecucion, Gestion de Activos, Capacitacion';
+
+    const prompt = `
+    Eres un experto en GTD (Getting Things Done). Se ha identificado que la siguiente idea es un PROYECTO.
+    Tu tarea es DESCOMPONERLO en sub-tareas accionables.
+
+    PROYECTO:
+    "${projectText}"
+
+    CONTEXTO:
+    ${context || 'Sin contexto adicional'}
+
+    EQUIPO DISPONIBLE:
+    ${userList}
+
+    AREAS: ${areaList}
+
+    CONTEXTOS GTD DISPONIBLES: @computador, @email, @telefono, @oficina, @calle, @casa, @espera, @compras, @investigar, @reunion, @leer
+
+    REGLAS:
+    1. Genera entre 3 y 8 sub-tareas CONCRETAS y ACCIONABLES.
+    2. Cada sub-tarea debe ser una accion fisica que una persona puede ejecutar.
+    3. EXACTAMENTE UNA sub-tarea debe ser la "proxima accion" (la primera en ejecutarse).
+    4. Asigna cada sub-tarea a la persona mas adecuada del equipo.
+    5. Estima tiempos realistas.
+
+    Responde UNICAMENTE con JSON (sin markdown, sin backticks):
+    {
+        "project_name": "Nombre corto del proyecto",
+        "objetivo": "Objetivo general del proyecto (1 frase)",
+        "sub_tasks": [
+            {
+                "texto": "Descripcion de la sub-tarea accionable",
+                "assigned_to": "username",
+                "contexto": "@contexto_gtd",
+                "energia": "baja|media|alta",
+                "estimated_time": "X horas|dias",
+                "priority": "alta|media|baja",
+                "es_proxima_accion": true/false
+            }
+        ]
+    }
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
+        text = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim();
+
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) text = jsonMatch[0];
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Decompose Error:", e);
+        return null;
+    }
+}
+
+// ─── Generate Daily Report (GTD) ────────────────────────────────────────────
+async function generateDailyReport(data) {
+    const { ideas, projects, waitingFor, completedToday, userStats, areas } = data;
+
+    const prompt = `
+    Genera un REPORTE DIARIO para el equipo de Value Strategy Consulting.
+    Fecha: ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+    NUEVAS IDEAS HOY:
+    ${ideas.map(i => `- [${i.ai_type || 'sin tipo'}] ${i.ai_summary || i.text} (asignada a: ${i.assigned_to || 'sin asignar'}, contexto: ${i.contexto || 'N/A'})`).join('\n') || 'Ninguna'}
+
+    PROYECTOS ACTIVOS:
+    ${projects.map(p => `- ${p.name}: ${p.sub_count || 0} sub-tareas, proxima accion: ${p.next_action || 'sin definir'}`).join('\n') || 'Ninguno'}
+
+    DELEGACIONES PENDIENTES (A la Espera):
+    ${waitingFor.map(w => `- Esperando de ${w.delegated_to}: ${w.description}`).join('\n') || 'Ninguna'}
+
+    COMPLETADAS HOY:
+    ${completedToday.map(c => `- ${c.text} (por ${c.assigned_to || 'N/A'})`).join('\n') || 'Ninguna'}
+
+    CARGA POR CONSULTOR:
+    ${userStats.map(u => `- ${u.username}: ${u.pending} pendientes, ${u.completed_today} completadas hoy`).join('\n') || 'Sin datos'}
+
+    Genera el reporte en Markdown con estas secciones:
+    1. **Resumen del Dia** (3-4 frases)
+    2. **Proximas Acciones Urgentes** (las proximas acciones marcadas de proyectos activos)
+    3. **Por Consultor** (que tiene cada uno pendiente y que deberia atacar primero)
+    4. **Delegaciones Pendientes** (a quien estamos esperando que)
+    5. **Alertas** (ideas sin asignar, proyectos sin proxima accion, tareas estancadas >3 dias)
+    6. **Recomendacion del Dia** (1 sugerencia concreta basada en los patrones)
+
+    Se breve, accionable y directo. Maximo 400 palabras.
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (e) {
+        console.error("Daily Report Error:", e);
+        return "Error al generar el reporte diario.";
+    }
+}
+
+module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent, decomposeProject, generateDailyReport };

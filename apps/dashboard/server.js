@@ -448,14 +448,19 @@ app.post('/api/tags', (req, res) => {
 // ─── DB-Based Ideas API ────────────────────────────────────────────────────────
 app.get('/api/ideas', async (req, res) => {
     try {
-        const { code_stage, para_type, area_id, assigned_to, page, limit: lim } = req.query;
+        const { code_stage, para_type, area_id, assigned_to, page, limit: lim,
+                contexto, energia, tipo_compromiso, is_project, parent_id, completada } = req.query;
         let sql = `SELECT id, text, audio_url as audioUrl, created_at as createdAt, status,
             ai_type, ai_category, ai_action, ai_summary,
             code_stage, para_type, related_area_id, distilled_summary, expressed_output,
             assigned_to, estimated_time, priority, project_id, created_by,
             ai_confidence, needs_review, last_reviewed,
             suggested_agent, suggested_skills, execution_status, execution_output,
-            execution_error, executed_at, executed_by
+            execution_error, executed_at, executed_by,
+            contexto, energia, fecha_inicio, fecha_objetivo, fecha_limite,
+            es_fecha_limite, tipo_compromiso, proxima_accion, subproyecto,
+            objetivo, notas, completada, fecha_finalizacion,
+            parent_idea_id, is_project
             FROM ideas`;
         const conditions = [];
         const params = [];
@@ -464,6 +469,14 @@ app.get('/api/ideas', async (req, res) => {
         if (para_type) { conditions.push('para_type = ?'); params.push(para_type); }
         if (area_id) { conditions.push('related_area_id = ?'); params.push(area_id); }
         if (assigned_to) { conditions.push('assigned_to = ?'); params.push(assigned_to); }
+        if (contexto) { conditions.push('contexto = ?'); params.push(contexto); }
+        if (energia) { conditions.push('energia = ?'); params.push(energia); }
+        if (tipo_compromiso) { conditions.push('tipo_compromiso = ?'); params.push(tipo_compromiso); }
+        if (is_project === '1') { conditions.push('is_project = 1'); }
+        if (is_project === '0') { conditions.push('(is_project IS NULL OR is_project = 0)'); }
+        if (parent_id) { conditions.push('parent_idea_id = ?'); params.push(parent_id); }
+        if (completada === '1') { conditions.push('completada = 1'); }
+        if (completada === '0') { conditions.push('(completada IS NULL OR completada = 0)'); }
 
         let countSql = 'SELECT count(*) as total FROM ideas';
         if (conditions.length > 0) {
@@ -677,13 +690,18 @@ async function processAndSaveIdea(ideaId, text, speakerUsername = null) {
             const confidence = typeof item.confidence === 'number' ? item.confidence : 0.5;
             const needsReview = item.needs_review || confidence < 0.6 ? 1 : 0;
 
+            const isProject = item.is_project ? 1 : 0;
+
             await run(`UPDATE ideas SET
                 ai_type = ?, ai_category = ?, ai_action = ?, ai_summary = ?,
                 status = 'processed', code_stage = 'organized',
                 para_type = ?, related_area_id = ?,
                 assigned_to = ?, estimated_time = ?, priority = ?,
                 ai_confidence = ?, needs_review = ?,
-                suggested_agent = ?, suggested_skills = ?
+                suggested_agent = ?, suggested_skills = ?,
+                contexto = ?, energia = ?, tipo_compromiso = ?,
+                proxima_accion = ?, objetivo = ?, notas = ?,
+                is_project = ?
                 WHERE id = ?`,
                 [
                     item.tipo, item.categoria, item.accion_inmediata, item.resumen,
@@ -692,9 +710,72 @@ async function processAndSaveIdea(ideaId, text, speakerUsername = null) {
                     confidence, needsReview,
                     item.suggested_agent || null,
                     JSON.stringify(item.suggested_skills || []),
+                    item.contexto || null, item.energia || null,
+                    item.tipo_compromiso || 'esta_semana',
+                    item.proxima_accion ? 1 : 0,
+                    item.objetivo || null, item.notas || null,
+                    isProject,
                     currentIdeaId
                 ]
             );
+
+            // If this is a project, decompose into sub-tasks automatically
+            if (isProject && item.sub_tasks && item.sub_tasks.length > 0) {
+                for (const sub of item.sub_tasks) {
+                    const subResult = await run(
+                        `INSERT INTO ideas (text, code_stage, created_by, parent_idea_id, is_project,
+                         assigned_to, contexto, energia, estimated_time, priority,
+                         proxima_accion, ai_type, ai_category, ai_summary, para_type,
+                         related_area_id, tipo_compromiso, status)
+                         VALUES (?, 'organized', ?, ?, 0, ?, ?, ?, ?, ?, ?, 'Tarea', ?, ?, 'project', ?, 'esta_semana', 'processed')`,
+                        [
+                            sub.texto, speakerUsername, currentIdeaId,
+                            sub.assigned_to || item.assigned_to,
+                            sub.contexto || item.contexto,
+                            sub.energia || 'media',
+                            sub.estimated_time || null,
+                            sub.priority || item.priority || 'media',
+                            sub.es_proxima_accion ? 1 : 0,
+                            item.categoria, sub.texto,
+                            areaId,
+                        ]
+                    );
+                    savedIds.push(subResult.lastID);
+                }
+            } else if (isProject) {
+                // AI didn't provide sub_tasks in initial response — decompose asynchronously
+                try {
+                    const decomp = await aiService.decomposeProject(
+                        item.texto_limpio || text,
+                        contextString, users, areas
+                    );
+                    if (decomp && decomp.sub_tasks) {
+                        for (const sub of decomp.sub_tasks) {
+                            const subResult = await run(
+                                `INSERT INTO ideas (text, code_stage, created_by, parent_idea_id, is_project,
+                                 assigned_to, contexto, energia, estimated_time, priority,
+                                 proxima_accion, ai_type, ai_category, ai_summary, para_type,
+                                 related_area_id, tipo_compromiso, status)
+                                 VALUES (?, 'organized', ?, ?, 0, ?, ?, ?, ?, ?, ?, 'Tarea', ?, ?, 'project', ?, 'esta_semana', 'processed')`,
+                                [
+                                    sub.texto, speakerUsername, currentIdeaId,
+                                    sub.assigned_to || item.assigned_to,
+                                    sub.contexto || '@computador',
+                                    sub.energia || 'media',
+                                    sub.estimated_time || null,
+                                    sub.priority || 'media',
+                                    sub.es_proxima_accion ? 1 : 0,
+                                    item.categoria, sub.texto,
+                                    areaId
+                                ]
+                            );
+                            savedIds.push(subResult.lastID);
+                        }
+                    }
+                } catch (decompErr) {
+                    console.error('Project decomposition failed:', decompErr);
+                }
+            }
 
             // Receipt: Log to inbox_log (audit trail)
             const logText = item.texto_limpio || item.resumen || text;
@@ -753,6 +834,11 @@ const AGENTS = {
         name: 'Compliance Agent',
         role: 'Auditor de Cumplimiento Normativo',
         skillPath: path.join(SKILLS_DIR, 'core', 'audit-compliance-readiness.md')
+    },
+    'gtd': {
+        name: 'GTD Agent',
+        role: 'Experto en Getting Things Done — Clasificacion, Descomposicion y Revision',
+        skillPath: path.join(SKILLS_DIR, 'core', 'classify-idea.md')
     }
 };
 
@@ -1165,6 +1251,208 @@ app.get('/api/agents', requireAuth, (req, res) => {
         skillFile: path.basename(config.skillPath)
     }));
     res.json(agentList);
+});
+
+// ─── GTD Contexts API ──────────────────────────────────────────────────────
+app.get('/api/gtd/contexts', async (req, res) => {
+    try {
+        const contexts = await all('SELECT * FROM gtd_contexts WHERE active = 1 ORDER BY name');
+        res.json(contexts);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch GTD contexts' });
+    }
+});
+
+// ─── GTD: Update idea fields (contexto, energia, compromiso, fechas, etc.) ──
+app.put('/api/ideas/:id/gtd', async (req, res) => {
+    const { contexto, energia, tipo_compromiso, proxima_accion, fecha_inicio,
+            fecha_objetivo, fecha_limite, es_fecha_limite, notas, objetivo, subproyecto } = req.body;
+    try {
+        await run(`UPDATE ideas SET
+            contexto = COALESCE(?, contexto),
+            energia = COALESCE(?, energia),
+            tipo_compromiso = COALESCE(?, tipo_compromiso),
+            proxima_accion = COALESCE(?, proxima_accion),
+            fecha_inicio = COALESCE(?, fecha_inicio),
+            fecha_objetivo = COALESCE(?, fecha_objetivo),
+            fecha_limite = COALESCE(?, fecha_limite),
+            es_fecha_limite = COALESCE(?, es_fecha_limite),
+            notas = COALESCE(?, notas),
+            objetivo = COALESCE(?, objetivo),
+            subproyecto = COALESCE(?, subproyecto)
+            WHERE id = ?`,
+            [contexto, energia, tipo_compromiso, proxima_accion,
+             fecha_inicio, fecha_objetivo, fecha_limite, es_fecha_limite,
+             notas, objetivo, subproyecto, req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update GTD fields' });
+    }
+});
+
+// ─── GTD: Complete a task ─────────────────────────────────────────────────────
+app.post('/api/ideas/:id/complete', async (req, res) => {
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        await run(`UPDATE ideas SET completada = 1, fecha_finalizacion = CURRENT_TIMESTAMP,
+            code_stage = 'expressed' WHERE id = ?`, [req.params.id]);
+
+        // If this was a sub-task, check if all siblings are done → auto-advance parent project next action
+        if (idea.parent_idea_id) {
+            const remaining = await get(
+                'SELECT count(*) as cnt FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0)',
+                [idea.parent_idea_id]
+            );
+            if (remaining.cnt === 0) {
+                // All sub-tasks done → mark parent project as completed
+                await run(`UPDATE ideas SET completada = 1, fecha_finalizacion = CURRENT_TIMESTAMP,
+                    code_stage = 'expressed' WHERE id = ?`, [idea.parent_idea_id]);
+            } else {
+                // Find next uncompleted sub-task and mark as proxima_accion
+                const nextTask = await get(
+                    'SELECT id FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0) ORDER BY id ASC LIMIT 1',
+                    [idea.parent_idea_id]
+                );
+                if (nextTask) {
+                    // Clear all proxima_accion for this project, then set the next one
+                    await run('UPDATE ideas SET proxima_accion = 0 WHERE parent_idea_id = ?', [idea.parent_idea_id]);
+                    await run('UPDATE ideas SET proxima_accion = 1 WHERE id = ?', [nextTask.id]);
+                }
+            }
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to complete task' });
+    }
+});
+
+// ─── GTD: Get sub-tasks of a project ─────────────────────────────────────────
+app.get('/api/ideas/:id/subtasks', async (req, res) => {
+    try {
+        const subtasks = await all(
+            `SELECT id, text, ai_summary, assigned_to, contexto, energia, estimated_time,
+             priority, proxima_accion, completada, fecha_finalizacion, tipo_compromiso, code_stage
+             FROM ideas WHERE parent_idea_id = ? ORDER BY proxima_accion DESC, id ASC`,
+            [req.params.id]
+        );
+        res.json(subtasks);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch subtasks' });
+    }
+});
+
+// ─── GTD: Decompose an existing idea into project + sub-tasks ────────────────
+app.post('/api/ideas/:id/decompose', async (req, res) => {
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        const contextItems = await all('SELECT key, content FROM context_items');
+        const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
+        const users = await all('SELECT username, role, department, expertise FROM users');
+        const areas = await all('SELECT name FROM areas WHERE status = "active"');
+
+        const decomp = await aiService.decomposeProject(idea.text, contextString, users, areas);
+        if (!decomp || !decomp.sub_tasks) {
+            return res.status(500).json({ error: 'Decomposition failed' });
+        }
+
+        // Mark parent as project
+        await run('UPDATE ideas SET is_project = 1 WHERE id = ?', [idea.id]);
+
+        const createdIds = [];
+        for (const sub of decomp.sub_tasks) {
+            const result = await run(
+                `INSERT INTO ideas (text, code_stage, created_by, parent_idea_id, is_project,
+                 assigned_to, contexto, energia, estimated_time, priority,
+                 proxima_accion, ai_type, ai_category, ai_summary, para_type,
+                 related_area_id, tipo_compromiso, status)
+                 VALUES (?, 'organized', ?, ?, 0, ?, ?, ?, ?, ?, ?, 'Tarea', ?, ?, 'project', ?, 'esta_semana', 'processed')`,
+                [sub.texto, idea.created_by, idea.id,
+                 sub.assigned_to, sub.contexto || '@computador',
+                 sub.energia || 'media', sub.estimated_time || null,
+                 sub.priority || 'media', sub.es_proxima_accion ? 1 : 0,
+                 idea.ai_category, sub.texto, idea.related_area_id]
+            );
+            createdIds.push(result.lastID);
+        }
+
+        const subtasks = await all(
+            `SELECT id, text, assigned_to, contexto, energia, estimated_time, priority, proxima_accion
+             FROM ideas WHERE parent_idea_id = ? ORDER BY proxima_accion DESC, id ASC`,
+            [idea.id]
+        );
+
+        res.json({ success: true, project_name: decomp.project_name, subtasks, count: createdIds.length });
+    } catch (err) {
+        console.error('Decompose Error:', err);
+        res.status(500).json({ error: 'Decomposition failed' });
+    }
+});
+
+// ─── GTD: Daily Report ──────────────────────────────────────────────────────
+app.get('/api/gtd/daily-report', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+
+        const ideas = await all("SELECT * FROM ideas WHERE date(created_at) = ? ORDER BY created_at DESC", [today]);
+        const projects = await all(`
+            SELECT i.id, i.text as name, i.ai_summary, i.assigned_to,
+                (SELECT count(*) FROM ideas sub WHERE sub.parent_idea_id = i.id) as sub_count,
+                (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = 1 LIMIT 1) as next_action
+            FROM ideas i WHERE i.is_project = 1 AND (i.completada IS NULL OR i.completada = 0)
+        `);
+        const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
+        const completedToday = await all("SELECT * FROM ideas WHERE date(fecha_finalizacion) = ?", [today]);
+
+        const users = await all('SELECT username FROM users');
+        const userStats = [];
+        for (const u of users) {
+            const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = 0)", [u.username]);
+            const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND date(fecha_finalizacion) = ?", [u.username, today]);
+            userStats.push({ username: u.username, pending: pending.cnt, completed_today: done.cnt });
+        }
+
+        const areas = await all('SELECT * FROM areas WHERE status = "active"');
+
+        const report = await aiService.generateDailyReport({
+            ideas, projects, waitingFor, completedToday, userStats, areas
+        });
+
+        res.json({ report, stats: { ideas_today: ideas.length, completed_today: completedToday.length, active_projects: projects.length, pending_delegations: waitingFor.length, userStats } });
+    } catch (err) {
+        console.error('Daily Report Error:', err);
+        res.status(500).json({ error: 'Failed to generate daily report' });
+    }
+});
+
+// ─── GTD: Effectiveness Dashboard Data ──────────────────────────────────────
+app.get('/api/gtd/effectiveness', async (req, res) => {
+    try {
+        const byContext = await all(`SELECT contexto, count(*) as count FROM ideas
+            WHERE (completada IS NULL OR completada = 0) AND contexto IS NOT NULL
+            GROUP BY contexto ORDER BY count DESC`);
+        const byEnergy = await all(`SELECT energia, count(*) as count FROM ideas
+            WHERE (completada IS NULL OR completada = 0) AND energia IS NOT NULL
+            GROUP BY energia`);
+        const byCompromiso = await all(`SELECT tipo_compromiso, count(*) as count FROM ideas
+            WHERE (completada IS NULL OR completada = 0) AND tipo_compromiso IS NOT NULL
+            GROUP BY tipo_compromiso`);
+        const byAssignee = await all(`SELECT assigned_to, count(*) as count FROM ideas
+            WHERE (completada IS NULL OR completada = 0) AND assigned_to IS NOT NULL
+            GROUP BY assigned_to ORDER BY count DESC`);
+        const projectsActive = await get(`SELECT count(*) as count FROM ideas WHERE is_project = 1 AND (completada IS NULL OR completada = 0)`);
+        const nextActions = await all(`SELECT id, text, assigned_to, contexto, energia, estimated_time
+            FROM ideas WHERE proxima_accion = 1 AND (completada IS NULL OR completada = 0)
+            ORDER BY priority DESC LIMIT 20`);
+
+        res.json({ byContext, byEnergy, byCompromiso, byAssignee, activeProjects: projectsActive.count, nextActions });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch effectiveness data' });
+    }
 });
 
 // ─── Context PARA Actions ────────────────────────────────────────────────────

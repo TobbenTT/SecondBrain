@@ -43,7 +43,10 @@ const SECTION_META = {
     context: { title: 'Memoria PARA', subtitle: 'Gestión del conocimiento organizado por Proyectos, Áreas, Recursos y Archivo' },
     waiting: { title: 'A la Espera', subtitle: 'Delegaciones y seguimiento — GTD: Waiting For' },
     reportability: { title: 'Reportabilidad', subtitle: 'Checklist diario y actividad por consultor — Dashboard del equipo' },
-    analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' }
+    analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' },
+    'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
+    'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
+    'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' }
 };
 
 
@@ -85,6 +88,9 @@ function switchSection(sectionId) {
 
     // Lazy-load analytics charts when section is first visible
     if (sectionId === 'analytics') loadAnalytics();
+    if (sectionId === 'gtd-board') loadGtdBoard('context');
+    if (sectionId === 'gtd-projects') loadGtdProjects();
+    if (sectionId === 'ideas') initGtdFilterDropdowns();
 }
 
 // ─── Panel actions + Home quick cards ──────────────────────────────────────────
@@ -790,6 +796,22 @@ async function loadIdeas(filter = null, page = null) {
         if (['captured', 'organized', 'distilled', 'expressed'].includes(currentIdeasFilter)) {
             url += `&code_stage=${currentIdeasFilter}`;
         }
+        if (currentIdeasFilter === 'projects') {
+            url += '&is_project=1';
+        }
+        if (currentIdeasFilter === 'next-actions') {
+            url += '&completada=0';
+        }
+        // GTD dropdown filters
+        const fCtx = document.getElementById('filterContexto');
+        const fEn = document.getElementById('filterEnergia');
+        const fComp = document.getElementById('filterCompromiso');
+        const fAssign = document.getElementById('filterAssignee');
+        if (fCtx && fCtx.value) url += `&contexto=${encodeURIComponent(fCtx.value)}`;
+        if (fEn && fEn.value) url += `&energia=${encodeURIComponent(fEn.value)}`;
+        if (fComp && fComp.value) url += `&tipo_compromiso=${encodeURIComponent(fComp.value)}`;
+        if (fAssign && fAssign.value) url += `&assigned_to=${encodeURIComponent(fAssign.value)}`;
+
         const res = await fetch(url);
         const data = await res.json();
         let ideas = data.ideas || data;
@@ -798,6 +820,10 @@ async function loadIdeas(filter = null, page = null) {
         // Client-side filtering for voice (not a DB column)
         if (currentIdeasFilter === 'voice') {
             ideas = ideas.filter(i => i.audioUrl || i.type === 'voice');
+        }
+        // Client-side filtering for next-actions (proxima_accion flag)
+        if (currentIdeasFilter === 'next-actions') {
+            ideas = ideas.filter(i => i.proxima_accion == 1);
         }
 
         if (countEl) countEl.textContent = pagination ? pagination.total : ideas.length;
@@ -854,6 +880,29 @@ async function loadIdeas(filter = null, page = null) {
                 if (idea.created_by) {
                     badges.push(`<span class="badge" style="background:#6366f1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">🗣 ${idea.created_by}</span>`);
                 }
+                // GTD Badges
+                if (idea.contexto) {
+                    const ctxIcons = {'@computador':'💻','@email':'📧','@telefono':'📱','@oficina':'🏢','@calle':'🚶','@casa':'🏠','@espera':'⏳','@compras':'🛒','@investigar':'🔍','@reunion':'👥','@leer':'📖'};
+                    badges.push(`<span class="badge" style="background:#0891b2;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${ctxIcons[idea.contexto]||'📍'} ${idea.contexto}</span>`);
+                }
+                if (idea.energia) {
+                    const eColors = { baja: '#22c55e', media: '#f59e0b', alta: '#ef4444' };
+                    const eIcons = { baja: '🟢', media: '🟡', alta: '🔴' };
+                    badges.push(`<span class="badge" style="background:${eColors[idea.energia]||'#6b7280'};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${eIcons[idea.energia]||'⚡'} ${idea.energia}</span>`);
+                }
+                if (idea.tipo_compromiso) {
+                    const cLabels = { comprometida: '🔒 Comprometida', esta_semana: '📅 Esta Semana', algun_dia: '💭 Algun Dia', tal_vez: '🤷 Tal Vez' };
+                    badges.push(`<span class="badge" style="background:#7c3aed;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${cLabels[idea.tipo_compromiso]||idea.tipo_compromiso}</span>`);
+                }
+                if (idea.is_project == 1) {
+                    badges.push(`<span class="badge" style="background:#dc2626;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">📂 PROYECTO</span>`);
+                }
+                if (idea.proxima_accion == 1) {
+                    badges.push(`<span class="badge" style="background:#059669;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">🎯 Proxima Accion</span>`);
+                }
+                if (idea.completada == 1) {
+                    badges.push(`<span class="badge" style="background:#6b7280;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">✅ Completada</span>`);
+                }
                 tagsHtml = `<div class="idea-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:4px;">${badges.join('')}</div>`;
             }
 
@@ -883,8 +932,11 @@ async function loadIdeas(filter = null, page = null) {
             const safeText = escapeHtml(idea.text || '').replace(/'/g, "\\'");
             const hasAgent = idea.suggested_agent && !['running', 'completed'].includes(idea.execution_status);
             const agentLabels = { staffing: 'Staffing', training: 'Training', finance: 'Finance', compliance: 'Compliance' };
+            const isCompleted = idea.completada == 1;
 
-            if (stage === 'captured') {
+            if (isCompleted) {
+                actionBtns = `<span style="color:#22c55e;font-size:0.8rem;">✅ Completada ${idea.fecha_finalizacion ? new Date(idea.fecha_finalizacion).toLocaleDateString('es-ES') : ''}</span>`;
+            } else if (stage === 'captured') {
                 actionBtns = `<button class="btn-code-action" onclick="processIdea('${idea.id}', '${safeText}')">⚡ Organizar</button>`;
             } else if (stage === 'organized') {
                 actionBtns = `<button class="btn-code-action" onclick="distillIdea('${idea.id}')">💎 Destilar</button>`;
@@ -898,12 +950,36 @@ async function loadIdeas(filter = null, page = null) {
                     actionBtns = `<button class="btn-code-action" onclick="expressIdea('${idea.id}')">🚀 Expresar</button>`;
                 }
             }
+            // Add complete + decompose buttons for non-completed ideas
+            if (!isCompleted && stage !== 'captured') {
+                actionBtns += ` <button class="btn-code-action btn-complete" onclick="completeIdea('${idea.id}')">✅</button>`;
+                if (idea.is_project == 1) {
+                    actionBtns += ` <button class="btn-code-action" onclick="viewSubtasks('${idea.id}')">📋 Sub-tareas</button>`;
+                } else if (!idea.parent_idea_id && idea.ai_type !== 'Referencia' && idea.ai_type !== 'Nota') {
+                    actionBtns += ` <button class="btn-code-action" onclick="decomposeIdea('${idea.id}')" title="Convertir en proyecto con sub-tareas">📂→</button>`;
+                }
+            }
+
+            // AI Summary line (show cleaned summary prominently if different from text)
+            let summaryHtml = '';
+            if (idea.ai_summary && idea.ai_summary !== idea.text && stage !== 'captured') {
+                summaryHtml = `<div class="idea-ai-summary">💡 ${escapeHtml(idea.ai_summary)}</div>`;
+            }
+
+            // Objetivo
+            let objetivoHtml = '';
+            if (idea.objetivo && stage !== 'captured') {
+                objetivoHtml = `<div class="idea-objetivo">🎯 ${escapeHtml(idea.objetivo)}</div>`;
+            }
 
             // Agent suggestion badge
             let agentBadgeHtml = '';
             if (idea.suggested_agent && stage !== 'expressed') {
                 const agentInfo = { staffing: { label: 'Staffing', icon: '👷', color: '#2563eb' }, training: { label: 'Training', icon: '📚', color: '#7c3aed' }, finance: { label: 'Finance', icon: '💰', color: '#059669' }, compliance: { label: 'Compliance', icon: '📋', color: '#dc2626' } }[idea.suggested_agent] || { label: idea.suggested_agent, icon: '🤖', color: '#6b7280' };
-                agentBadgeHtml = `<div class="agent-suggestion" style="margin-top:6px;padding:6px 10px;background:rgba(124,58,237,0.08);border-left:3px solid ${agentInfo.color};border-radius:4px;font-size:0.8rem;color:var(--text-secondary);">${agentInfo.icon} Agente: <strong style="color:${agentInfo.color}">${agentInfo.label}</strong></div>`;
+                agentBadgeHtml = `<div class="idea-agent-badge" style="border-left-color:${agentInfo.color};">
+                    ${agentInfo.icon} Agente: <strong style="color:${agentInfo.color}">${agentInfo.label}</strong>
+                    ${stage !== 'captured' && !['running','completed'].includes(idea.execution_status) ? `<button class="btn-execute-inline" onclick="event.stopPropagation();openExecuteModal('${idea.id}', '${idea.suggested_agent}')">Ejecutar →</button>` : ''}
+                </div>`;
             }
 
             // Execution status
@@ -911,23 +987,41 @@ async function loadIdeas(filter = null, page = null) {
             if (idea.execution_status === 'running') {
                 executionHtml = `<div class="execution-status running"><span class="spinner-small"></span> Ejecutando agente...</div>`;
             } else if (idea.execution_status === 'completed' && idea.execution_output) {
-                const preview = (idea.execution_output || '').substring(0, 120).replace(/</g, '&lt;');
-                executionHtml = `<div class="execution-status completed" onclick="showExecutionOutput('${idea.id}')">🚀 <strong>Output generado</strong> — click para ver<div style="margin-top:4px;opacity:0.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${preview}...</div></div>`;
+                const outputPreview = (idea.execution_output || '').substring(0, 120).replace(/</g, '&lt;');
+                executionHtml = `<div class="execution-status completed" onclick="showExecutionOutput('${idea.id}')">
+                    🚀 <strong>Output generado</strong> — click para ver
+                    <div style="margin-top:4px;opacity:0.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${outputPreview}...</div>
+                </div>`;
             } else if (idea.execution_status === 'failed') {
                 executionHtml = `<div class="execution-status failed">❌ Fallo — <button class="btn-code-action" onclick="openExecuteModal('${idea.id}', '${idea.suggested_agent || ''}')">Reintentar</button></div>`;
             }
 
+            // Inline project sub-task count (lazy loaded on click)
+            let projectInlineHtml = '';
+            if (idea.is_project == 1 && !isCompleted && stage !== 'captured') {
+                projectInlineHtml = `<div class="idea-project-inline" id="projInline-${idea.id}" data-loaded="false">
+                    <div class="idea-project-header" onclick="toggleInlineSubtasks('${idea.id}')">
+                        <span>📂 Proyecto</span>
+                        <span class="idea-project-toggle" id="projToggle-${idea.id}">▸ Ver sub-tareas</span>
+                    </div>
+                    <div class="idea-project-subtasks" id="projSubs-${idea.id}" style="display:none;"></div>
+                </div>`;
+            }
+
             return `
-                <div class="idea-card ${idea.needs_review ? 'needs-review' : ''}" data-id="${idea.id}" style="animation: fadeSlideIn 0.3s ease ${i * 0.05}s both">
+                <div class="idea-card ${idea.needs_review ? 'needs-review' : ''} ${idea.is_project == 1 ? 'is-project-card' : ''}" data-id="${idea.id}" style="animation: fadeSlideIn 0.3s ease ${i * 0.05}s both">
                     <div class="idea-stage-indicator" style="background:${stageColors[stage]}" title="${stageLabels[stage]}">
                         ${stageIcons[stage]}
                     </div>
                     <div class="idea-content">
                         ${reviewHtml}
+                        ${summaryHtml}
                         ${contentHtml}
                         ${tagsHtml}
                         ${confidenceHtml ? `<div style="margin-top:4px;">${confidenceHtml}</div>` : ''}
+                        ${objetivoHtml}
                         ${distilledHtml}
+                        ${projectInlineHtml}
                         ${agentBadgeHtml}
                         ${executionHtml}
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:6px;">
@@ -1711,17 +1805,84 @@ async function saveIdea(skipPreview = false) {
     }
 }
 
-// ─── Voice Preview Modal ─────────────────────────────────────────────────────
+// ─── Voice Preview Modal (Enhanced GTD) ─────────────────────────────────────
 function showVoicePreview(preview, originalText) {
     return new Promise((resolve) => {
         const items = preview.items || [];
         const isSplit = items.length > 1;
 
+        const ctxIcons = {'@computador':'💻','@email':'📧','@telefono':'📱','@oficina':'🏢','@calle':'🚶','@casa':'🏠','@espera':'⏳','@compras':'🛒','@investigar':'🔍','@reunion':'👥','@leer':'📖'};
+        const eIcons = { baja: '🟢', media: '🟡', alta: '🔴' };
+        const cLabels = { comprometida: '🔒 Comprometida', esta_semana: '📅 Esta Semana', algun_dia: '💭 Algun Dia', tal_vez: '🤷 Tal Vez' };
+        const agentInfo = { staffing: { label: 'Staffing', icon: '👷', color: '#2563eb' }, training: { label: 'Training', icon: '📚', color: '#7c3aed' }, finance: { label: 'Finance', icon: '💰', color: '#059669' }, compliance: { label: 'Compliance', icon: '📋', color: '#dc2626' } };
+
         let itemsHtml = items.map((item, idx) => {
             const priorityColors = { alta: '#ef4444', media: '#f59e0b', baja: '#22c55e' };
             const pColor = priorityColors[item.priority] || '#6b7280';
+            const isProject = item.is_project === true;
+
+            // GTD row
+            let gtdHtml = '';
+            if (item.contexto || item.energia || item.tipo_compromiso) {
+                gtdHtml = `<div class="preview-gtd-row">
+                    ${item.contexto ? `<span class="preview-gtd-chip ctx">${ctxIcons[item.contexto] || '📍'} ${item.contexto}</span>` : ''}
+                    ${item.energia ? `<span class="preview-gtd-chip energy">${eIcons[item.energia] || '⚡'} ${item.energia}</span>` : ''}
+                    ${item.tipo_compromiso ? `<span class="preview-gtd-chip commit">${cLabels[item.tipo_compromiso] || item.tipo_compromiso}</span>` : ''}
+                    ${item.estimated_time ? `<span class="preview-gtd-chip time">⏱ ${item.estimated_time}</span>` : ''}
+                </div>`;
+            }
+
+            // Project badge + sub-tasks tree
+            let projectHtml = '';
+            if (isProject) {
+                const subTasks = item.sub_tasks || [];
+                let subTasksTreeHtml = '';
+                if (subTasks.length > 0) {
+                    subTasksTreeHtml = `<div class="preview-subtasks-tree">
+                        ${subTasks.map(st => {
+                            const isNext = st.es_proxima_accion === true;
+                            return `<div class="preview-subtask ${isNext ? 'is-next' : ''}">
+                                <span class="preview-subtask-bullet">${isNext ? '🎯' : '○'}</span>
+                                <span class="preview-subtask-text">${escapeHtml(st.texto)}</span>
+                                <span class="preview-subtask-meta">
+                                    ${st.assigned_to ? `👤 ${st.assigned_to}` : ''}
+                                    ${st.contexto ? `${ctxIcons[st.contexto] || ''}` : ''}
+                                    ${st.estimated_time ? `⏱ ${st.estimated_time}` : ''}
+                                </span>
+                            </div>`;
+                        }).join('')}
+                    </div>`;
+                }
+                projectHtml = `<div class="preview-project-banner">
+                    <div class="preview-project-badge">📂 PROYECTO</div>
+                    <span class="preview-project-label">${subTasks.length} sub-tareas identificadas</span>
+                </div>
+                ${subTasksTreeHtml}`;
+            }
+
+            // Agent suggestion
+            let agentHtml = '';
+            if (item.suggested_agent && agentInfo[item.suggested_agent]) {
+                const ai = agentInfo[item.suggested_agent];
+                const skillLabels = (item.suggested_skills || []).map(s => s.replace(/\.md$/, '').split('/').pop().replace(/-/g, ' ')).join(', ');
+                agentHtml = `<div class="preview-agent-suggestion">
+                    <span class="preview-agent-icon" style="color:${ai.color}">${ai.icon}</span>
+                    <div class="preview-agent-info">
+                        <span class="preview-agent-name">Agente: <strong>${ai.label}</strong></span>
+                        ${skillLabels ? `<span class="preview-agent-skills">${skillLabels}</span>` : ''}
+                    </div>
+                    <span class="preview-agent-label">Disponible despues de guardar</span>
+                </div>`;
+            }
+
+            // Objetivo
+            let objetivoHtml = '';
+            if (item.objetivo) {
+                objetivoHtml = `<div class="preview-objetivo">🎯 ${escapeHtml(item.objetivo)}</div>`;
+            }
+
             return `
-                <div class="preview-idea-card">
+                <div class="preview-idea-card ${isProject ? 'is-project' : ''}">
                     ${isSplit ? `<div class="preview-idea-num">#${idx + 1}</div>` : ''}
                     <div class="preview-idea-body">
                         <p class="preview-idea-text">${escapeHtml(item.texto_limpio || item.resumen || '')}</p>
@@ -1730,28 +1891,41 @@ function showVoicePreview(preview, originalText) {
                             <span class="preview-tag" style="background:#10b981;">${item.categoria || '?'}</span>
                             <span class="preview-tag" style="background:#8b5cf6;">PARA:${item.para_type || '?'}</span>
                             <span class="preview-tag" style="background:${pColor};">${item.priority || 'media'}</span>
-                            ${item.assigned_to ? `<span class="preview-tag" style="background:#f59e0b;">→ ${item.assigned_to}</span>` : ''}
+                            ${item.assigned_to ? `<span class="preview-tag" style="background:#f59e0b;">👤 ${item.assigned_to}</span>` : ''}
                         </div>
-                        <p class="preview-idea-action">${item.accion_inmediata || ''}</p>
+                        ${gtdHtml}
+                        ${projectHtml}
+                        <p class="preview-idea-action">▶ ${escapeHtml(item.accion_inmediata || '')}</p>
+                        ${objetivoHtml}
                         ${item.waiting_for ? `<p class="preview-idea-delegation">⏳ Delegacion: ${item.waiting_for.delegated_to} — ${item.waiting_for.description}</p>` : ''}
+                        ${agentHtml}
                     </div>
                 </div>`;
         }).join('');
 
         const confAvg = items.reduce((sum, i) => sum + (i.confidence || 0), 0) / items.length;
         const confColor = confAvg >= 0.8 ? '#10b981' : confAvg >= 0.6 ? '#f59e0b' : '#ef4444';
+        const confLabel = confAvg >= 0.8 ? 'Alta' : confAvg >= 0.6 ? 'Media' : 'Baja';
+
+        const hasProjects = items.some(i => i.is_project === true);
+        const hasAgents = items.some(i => i.suggested_agent);
 
         const modalHtml = `
             <div id="voicePreviewModal" class="modal" style="display:flex;z-index:2100;">
-                <div class="modal-content" style="max-width:600px;max-height:80vh;display:flex;flex-direction:column;">
-                    <h2 class="modal-title">🎤 Preview — La IA entendio esto</h2>
+                <div class="modal-content preview-modal-content">
+                    <h2 class="modal-title">🧠 Clasificacion IA</h2>
                     ${isSplit ? `<div class="preview-split-banner">La IA detecto <strong>${items.length} ideas</strong> en tu mensaje</div>` : ''}
+                    <div class="preview-summary-strip">
+                        <div class="preview-summary-item">
+                            <span class="preview-summary-icon" style="color:${confColor}">●</span>
+                            <span>Confianza: <strong>${(confAvg * 100).toFixed(0)}%</strong> (${confLabel})</span>
+                        </div>
+                        ${hasProjects ? '<div class="preview-summary-item"><span class="preview-summary-icon">📂</span><span>Contiene <strong>proyecto(s)</strong></span></div>' : ''}
+                        ${hasAgents ? '<div class="preview-summary-item"><span class="preview-summary-icon">🤖</span><span>Agente sugerido</span></div>' : ''}
+                    </div>
                     <div class="preview-original">
                         <label>Texto original:</label>
-                        <p>${escapeHtml(originalText.substring(0, 200))}${originalText.length > 200 ? '...' : ''}</p>
-                    </div>
-                    <div class="preview-confidence" style="color:${confColor};">
-                        Confianza: ${(confAvg * 100).toFixed(0)}%
+                        <p>${escapeHtml(originalText.substring(0, 300))}${originalText.length > 300 ? '...' : ''}</p>
                     </div>
                     <div class="preview-items-list" style="flex:1;overflow-y:auto;">
                         ${itemsHtml}
@@ -3276,7 +3450,11 @@ const AVAILABLE_SKILLS = [
     { path: 'core/model-staffing-requirements.md', label: 'Modelo Requerimientos Personal', agent: 'staffing' },
     { path: 'customizable/create-training-plan.md', label: 'Plan de Capacitacion', agent: 'training' },
     { path: 'core/model-opex-budget.md', label: 'Modelo Presupuesto OPEX', agent: 'finance' },
-    { path: 'core/audit-compliance-readiness.md', label: 'Auditoria de Cumplimiento', agent: 'compliance' }
+    { path: 'core/audit-compliance-readiness.md', label: 'Auditoria de Cumplimiento', agent: 'compliance' },
+    { path: 'core/classify-idea.md', label: 'Clasificar Idea (GTD)', agent: 'gtd' },
+    { path: 'core/decompose-project.md', label: 'Descomponer Proyecto', agent: 'gtd' },
+    { path: 'core/identify-next-action.md', label: 'Identificar Proxima Accion', agent: 'gtd' },
+    { path: 'core/weekly-review.md', label: 'Revision Semanal', agent: 'gtd' }
 ];
 
 function openExecuteModal(ideaId, suggestedAgent) {
@@ -3284,7 +3462,8 @@ function openExecuteModal(ideaId, suggestedAgent) {
         { key: 'staffing', label: 'Staffing Agent (Dotacion)', icon: '👷' },
         { key: 'training', label: 'Training Agent (Capacitacion)', icon: '📚' },
         { key: 'finance', label: 'Finance Agent (Presupuesto)', icon: '💰' },
-        { key: 'compliance', label: 'Compliance Agent (Auditoria)', icon: '📋' }
+        { key: 'compliance', label: 'Compliance Agent (Auditoria)', icon: '📋' },
+        { key: 'gtd', label: 'GTD Agent (Productividad)', icon: '🎯' }
     ];
 
     const agentOptions = agents.map(a =>
@@ -3396,17 +3575,507 @@ async function showExecutionOutput(ideaId) {
         const data = await res.json();
         if (data.execution_output) {
             const agentLabel = { staffing: '👷 Staffing', training: '📚 Training', finance: '💰 Finance', compliance: '📋 Compliance' }[data.suggested_agent] || '🤖 Agente';
-            const header = `<div style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);font-size:0.8rem;color:var(--text-muted);">Ejecutado por: ${agentLabel} | ${data.executed_by || 'system'} | ${data.executed_at || ''}</div>`;
-            showAgentResult('🚀 Output de Ejecucion', header + renderMarkdown(data.execution_output));
+            const executedDate = data.executed_at ? new Date(data.executed_at).toLocaleString('es-ES') : '';
+
+            const modalHtml = `
+            <div id="execOutputModal" class="modal" style="display:flex;z-index:2100;">
+                <div class="modal-content exec-output-modal">
+                    <div class="exec-output-header">
+                        <div class="exec-output-title">
+                            <span class="exec-output-icon">🚀</span>
+                            <div>
+                                <h2>Output de Ejecucion</h2>
+                                <span class="exec-output-meta">${agentLabel} | ${data.executed_by || 'system'} | ${executedDate}</span>
+                            </div>
+                        </div>
+                        <div class="exec-output-actions">
+                            <button class="btn-exec-action" onclick="copyExecutionOutput()" title="Copiar al portapapeles">📋 Copiar</button>
+                            <button class="btn-exec-action" onclick="downloadExecutionOutput('${ideaId}')" title="Descargar como Markdown">⬇ Descargar</button>
+                            <span class="close-modal" onclick="document.getElementById('execOutputModal').remove()">&times;</span>
+                        </div>
+                    </div>
+                    <div class="exec-output-body" id="execOutputBody">
+                        ${renderMarkdown(data.execution_output)}
+                    </div>
+                </div>
+            </div>`;
+
+            // Store raw output for copy/download
+            window._lastExecOutput = data.execution_output;
+            window._lastExecAgent = data.suggested_agent || 'agent';
+
+            let container = document.getElementById('execOutputContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'execOutputContainer';
+                document.body.appendChild(container);
+            }
+            container.innerHTML = modalHtml;
         }
     } catch (err) {
         showToast('Error al cargar output', 'error');
     }
 }
 
+function copyExecutionOutput() {
+    if (window._lastExecOutput) {
+        navigator.clipboard.writeText(window._lastExecOutput).then(() => {
+            showToast('Copiado al portapapeles', 'success');
+        }).catch(() => {
+            showToast('Error al copiar', 'error');
+        });
+    }
+}
+
+function downloadExecutionOutput(ideaId) {
+    if (window._lastExecOutput) {
+        const blob = new Blob([window._lastExecOutput], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `output-${window._lastExecAgent}-${ideaId}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Descargando...', 'info');
+    }
+}
+
+window.copyExecutionOutput = copyExecutionOutput;
+window.downloadExecutionOutput = downloadExecutionOutput;
+
 window.openExecuteModal = openExecuteModal;
 window.closeExecuteModal = closeExecuteModal;
 window.runExecution = runExecution;
 window.showExecutionOutput = showExecutionOutput;
 window.updateExecSkills = updateExecSkills;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GTD — Getting Things Done Features
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let gtdFilterDropdownsLoaded = false;
+
+async function initGtdFilterDropdowns() {
+    if (gtdFilterDropdownsLoaded) return;
+    gtdFilterDropdownsLoaded = true;
+    try {
+        // Load GTD contexts
+        const ctxRes = await fetch('/api/gtd/contexts');
+        const contexts = await ctxRes.json();
+        const ctxSelect = document.getElementById('filterContexto');
+        if (ctxSelect && contexts.length) {
+            contexts.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.name;
+                opt.textContent = `${c.icon} ${c.name}`;
+                ctxSelect.appendChild(opt);
+            });
+        }
+        // Load users for assignee filter
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+            const users = await usersRes.json();
+            const assignSelect = document.getElementById('filterAssignee');
+            if (assignSelect && users.length) {
+                users.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.username;
+                    opt.textContent = `👤 ${u.username}`;
+                    assignSelect.appendChild(opt);
+                });
+            }
+        }
+    } catch (err) {
+        console.error('GTD filter init error:', err);
+    }
+}
+
+function applyGtdFilters() {
+    currentIdeasPage = 1;
+    loadIdeas();
+}
+
+function clearGtdFilters() {
+    ['filterContexto', 'filterEnergia', 'filterCompromiso', 'filterAssignee'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    loadIdeas('all');
+}
+
+// ─── Inline Sub-tasks Toggle (lazy load) ────────────────────────────────────
+async function toggleInlineSubtasks(ideaId) {
+    const container = document.getElementById(`projSubs-${ideaId}`);
+    const toggle = document.getElementById(`projToggle-${ideaId}`);
+    const wrapper = document.getElementById(`projInline-${ideaId}`);
+    if (!container) return;
+
+    // Toggle visibility
+    if (container.style.display !== 'none') {
+        container.style.display = 'none';
+        if (toggle) toggle.textContent = '▸ Ver sub-tareas';
+        return;
+    }
+
+    container.style.display = 'block';
+    if (toggle) toggle.textContent = '▾ Ocultar';
+
+    // Lazy load on first open
+    if (wrapper && wrapper.dataset.loaded === 'false') {
+        container.innerHTML = '<div style="padding:8px;font-size:0.78rem;color:var(--text-muted);">Cargando...</div>';
+        try {
+            const res = await fetch(`/api/ideas/${ideaId}/subtasks`);
+            const subs = await res.json();
+            wrapper.dataset.loaded = 'true';
+
+            if (subs.length === 0) {
+                container.innerHTML = '<div style="padding:6px 0;font-size:0.78rem;color:var(--text-muted);">Sin sub-tareas. Usa 📂→ para descomponer.</div>';
+                return;
+            }
+
+            const done = subs.filter(s => s.completada == 1).length;
+            const total = subs.length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const ctxIcons = {'@computador':'💻','@email':'📧','@telefono':'📱','@oficina':'🏢','@calle':'🚶','@casa':'🏠','@espera':'⏳','@compras':'🛒','@investigar':'🔍','@reunion':'👥','@leer':'📖'};
+
+            container.innerHTML = `
+                <div class="inline-progress">
+                    <div class="inline-progress-info"><span>${done}/${total}</span><span>${pct}%</span></div>
+                    <div class="inline-progress-bar"><div class="inline-progress-fill" style="width:${pct}%"></div></div>
+                </div>
+                ${subs.map(st => {
+                    const isNext = st.proxima_accion == 1;
+                    const isDone = st.completada == 1;
+                    return `<div class="inline-subtask ${isDone ? 'done' : ''} ${isNext ? 'next' : ''}">
+                        <input type="checkbox" ${isDone ? 'checked disabled' : ''} onchange="completeIdea('${st.id}')" style="accent-color:#059669;cursor:pointer;">
+                        <span class="inline-subtask-text">${isNext ? '🎯 ' : ''}${escapeHtml(st.text)}</span>
+                        <span class="inline-subtask-meta">
+                            ${st.assigned_to ? `👤${st.assigned_to}` : ''}
+                            ${st.contexto ? ctxIcons[st.contexto] || '' : ''}
+                        </span>
+                    </div>`;
+                }).join('')}
+            `;
+        } catch (err) {
+            container.innerHTML = '<div style="padding:6px 0;font-size:0.78rem;color:#ef4444;">Error al cargar</div>';
+        }
+    }
+}
+window.toggleInlineSubtasks = toggleInlineSubtasks;
+
+// ─── Complete Task ──────────────────────────────────────────────────────────
+async function completeIdea(ideaId) {
+    try {
+        const res = await fetch(`/api/ideas/${ideaId}/complete`, { method: 'POST' });
+        if (res.ok) {
+            showToast('Tarea completada', 'success');
+            loadIdeas();
+        } else {
+            showToast('Error al completar', 'error');
+        }
+    } catch (err) {
+        showToast('Error de red', 'error');
+    }
+}
+
+// ─── Decompose Idea into Project ────────────────────────────────────────────
+async function decomposeIdea(ideaId) {
+    if (!confirm('¿Convertir esta idea en un PROYECTO con sub-tareas?')) return;
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    try {
+        const res = await fetch(`/api/ideas/${ideaId}/decompose`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Proyecto "${data.project_name}" creado con ${data.count} sub-tareas`, 'success');
+            loadIdeas();
+        } else {
+            showToast(data.error || 'Error al descomponer', 'error');
+        }
+    } catch (err) {
+        showToast('Error de red', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '📂→';
+    }
+}
+
+// ─── View Sub-tasks of a Project ────────────────────────────────────────────
+async function viewSubtasks(ideaId) {
+    try {
+        const res = await fetch(`/api/ideas/${ideaId}/subtasks`);
+        const subtasks = await res.json();
+
+        const subtaskHtml = subtasks.length === 0
+            ? '<p style="color:var(--text-muted);">No hay sub-tareas. Usa el boton "📂→" para descomponer.</p>'
+            : subtasks.map(st => {
+                const isNext = st.proxima_accion == 1;
+                const isDone = st.completada == 1;
+                const ctxIcons = {'@computador':'💻','@email':'📧','@telefono':'📱','@oficina':'🏢','@calle':'🚶','@casa':'🏠','@espera':'⏳','@compras':'🛒','@investigar':'🔍','@reunion':'👥','@leer':'📖'};
+                const eIcons = { baja: '🟢', media: '🟡', alta: '🔴' };
+                return `<div class="subtask-item ${isDone ? 'done' : ''} ${isNext ? 'next-action' : ''}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:${isDone ? 'rgba(34,197,94,0.08)' : isNext ? 'rgba(5,150,105,0.1)' : 'var(--bg-secondary)'};border:1px solid ${isNext ? '#059669' : 'var(--border)'};margin-bottom:6px;">
+                    <input type="checkbox" ${isDone ? 'checked disabled' : ''} onchange="completeIdea('${st.id}')" style="width:18px;height:18px;accent-color:#059669;cursor:pointer;">
+                    <div style="flex:1;">
+                        <div style="font-size:0.88rem;${isDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${isNext ? '🎯 ' : ''}${escapeHtml(st.text)}</div>
+                        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                            ${st.assigned_to ? `<span class="badge" style="background:#f59e0b;color:white;padding:1px 6px;border-radius:8px;font-size:0.65rem;">👤 ${st.assigned_to}</span>` : ''}
+                            ${st.contexto ? `<span class="badge" style="background:#0891b2;color:white;padding:1px 6px;border-radius:8px;font-size:0.65rem;">${ctxIcons[st.contexto]||'📍'} ${st.contexto}</span>` : ''}
+                            ${st.energia ? `<span class="badge" style="background:#6b7280;color:white;padding:1px 6px;border-radius:8px;font-size:0.65rem;">${eIcons[st.energia]||'⚡'} ${st.energia}</span>` : ''}
+                            ${st.estimated_time ? `<span class="badge" style="background:#6366f1;color:white;padding:1px 6px;border-radius:8px;font-size:0.65rem;">⏱ ${st.estimated_time}</span>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+        const done = subtasks.filter(s => s.completada == 1).length;
+        const total = subtasks.length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        const modalHtml = `
+        <div id="subtasksModal" class="modal" style="display:flex;z-index:2100;">
+            <div class="modal-content" style="max-width:600px;">
+                <span class="close-modal" onclick="document.getElementById('subtasksModal').remove()">&times;</span>
+                <h2 class="modal-title">📂 Sub-tareas del Proyecto</h2>
+                <div style="margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-muted);margin-bottom:4px;">
+                        <span>${done}/${total} completadas</span>
+                        <span>${pct}%</span>
+                    </div>
+                    <div style="background:var(--bg-tertiary);border-radius:6px;height:8px;overflow:hidden;">
+                        <div style="background:#059669;height:100%;width:${pct}%;border-radius:6px;transition:width 0.3s;"></div>
+                    </div>
+                </div>
+                <div style="max-height:400px;overflow-y:auto;padding-right:4px;">
+                    ${subtaskHtml}
+                </div>
+            </div>
+        </div>`;
+
+        let container = document.getElementById('subtasksModalContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'subtasksModalContainer';
+            document.body.appendChild(container);
+        }
+        container.innerHTML = modalHtml;
+    } catch (err) {
+        showToast('Error al cargar sub-tareas', 'error');
+    }
+}
+
+// ─── GTD Board — Proximas Acciones agrupadas ────────────────────────────────
+async function loadGtdBoard(groupBy = 'context') {
+    const container = document.getElementById('gtdBoardColumns');
+    const effContainer = document.getElementById('gtdEffectiveness');
+    if (!container) return;
+
+    // Toggle active button
+    ['gtdViewContext','gtdViewEnergy','gtdViewAssignee','gtdViewCompromiso'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.remove('active');
+    });
+    const activeId = { context: 'gtdViewContext', energy: 'gtdViewEnergy', assignee: 'gtdViewAssignee', compromiso: 'gtdViewCompromiso' }[groupBy];
+    if (activeId) document.getElementById(activeId)?.classList.add('active');
+
+    container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const [effRes, ideasRes] = await Promise.all([
+            fetch('/api/gtd/effectiveness'),
+            fetch('/api/ideas?limit=100&completada=0')
+        ]);
+        const eff = await effRes.json();
+        const ideasData = await ideasRes.json();
+        const ideas = ideasData.ideas || [];
+
+        // Effectiveness summary
+        if (effContainer) {
+            effContainer.innerHTML = `
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.activeProjects || 0}</span><span class="gtd-eff-label">Proyectos Activos</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.nextActions?.length || 0}</span><span class="gtd-eff-label">Proximas Acciones</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${ideas.length}</span><span class="gtd-eff-label">Tareas Pendientes</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.byAssignee?.length || 0}</span><span class="gtd-eff-label">Consultores Activos</span></div>
+            `;
+        }
+
+        // Group ideas
+        const groups = {};
+        let groupField, labelMap;
+
+        if (groupBy === 'context') {
+            groupField = 'contexto';
+            labelMap = {'@computador':'💻 Computador','@email':'📧 Email','@telefono':'📱 Telefono','@oficina':'🏢 Oficina','@calle':'🚶 Calle','@casa':'🏠 Casa','@espera':'⏳ Espera','@compras':'🛒 Compras','@investigar':'🔍 Investigar','@reunion':'👥 Reunion','@leer':'📖 Leer'};
+        } else if (groupBy === 'energy') {
+            groupField = 'energia';
+            labelMap = { baja: '🟢 Baja Energia', media: '🟡 Media Energia', alta: '🔴 Alta Energia' };
+        } else if (groupBy === 'assignee') {
+            groupField = 'assigned_to';
+            labelMap = {};
+        } else if (groupBy === 'compromiso') {
+            groupField = 'tipo_compromiso';
+            labelMap = { comprometida: '🔒 Comprometida', esta_semana: '📅 Esta Semana', algun_dia: '💭 Algun Dia', tal_vez: '🤷 Tal Vez' };
+        }
+
+        ideas.forEach(idea => {
+            const key = idea[groupField] || 'Sin Asignar';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(idea);
+        });
+
+        if (Object.keys(groups).length === 0) {
+            container.innerHTML = '<div class="ideas-empty"><div class="empty-icon">🎯</div><p>No hay tareas pendientes</p></div>';
+            return;
+        }
+
+        container.innerHTML = Object.entries(groups).map(([key, items]) => {
+            const label = (labelMap && labelMap[key]) || `👤 ${key}`;
+            const itemsHtml = items.slice(0, 10).map(idea => {
+                const isNext = idea.proxima_accion == 1;
+                return `<div class="gtd-board-item ${isNext ? 'next-action' : ''}" onclick="viewSubtasks('${idea.parent_idea_id || idea.id}')">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" onclick="event.stopPropagation();completeIdea('${idea.id}')" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;">
+                        <span style="flex:1;font-size:0.82rem;">${isNext ? '🎯 ' : ''}${escapeHtml((idea.ai_summary || idea.text || '').substring(0, 80))}</span>
+                    </div>
+                    <div style="display:flex;gap:4px;margin-top:4px;margin-left:24px;">
+                        ${idea.assigned_to ? `<span class="gtd-mini-badge">👤 ${idea.assigned_to}</span>` : ''}
+                        ${idea.estimated_time ? `<span class="gtd-mini-badge">⏱ ${idea.estimated_time}</span>` : ''}
+                        ${idea.priority === 'alta' ? `<span class="gtd-mini-badge" style="background:#ef4444;color:white;">ALTA</span>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `<div class="gtd-board-column">
+                <div class="gtd-board-column-header">
+                    <span>${label}</span>
+                    <span class="gtd-board-count">${items.length}</span>
+                </div>
+                <div class="gtd-board-column-body">${itemsHtml}</div>
+            </div>`;
+        }).join('');
+
+    } catch (err) {
+        console.error('GTD Board error:', err);
+        container.innerHTML = '<p style="color:var(--text-muted);">Error al cargar el tablero GTD</p>';
+    }
+}
+
+// ─── GTD Projects List ──────────────────────────────────────────────────────
+async function loadGtdProjects() {
+    const container = document.getElementById('gtdProjectsList');
+    const countEl = document.getElementById('gtdProjectsCount');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const res = await fetch('/api/ideas?is_project=1&limit=50');
+        const data = await res.json();
+        const projects = (data.ideas || []);
+
+        if (countEl) countEl.textContent = projects.length;
+
+        if (projects.length === 0) {
+            container.innerHTML = '<div class="ideas-empty"><div class="empty-icon">📂</div><p>No hay proyectos GTD. Las ideas tipo "Proyecto" apareceran aqui automaticamente.</p></div>';
+            return;
+        }
+
+        // For each project, get subtasks
+        const projectCards = await Promise.all(projects.map(async (proj) => {
+            let subtasksHtml = '';
+            let progressHtml = '';
+            try {
+                const subRes = await fetch(`/api/ideas/${proj.id}/subtasks`);
+                const subs = await subRes.json();
+                const done = subs.filter(s => s.completada == 1).length;
+                const total = subs.length;
+                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                const nextAction = subs.find(s => s.proxima_accion == 1 && s.completada != 1);
+
+                progressHtml = total > 0 ? `
+                    <div style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);">
+                            <span>${done}/${total} sub-tareas</span><span>${pct}%</span>
+                        </div>
+                        <div style="background:var(--bg-tertiary);border-radius:4px;height:6px;margin-top:2px;">
+                            <div style="background:#059669;height:100%;width:${pct}%;border-radius:4px;"></div>
+                        </div>
+                    </div>` : '';
+
+                if (nextAction) {
+                    subtasksHtml = `<div style="margin-top:6px;padding:6px 10px;background:rgba(5,150,105,0.08);border-left:3px solid #059669;border-radius:4px;font-size:0.8rem;">
+                        🎯 <strong>Proxima:</strong> ${escapeHtml(nextAction.text.substring(0, 100))}
+                        ${nextAction.assigned_to ? ` — 👤 ${nextAction.assigned_to}` : ''}
+                    </div>`;
+                }
+            } catch (e) { /* ignore subtask errors */ }
+
+            const isDone = proj.completada == 1;
+            return `<div class="idea-card ${isDone ? 'completed-project' : ''}" style="opacity:${isDone ? '0.6' : '1'};">
+                <div class="idea-stage-indicator" style="background:${isDone ? '#22c55e' : '#dc2626'}">📂</div>
+                <div class="idea-content">
+                    <p style="font-weight:600;">${escapeHtml(proj.ai_summary || proj.text)}</p>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
+                        ${proj.ai_category ? `<span class="badge" style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${proj.ai_category}</span>` : ''}
+                        ${proj.assigned_to ? `<span class="badge" style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">👤 ${proj.assigned_to}</span>` : ''}
+                        ${isDone ? '<span class="badge" style="background:#22c55e;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">✅ Completado</span>' : ''}
+                    </div>
+                    ${progressHtml}
+                    ${subtasksHtml}
+                    <div style="margin-top:8px;display:flex;gap:6px;">
+                        <button class="btn-code-action" onclick="viewSubtasks('${proj.id}')">📋 Ver Sub-tareas</button>
+                        ${!isDone ? `<button class="btn-code-action btn-complete" onclick="completeIdea('${proj.id}')">✅ Completar</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }));
+
+        container.innerHTML = projectCards.join('');
+    } catch (err) {
+        console.error('GTD Projects error:', err);
+        container.innerHTML = '<p style="color:var(--text-muted);">Error al cargar proyectos</p>';
+    }
+}
+
+// ─── Daily Report ───────────────────────────────────────────────────────────
+async function generateDailyReport() {
+    const btn = document.getElementById('btnDailyReport');
+    const content = document.getElementById('dailyReportContent');
+    const stats = document.getElementById('dailyReportStats');
+    if (!content) return;
+
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+    content.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const res = await fetch('/api/gtd/daily-report');
+        const data = await res.json();
+
+        if (stats && data.stats) {
+            stats.innerHTML = `
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${data.stats.ideas_today}</span><span class="gtd-eff-label">Ideas Hoy</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${data.stats.completed_today}</span><span class="gtd-eff-label">Completadas Hoy</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${data.stats.active_projects}</span><span class="gtd-eff-label">Proyectos Activos</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-number">${data.stats.pending_delegations}</span><span class="gtd-eff-label">Delegaciones</span></div>
+            `;
+        }
+
+        content.innerHTML = renderMarkdown(data.report || 'No se pudo generar el reporte.');
+    } catch (err) {
+        content.innerHTML = '<p style="color:#ef4444;">Error al generar el reporte diario.</p>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Generar Reporte'; }
+    }
+}
+
+// Expose GTD functions globally
+window.completeIdea = completeIdea;
+window.decomposeIdea = decomposeIdea;
+window.viewSubtasks = viewSubtasks;
+window.loadGtdBoard = loadGtdBoard;
+window.loadGtdProjects = loadGtdProjects;
+window.generateDailyReport = generateDailyReport;
+window.applyGtdFilters = applyGtdFilters;
+window.clearGtdFilters = clearGtdFilters;
+window.initGtdFilterDropdowns = initGtdFilterDropdowns;
 
