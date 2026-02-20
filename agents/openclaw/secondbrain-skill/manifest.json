@@ -1,0 +1,64 @@
+{
+  "name": "secondbrain-api",
+  "version": "1.0.0",
+  "description": "Segundo Cerebro corporativo — captura, consulta, digest y gestion de ideas (CODE/PARA/GTD)",
+  "author": "Value Strategy Consulting",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["capture", "summary", "digest", "checklist", "ideas", "areas", "waiting", "complete_task", "complete_delegation", "save_context", "chat"],
+        "description": "Accion a ejecutar en SecondBrain"
+      },
+      "text": {
+        "type": "string",
+        "description": "Texto de la idea/mensaje (para capture y chat)"
+      },
+      "speaker": {
+        "type": "string",
+        "description": "Username de quien habla (david/gonzalo/jose)"
+      },
+      "source": {
+        "type": "string",
+        "description": "Canal de origen: whatsapp, telegram, signal, slack"
+      },
+      "username": {
+        "type": "string",
+        "description": "Username para consultas (summary, checklist)"
+      },
+      "idea_id": {
+        "type": "number",
+        "description": "ID de la idea (para complete_task)"
+      },
+      "waiting_id": {
+        "type": "number",
+        "description": "ID de delegacion (para complete_delegation)"
+      },
+      "filters": {
+        "type": "object",
+        "properties": {
+          "code_stage": { "type": "string" },
+          "para_type": { "type": "string" },
+          "area_id": { "type": "number" }
+        },
+        "description": "Filtros para listar ideas"
+      },
+      "context": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "content": { "type": "string" },
+          "category": { "type": "string" }
+        },
+        "description": "Datos para save_context"
+      },
+      "agent": {
+        "type": "string",
+        "enum": ["staffing", "training", "finance", "compliance"],
+        "description": "Agente IA para chat especializado"
+      }
+    },
+    "required": ["action"]
+  }
+}

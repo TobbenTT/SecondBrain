@@ -1,0 +1,333 @@
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+
+// Database file path
+const dbPath = path.join(__dirname, 'data', 'second_brain.db');
+
+// Connect to SQLite
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('Error opening database:', err.message);
+    } else {
+        console.log('Connected to the SQLite database.');
+        initTables();
+    }
+});
+
+function initTables() {
+    db.serialize(() => {
+        // Ideas Table
+        db.run(`CREATE TABLE IF NOT EXISTS ideas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT,
+            audio_url TEXT,
+            tags TEXT,
+            status TEXT DEFAULT 'inbox',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            ai_type TEXT,
+            ai_category TEXT,
+            ai_action TEXT,
+            ai_summary TEXT
+        )`);
+
+        // Migration for existing tables (safe to run)
+        const ideasColumnsToAdd = [
+            'ai_type', 'ai_category', 'ai_action', 'ai_summary',
+            'project_id', 'code_stage', 'para_type',
+            'related_area_id', 'distilled_summary', 'expressed_output',
+            'assigned_to', 'estimated_time', 'priority',
+            // Automation Pipeline columns
+            'suggested_agent', 'suggested_skills',
+            'execution_status', 'execution_output', 'execution_error',
+            'executed_at', 'executed_by'
+        ];
+        ideasColumnsToAdd.forEach(col => {
+            db.run(`ALTER TABLE ideas ADD COLUMN ${col} TEXT`, (err) => {
+                // Ignore error if column exists
+            });
+        });
+
+        // Context Items Table (The "Don't Repeat Yourself" memory)
+        db.run(`CREATE TABLE IF NOT EXISTS context_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE,
+            content TEXT,
+            category TEXT,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migration: PARA/CODE columns for context_items
+        const contextColumnsToAdd = [
+            'para_type', 'code_stage', 'source',
+            'related_project_id', 'related_area_id', 'distilled_summary'
+        ];
+        contextColumnsToAdd.forEach(col => {
+            db.run(`ALTER TABLE context_items ADD COLUMN ${col} TEXT`, (err) => {
+                // Ignore error if column exists
+            });
+        });
+
+        // Areas Table (PARA — ongoing responsibilities)
+        db.run(`CREATE TABLE IF NOT EXISTS areas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            description TEXT,
+            icon TEXT,
+            horizon TEXT DEFAULT 'h2',
+            status TEXT DEFAULT 'active',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Waiting For Table (GTD delegation tracking)
+        db.run(`CREATE TABLE IF NOT EXISTS waiting_for (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT,
+            delegated_to TEXT,
+            delegated_by TEXT,
+            related_idea_id INTEGER,
+            related_project_id TEXT,
+            related_area_id INTEGER,
+            status TEXT DEFAULT 'waiting',
+            due_date TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME
+        )`);
+
+        // Chat History Table
+        db.run(`CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            role TEXT,
+            message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Projects Table (Migrated from JSON)
+        db.run(`CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            description TEXT,
+            url TEXT,
+            icon TEXT,
+            status TEXT,
+            tech TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migration: PARA columns for projects
+        const projectColumnsToAdd = ['related_area_id', 'horizon', 'deadline'];
+        projectColumnsToAdd.forEach(col => {
+            db.run(`ALTER TABLE projects ADD COLUMN ${col} TEXT`, (err) => {
+                // Ignore error if column exists
+            });
+        });
+
+        // Skills Table
+        db.run(`CREATE TABLE IF NOT EXISTS skills (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            description TEXT,
+            content TEXT,
+            tags TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Users Table
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password_hash TEXT,
+            role TEXT,
+            department TEXT,
+            expertise TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, function (err) {
+            if (!err) seedUsers();
+        });
+
+        // Migration: Add department/expertise to users
+        ['department', 'expertise'].forEach(col => {
+            db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (err) => {
+                // Ignore if exists
+            });
+        });
+
+        // Inbox Log Table (Receipt — audit trail of everything that enters the system)
+        db.run(`CREATE TABLE IF NOT EXISTS inbox_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT,
+            input_text TEXT,
+            ai_confidence REAL DEFAULT 0,
+            ai_classification TEXT,
+            routed_to TEXT,
+            needs_review INTEGER DEFAULT 0,
+            reviewed INTEGER DEFAULT 0,
+            original_idea_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migration: Add confidence score to ideas
+        db.run(`ALTER TABLE ideas ADD COLUMN ai_confidence REAL`, (err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN needs_review INTEGER DEFAULT 0`, (err) => {});
+
+        // Migration: Add created_by (identity tracking — who captured this idea?)
+        db.run(`ALTER TABLE ideas ADD COLUMN created_by TEXT`, (err) => {});
+
+        // Migration: Add last_reviewed for weekly review tracking
+        db.run(`ALTER TABLE ideas ADD COLUMN last_reviewed DATETIME`, (err) => {});
+
+        // API Keys Table (for external integrations like OpenClaw)
+        db.run(`CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE,
+            name TEXT,
+            username TEXT,
+            permissions TEXT DEFAULT 'read,write',
+            active INTEGER DEFAULT 1,
+            last_used DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Daily Checklist Table (per-consultant task tracking)
+        db.run(`CREATE TABLE IF NOT EXISTS daily_checklist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            idea_id INTEGER,
+            date TEXT,
+            completed INTEGER DEFAULT 0,
+            completed_at DATETIME,
+            notes TEXT,
+            UNIQUE(username, idea_id, date)
+        )`);
+
+        console.log('Database tables initialized.');
+
+        // Seed areas after tables are created
+        seedAreas();
+        seedApiKeys();
+    });
+}
+
+function seedAreas() {
+    db.get('SELECT count(*) as count FROM areas', [], (err, row) => {
+        if (err) return;
+        if (row.count === 0) {
+            console.log('🌱 Seeding corporate areas...');
+            const areas = [
+                { name: 'Operaciones', description: 'Gestion operativa diaria, dotacion y turnos', icon: '⚙️', horizon: 'h2' },
+                { name: 'HSE', description: 'Salud, Seguridad y Medio Ambiente', icon: '🛡️', horizon: 'h2' },
+                { name: 'Finanzas', description: 'Presupuestos OPEX, control de costos', icon: '💰', horizon: 'h2' },
+                { name: 'Contratos', description: 'Gestion contractual y cumplimiento', icon: '📋', horizon: 'h2' },
+                { name: 'Ejecucion', description: 'Seguimiento de proyectos y entregables', icon: '🎯', horizon: 'h2' },
+                { name: 'Gestion de Activos', description: 'Mantenimiento e integridad de activos', icon: '🏭', horizon: 'h2' },
+                { name: 'Capacitacion', description: 'Formacion, mallas curriculares y competencias', icon: '📚', horizon: 'h2' },
+                { name: 'Desarrollo Profesional', description: 'Crecimiento personal y del equipo', icon: '🚀', horizon: 'h3' }
+            ];
+            const stmt = db.prepare('INSERT OR IGNORE INTO areas (name, description, icon, horizon) VALUES (?, ?, ?, ?)');
+            areas.forEach(a => stmt.run(a.name, a.description, a.icon, a.horizon));
+            stmt.finalize();
+            console.log('✅ Areas seeded successfully.');
+        }
+    });
+}
+
+async function seedUsers() {
+    db.get('SELECT count(*) as count FROM users', [], async (err, row) => {
+        if (err) return console.error(err.message);
+        if (row.count === 0) {
+            console.log('🌱 Seeding initial users...');
+            try {
+                const bcrypt = require('bcryptjs');
+                const salt = await bcrypt.genSalt(10);
+                const hash = await bcrypt.hash('vsc2026', salt);
+
+                const stmt = db.prepare('INSERT INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)');
+                const users = [
+                    { username: 'david', role: 'admin', department: 'Direccion', expertise: 'Estrategia,Operaciones,Gestion' },
+                    { username: 'gonzalo', role: 'manager', department: 'Operaciones', expertise: 'HSE,Ejecucion,Contratos' },
+                    { username: 'jose', role: 'analyst', department: 'Finanzas', expertise: 'Finanzas,Presupuestos,Analisis' }
+                ];
+
+                users.forEach(user => {
+                    stmt.run(user.username, hash, user.role, user.department, user.expertise);
+                });
+                stmt.finalize();
+                console.log('✅ Users seeded successfully.');
+            } catch (e) {
+                console.error('Seeding error:', e);
+            }
+        }
+    });
+}
+
+function seedApiKeys() {
+    db.get('SELECT count(*) as count FROM api_keys', [], (err, row) => {
+        if (err) return;
+        if (row.count === 0) {
+            console.log('🔑 Seeding default API key for OpenClaw...');
+            const crypto = require('crypto');
+            const key = 'sb_' + crypto.randomBytes(24).toString('hex');
+            db.run(
+                'INSERT INTO api_keys (key, name, username, permissions) VALUES (?, ?, ?, ?)',
+                [key, 'OpenClaw Agent', 'david', 'read,write'],
+                (err) => {
+                    if (!err) console.log(`✅ API Key created: ${key}\n   Save this key for OpenClaw config.`);
+                }
+            );
+        }
+    });
+}
+
+// Migrate existing context_items categories to PARA types
+function migrateContextToPara() {
+    const migrations = {
+        'core': { para_type: 'resource', code_stage: 'expressed' },
+        'business': { para_type: 'area', code_stage: 'organized' },
+        'personal': { para_type: 'resource', code_stage: 'organized' },
+        'preference': { para_type: 'resource', code_stage: 'expressed' }
+    };
+
+    Object.entries(migrations).forEach(([category, vals]) => {
+        db.run(
+            `UPDATE context_items SET para_type = ?, code_stage = ? WHERE category = ? AND para_type IS NULL`,
+            [vals.para_type, vals.code_stage, category]
+        );
+    });
+
+    // Set default code_stage for ideas without one
+    db.run(`UPDATE ideas SET code_stage = 'captured' WHERE code_stage IS NULL AND status = 'inbox'`);
+    db.run(`UPDATE ideas SET code_stage = 'organized' WHERE code_stage IS NULL AND status = 'processed'`);
+}
+
+// Run migration after a short delay to ensure tables exist
+setTimeout(migrateContextToPara, 2000);
+
+// Promisified Helper Functions
+function run(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.run(sql, params, function (err) {
+            if (err) reject(err);
+            else resolve(this);
+        });
+    });
+}
+
+function get(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+
+function all(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+module.exports = { db, run, get, all };

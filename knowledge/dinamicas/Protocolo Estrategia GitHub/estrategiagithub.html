@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocolo Maestro: Estrategia GitHub - Value Strategy Consulting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            700: '#0f766e',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        html { scroll-behavior: smooth; }
+        .code-container:hover .copy-btn { opacity: 1; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased line-height-relaxed">
+
+    <!-- Navegación lateral (Desktop) / Superior (Mobile) -->
+    <nav class="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm md:w-64 md:h-screen md:border-r md:border-b-0 md:block hidden overflow-y-auto">
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">Value Strategy<br><span class="text-brand-600 font-medium text-sm">Consulting</span></h2>
+            <p class="text-xs text-gray-500 mt-2 mb-6">Versión: 2026.1</p>
+            
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Contenido</h3>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li><a href="#intro" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">Introducción</a></li>
+                <li><a href="#categorias" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">I. Categorías de Acción</a></li>
+                <li><a href="#estados" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">II. Estados de Git</a></li>
+                <li><a href="#arq" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">1. Arquitectura y Seguridad</a></li>
+                <li><a href="#onboarding" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">2. Onboarding</a></li>
+                <li><a href="#ia" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">3. Protocolo IA</a></li>
+                <li><a href="#flujo" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">4. Flujo Multiusuario</a></li>
+                <li><a href="#ramas" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">5. Gestión de Ramas</a></li>
+                <li><a href="#ciclo" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">6. Ciclo de Trabajo Seguro</a></li>
+                <li><a href="#panico" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">7. Panic Button</a></li>
+                <li><a href="#checklist" class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors font-medium text-gray-800">Checklist de Supervivencia</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="md:ml-64 p-6 md:p-12 max-w-5xl mx-auto">
+        
+        <!-- Header / Intro -->
+        <header id="intro" class="mb-12 pb-8 border-b border-gray-200">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 text-brand-700 text-xs font-semibold mb-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                Protocolo Maestro
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Estrategia GitHub y Gestión de Activos</h1>
+            <p class="text-xl text-gray-500 mb-6 font-light">Integridad, Colaboración y Control de IA</p>
+            
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                <p class="text-sm md:text-base text-blue-800">
+                    Este documento establece la normativa técnica obligatoria para evitar la pérdida de datos y conflictos de sincronización. El objetivo es garantizar la trazabilidad del código y establecer un gobierno estricto sobre las intervenciones de Inteligencia Artificial.
+                </p>
+            </div>
+        </header>
+
+        <!-- I. Categorías de Acción -->
+        <section id="categorias" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">I. Categorías de Acción (Temática)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-blue-500 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Azul:</span>
+                        <p class="text-sm text-gray-600">Arquitectura de sistemas, rutas locales puras y estructura de directorios.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-green-500 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Verde:</span>
+                        <p class="text-sm text-gray-600">Onboarding, comandos de inicio, flujo multiusuario y éxito de sincronización.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-yellow-400 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Amarillo/Naranja:</span>
+                        <p class="text-sm text-gray-600">Protocolos de IA, advertencias de alcance (Scope) y validaciones preventivas.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-purple-500 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Púrpura:</span>
+                        <p class="text-sm text-gray-600">Gestión avanzada de ramas (Branches) y versionado independiente.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-orange-500 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Naranja:</span>
+                        <p class="text-sm text-gray-600">Almacenamiento externo y respaldos "fríos" manuales en Drive.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="w-4 h-4 rounded-full bg-red-500 flex-shrink-0 mt-1"></div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Rojo:</span>
+                        <p class="text-sm text-gray-600">Comandos de emergencia, recuperación de datos y mitigación de errores críticos.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- II. Estados de Git -->
+        <section id="estados" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">II. Estados de Git (Visualización en Editor)</h2>
+            <p class="text-gray-600 mb-4">Para la auditoría de cambios antes de cada commit, se utiliza la nomenclatura oficial de Git visible en el explorador de archivos:</p>
+            
+            <ul class="space-y-4">
+                <li class="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                    <span class="px-2 py-1 bg-green-100 text-green-800 font-mono font-bold rounded">U</span>
+                    <div>
+                        <strong class="text-gray-900">Untracked (Archivo Nuevo):</strong>
+                        <span class="text-gray-600 text-sm">El archivo ha sido creado pero aún no está bajo el control de versiones de Git.</span>
+                    </div>
+                </li>
+                <li class="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 font-mono font-bold rounded">M</span>
+                    <div>
+                        <strong class="text-gray-900">Modified (Archivo Modificado):</strong>
+                        <span class="text-gray-600 text-sm">El archivo ya existía pero ha sufrido cambios en su contenido.</span>
+                    </div>
+                </li>
+                <li class="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+                    <span class="px-2 py-1 bg-red-100 text-red-800 font-mono font-bold rounded">D</span>
+                    <div>
+                        <strong class="text-gray-900">Deleted (Archivo Eliminado):</strong>
+                        <span class="text-gray-600 text-sm">El archivo ha sido removido del proyecto pero el cambio aún no se ha confirmado.</span>
+                    </div>
+                </li>
+            </ul>
+        </section>
+
+        <!-- 1. Arquitectura -->
+        <section id="arq" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">1. Arquitectura de Entornos y Seguridad</h2>
+            <p class="text-gray-600 mb-6">Para evitar la pérdida de información y conflictos de sincronización, se define una separación física estricta de los entornos. <strong>Se prohíbe el uso de carpetas sincronizadas automáticamente por Drive para el desarrollo activo.</strong></p>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-600 bg-white shadow-sm rounded-lg overflow-hidden">
+                    <thead class="bg-gray-100 text-gray-700 uppercase font-semibold">
+                        <tr>
+                            <th class="px-6 py-4">Nivel</th>
+                            <th class="px-6 py-4">Entorno</th>
+                            <th class="px-6 py-4">Ubicación / Método</th>
+                            <th class="px-6 py-4">Propósito Funcional</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-bold text-gray-900">01</td>
+                            <td class="px-6 py-4 font-semibold text-blue-600">Local (PC)</td>
+                            <td class="px-6 py-4 font-mono text-xs bg-gray-50">C:/Proyectos/</td>
+                            <td class="px-6 py-4">Trabajo activo y ejecución fuera de Drive.</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-bold text-gray-900">02</td>
+                            <td class="px-6 py-4 font-semibold text-purple-600">GitHub</td>
+                            <td class="px-6 py-4">Value Strategy Consulting</td>
+                            <td class="px-6 py-4">Control de versiones y respaldo histórico.</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-bold text-gray-900">03</td>
+                            <td class="px-6 py-4 font-semibold text-orange-600">Drive</td>
+                            <td class="px-6 py-4">Solo archivos .zip manuales de hitos.</td>
+                            <td class="px-6 py-4">Respaldos finales de versiones terminadas.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 2. Onboarding -->
+        <section id="onboarding" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">2. Onboarding: Inicio de Proyecto</h2>
+            <p class="text-gray-600 mb-4">Todo nuevo desarrollo o incorporación debe iniciar clonando el activo desde la organización oficial para asegurar la vinculación correcta.</p>
+            
+            <h4 class="font-semibold text-gray-800 mt-6 mb-2">Comando de Clonación:</h4>
+            <div class="code-container relative bg-gray-900 rounded-lg p-4 shadow-lg mb-6 group">
+                <code class="text-green-400 font-mono text-sm block overflow-x-auto" id="code-clone">git clone https://github.com/ValueStrategyConsulting/nombre-del-proyecto.git</code>
+                <button onclick="copyToClipboard('code-clone', this)" class="copy-btn absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded opacity-0 transition-opacity text-xs flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Copiar
+                </button>
+            </div>
+            
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                <p class="text-sm text-yellow-800">
+                    <strong>Configuración Inicial:</strong> Es obligatorio configurar un archivo <code class="bg-yellow-100 px-1 rounded">.gitignore</code> para excluir archivos temporales y datos sensibles.
+                </p>
+            </div>
+        </section>
+
+        <!-- 3. Protocolo IA -->
+        <section id="ia" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">3. Protocolo de Alcance para IA (Scope Control)</h2>
+            <p class="text-gray-600 mb-6">Para evitar que las herramientas de IA modifiquen archivos externos no esenciales, se aplica un perímetro de contención basado en ramas independientes.</p>
+            
+            <ol class="list-decimal list-inside space-y-4 text-gray-700">
+                <li class="pl-2">
+                    <strong class="text-gray-900">Definición de Alcance:</strong> Antes de procesar una tarea, especifique a la IA la ruta exacta de los archivos permitidos; prohíba la edición de configuraciones globales.
+                </li>
+                <li class="pl-2">
+                    <strong class="text-gray-900">Aislamiento en Ramas:</strong> Cualquier código generado por IA debe implementarse en una Rama Independiente para no comprometer la estabilidad.
+                </li>
+                <li class="pl-2">
+                    <strong class="text-gray-900">Auditoría de IA:</strong> Es obligatorio ejecutar <code class="bg-gray-200 px-1 py-0.5 rounded font-mono text-sm">git status</code> tras la intervención de una IA para validar que el alcance de la modificación fue respetado.
+                </li>
+            </ol>
+        </section>
+
+        <!-- 4. Flujo Multiusuario -->
+        <section id="flujo" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">4. Flujo Multiusuario y Colaboración</h2>
+            <p class="text-gray-600 mb-4">El trabajo en equipo sobre un mismo archivo requiere una coordinación basada en la prevención de conflictos y commits frecuentes.</p>
+            
+            <div class="space-y-6">
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Sincronización Preventiva (Pull):</h4>
+                    <p class="text-sm text-gray-600 mb-2">Antes de iniciar cualquier edición, descargue siempre los cambios más recientes del repositorio central.</p>
+                    <div class="code-container relative bg-gray-900 rounded-lg p-4 shadow-lg group">
+                        <code class="text-green-400 font-mono text-sm" id="code-pull">git pull origin [nombre-de-rama]</code>
+                        <button onclick="copyToClipboard('code-pull', this)" class="copy-btn absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded opacity-0 transition-opacity text-xs flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Copiar
+                        </button>
+                    </div>
+                </div>
+                
+                <ul class="list-disc list-inside space-y-2 text-gray-700 ml-2">
+                    <li><strong class="text-gray-900">Gestión de Conflictos:</strong> Si Git detecta cambios en la misma línea, el usuario debe elegir la versión final manualmente antes de confirmar el cambio.</li>
+                    <li><strong class="text-gray-900">Commits Atómicos:</strong> Guarde cambios pequeños y frecuentes con mensajes descriptivos por cada funcionalidad.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 5. Gestión de Ramas -->
+        <section id="ramas" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">5. Gestión de Ramas (Branches)</h2>
+            <p class="text-gray-600 mb-4">Las ramas permiten probar modificaciones arriesgadas o experimentos de IA sin afectar el código funcional.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h5 class="text-sm font-bold text-gray-700 mb-2">Crear y Cambiar a Rama</h5>
+                    <code class="text-purple-600 font-mono text-sm bg-purple-50 px-2 py-1 rounded block">git checkout -b nombre-rama</code>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h5 class="text-sm font-bold text-gray-700 mb-2">Regresar a Rama Principal</h5>
+                    <code class="text-purple-600 font-mono text-sm bg-purple-50 px-2 py-1 rounded block">git checkout main</code>
+                </div>
+            </div>
+            <p class="text-gray-700"><strong class="text-gray-900">Fusión de Trabajo:</strong> Una vez que la rama independiente es estable, se integra a la principal mediante un proceso de unión (merge).</p>
+        </section>
+
+        <!-- 6. Ciclo de Trabajo Seguro -->
+        <section id="ciclo" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">6. Ciclo de Trabajo Seguro (Comandos)</h2>
+            <p class="text-gray-600 mb-6">Este ciclo garantiza que el código esté respaldado y documentado al final de cada sesión.</p>
+            
+            <div class="relative pl-8 border-l-2 border-brand-200 space-y-8">
+                <div class="relative">
+                    <div class="absolute -left-[41px] bg-brand-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md">1</div>
+                    <h4 class="font-bold text-gray-900">Verificar Cambios</h4>
+                    <p class="text-sm text-gray-600 mb-2">Ejecute <code class="font-mono bg-gray-100 px-1 rounded">git status</code> para revisar archivos modificados.</p>
+                </div>
+                <div class="relative">
+                    <div class="absolute -left-[41px] bg-brand-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md">2</div>
+                    <h4 class="font-bold text-gray-900">Preparar</h4>
+                    <p class="text-sm text-gray-600 mb-2">Añada los archivos modificados al área de preparación (<code class="font-mono bg-gray-100 px-1 rounded">git add .</code>).</p>
+                </div>
+                <div class="relative">
+                    <div class="absolute -left-[41px] bg-brand-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md">3</div>
+                    <h4 class="font-bold text-gray-900">Confirmar</h4>
+                    <p class="text-sm text-gray-600 mb-2">Cree un commit pequeño y descriptivo.</p>
+                    <div class="code-container relative bg-gray-900 rounded-lg p-3 shadow-sm inline-block group w-full md:w-auto">
+                        <code class="text-green-400 font-mono text-sm block" id="code-commit">git commit -m "feat: descripción clara del cambio"</code>
+                        <button onclick="copyToClipboard('code-commit', this)" class="copy-btn absolute top-1 right-1 p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded opacity-0 transition-opacity text-xs">Copiar</button>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="absolute -left-[41px] bg-brand-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md">4</div>
+                    <h4 class="font-bold text-gray-900">Sincronizar</h4>
+                    <p class="text-sm text-gray-600 mb-2">Realice <code class="font-mono bg-gray-100 px-1 rounded">git push</code> al finalizar el día para asegurar el código en la nube.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. Panic Button -->
+        <section id="panico" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-red-600 mb-6 flex items-center gap-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                7. Recuperación ante Errores (Panic Button)
+            </h2>
+            <p class="text-gray-600 mb-6">Mecanismos para restaurar el proyecto ante ediciones accidentales o fallos críticos.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-red-50 border border-red-200 p-5 rounded-lg shadow-sm relative group code-container">
+                    <h4 class="font-bold text-red-800 mb-2">Restaurar Archivo Específico</h4>
+                    <p class="text-sm text-red-700 mb-4">Recupera un archivo a su estado funcional previo.</p>
+                    <code class="block bg-gray-900 text-red-400 p-3 rounded font-mono text-sm" id="code-restore">git checkout &lt;nombre_archivo&gt;</code>
+                    <button onclick="copyToClipboard('code-restore', this)" class="copy-btn absolute bottom-5 right-5 p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded opacity-0 transition-opacity text-xs">Copiar</button>
+                </div>
+                
+                <div class="bg-red-50 border border-red-200 p-5 rounded-lg shadow-sm relative group code-container">
+                    <h4 class="font-bold text-red-800 mb-2">Reinicio de Estado</h4>
+                    <p class="text-sm text-red-700 mb-4">Vuelve el repositorio completo a un estado funcional anterior.</p>
+                    <code class="block bg-gray-900 text-red-400 p-3 rounded font-mono text-sm" id="code-reset">git reset --hard</code>
+                    <button onclick="copyToClipboard('code-reset', this)" class="copy-btn absolute bottom-5 right-5 p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded opacity-0 transition-opacity text-xs">Copiar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Checklist de Supervivencia -->
+        <section id="checklist" class="mb-12 scroll-mt-24">
+            <div class="bg-gray-900 text-white rounded-2xl p-6 md:p-10 shadow-xl border border-gray-800">
+                <h2 class="text-2xl font-bold mb-2 flex items-center gap-3">
+                    <svg class="w-7 h-7 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Checklist de Supervivencia Técnica
+                </h2>
+                <p class="text-gray-400 text-sm mb-8">Marca estas casillas para asegurar que estás cumpliendo con el protocolo maestro antes de terminar tu jornada.</p>
+                
+                <div class="space-y-4">
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Ubicación</span>
+                            <span class="text-sm text-gray-300">El proyecto reside en una ruta local pura fuera de Drive.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Filtro</span>
+                            <span class="text-sm text-gray-300">Archivo <code>.gitignore</code> configurado para excluir basura y datos sensibles.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Orden</span>
+                            <span class="text-sm text-gray-300">Commits pequeños y descriptivos realizados por cada cambio.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Ramas</span>
+                            <span class="text-sm text-gray-300">Uso de ramas independientes para pruebas arriesgadas o de IA.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Sincronización</span>
+                            <span class="text-sm text-gray-300"><code>git push</code> realizado al finalizar cada jornada laboral.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Hitos</span>
+                            <span class="text-sm text-gray-300">Respaldos manuales en .zip en Drive solo para versiones finales.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors">
+                        <input type="checkbox" class="mt-1 w-5 h-5 rounded border-gray-600 text-brand-500 focus:ring-brand-500 bg-gray-700">
+                        <div>
+                            <span class="font-bold text-brand-300 block">Validación</span>
+                            <span class="text-sm text-gray-300">Verificación del estado con <code>git status</code> antes de cada commit.</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-sm text-gray-400 mt-16 pt-8 border-t border-gray-200">
+            <p>&copy; 2026 Value Strategy Consulting. Todos los derechos reservados.</p>
+        </footer>
+    </main>
+
+    <!-- Script para copiar al portapapeles -->
+    <script>
+        function copyToClipboard(elementId, btnElement) {
+            const textToCopy = document.getElementById(elementId).innerText;
+            const originalText = btnElement.innerHTML;
+            
+            // Crear elemento temporal para copiar texto
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            
+            try {
+                // Ejecutar el comando de copia
+                document.execCommand('copy');
+                
+                // Feedback visual
+                btnElement.innerHTML = '<svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copiado';
+                btnElement.classList.add('text-green-400');
+                
+                // Restaurar botón después de 2 segundos
+                setTimeout(() => {
+                    btnElement.innerHTML = originalText;
+                    btnElement.classList.remove('text-green-400');
+                }, 2000);
+            } catch (err) {
+                console.error('Error al copiar', err);
+            }
+            
+            // Limpiar
+            document.body.removeChild(tempTextArea);
+        }
+    </script>
+</body>
+</html>

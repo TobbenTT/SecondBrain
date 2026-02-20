@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Value Strategy Consulting - Hub Interno de Operaciones">
+    <title>VSC Hub — Dashboard Interno</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+
+<body>
+
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">VSC</div>
+                <div class="logo-text">
+                    <span class="logo-title">ValueStrategy</span>
+                    <span class="logo-sub">Consulting Hub</span>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-label">Principal</span>
+                <a href="#home" class="nav-link active" data-section="home">
+                    <span class="nav-icon">🏠</span>
+                    Home
+                </a>
+                <a href="#overview" class="nav-link" data-section="overview">
+                    <span class="nav-icon">📊</span>
+                    Overview
+                </a>
+                <a href="#projects" class="nav-link" data-section="projects">
+                    <span class="nav-icon">🚀</span>
+                    Proyectos
+                </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-label">Recursos</span>
+                <a href="#archivos" class="nav-link" data-section="archivos">
+                    <span class="nav-icon">📄</span>
+                    Archivos
+                </a>
+                <a href="#methodologies" class="nav-link" data-section="methodologies">
+                    <span class="nav-icon">⚡</span>
+                    Metodologías
+                </a>
+            </div>
+            </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-label">Herramientas</span>
+                <a href="#ideas" class="nav-link" data-section="ideas">
+                    <span class="nav-icon">💡</span>
+                    Ideas
+                </a>
+                <a href="#skills" class="nav-link" data-section="skills">
+                    <span class="nav-icon">📚</span>
+                    Skills
+                </a>
+                <a href="#context" class="nav-link" data-section="context">
+                    <span class="nav-icon">🧠</span>
+                    Memoria
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-status">
+                <span class="status-dot"></span>
+                <span>Sistema Activo</span>
+            </div>
+            <a href="/logout" class="logout-link" title="Cerrar sesión">🔒 Salir</a>
+        </div>
+    </aside>
+
+    <!-- ═══════════════ MOBILE TOPBAR ═══════════════ -->
+    <div class="topbar" id="topbar">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu">☰</button>
+        <div class="topbar-logo">
+            <div class="logo-icon sm">VSC</div>
+            <span>ValueStrategy Hub</span>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ─── Top Bar ─── -->
+        <header class="content-header">
+            <div class="header-left">
+                <h1 class="page-title" id="pageTitle">Bienvenido</h1>
+                <p class="page-subtitle" id="pageSubtitle">Hub Interno de Operaciones</p>
+            </div>
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
+                    <span class="theme-icon" id="themeIcon">🌙</span>
+                </button>
+                <div class="header-badge">
+                    <span class="badge-dot"></span>
+                    Hub Interno v2.2
+                </div>
+                <!-- User Profile Display -->
+                <% if (user) { %>
+                    <div class="user-profile"
+                        style="display:flex;align-items:center;gap:10px;margin-left:15px;padding:4px 12px;background:rgba(255,255,255,0.05);border-radius:20px;border:1px solid var(--border);">
+                        <div
+                            style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:white;">
+                            <%= user.username.charAt(0).toUpperCase() %>
+                        </div>
+                        <div style="display:flex;flex-direction:column;line-height:1.1;">
+                            <span
+                                style="font-size:0.8rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;">
+                                <%= user.username %>
+                            </span>
+                            <span style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">
+                                <%= user.role %>
+                            </span>
+                        </div>
+                    </div>
+                    <% } %>
+                        <div class="header-date" id="headerDate"></div>
+            </div>
+        </header>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: HOME
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section active" id="section-home">
+
+            <!-- Professional Hero -->
+            <div class="home-hero">
+                <div class="home-hero-bg"></div>
+                <div class="home-hero-content">
+                    <p class="home-hero-label">VALUE STRATEGY CONSULTING</p>
+                    <h2 class="home-hero-title">Hub Interno de<br>Operaciones</h2>
+                    <p class="home-hero-greeting" id="homeGreeting"></p>
+                    <div class="home-hero-divider"></div>
+                    <p class="home-hero-tagline">
+                        Plataforma centralizada para gestionar proyectos, documentación,
+                        metodologías y herramientas del equipo.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Inline Stats -->
+            <div class="home-stats-strip">
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatProjects">—</span>
+                    <span class="hss-label">Proyectos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatDocs">—</span>
+                    <span class="hss-label">Documentos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatIdeas">—</span>
+                    <span class="hss-label">Ideas Capturadas</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num">3</span>
+                    <span class="hss-label">Servicios Activos</span>
+                </div>
+            </div>
+
+            <!-- Mission Statement -->
+            <div class="home-mission">
+                <div class="home-mission-col">
+                    <h3>Nuestra Visión</h3>
+                    <p>Transformar desafíos empresariales en oportunidades de crecimiento sostenible
+                        mediante estrategias basadas en datos y ejecución ágil.</p>
+                </div>
+                <div class="home-mission-col">
+                    <h3>Este Hub</h3>
+                    <p>Centro de operaciones interno donde convergen documentación, proyectos
+                        en desarrollo e ideas del equipo — todo en un solo lugar.</p>
+                </div>
+            </div>
+
+            <!-- Quote -->
+            <div class="home-quote">
+                <span class="home-quote-mark">"</span>
+                <p class="home-quote-text">We turn challenges into opportunities for growth.</p>
+                <span class="home-quote-author">— Value Strategy Consulting</span>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: OVERVIEW
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-overview">
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon projects-icon">🚀</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statProjects">—</span>
+                        <span class="stat-label">Proyectos Activos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon docs-icon">📄</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statArchivos">—</span>
+                        <span class="stat-label">Documentos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon methods-icon">⚡</div>
+                    <div class="stat-info">
+                        <span class="stat-number">2</span>
+                        <span class="stat-label">Metodologías</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon status-icon">✅</div>
+                    <div class="stat-info">
+                        <span class="stat-number">3</span>
+                        <span class="stat-label">Servicios Online</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panels -->
+            <div class="panel-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">🧠 GTD — Getting Things Done</h2>
+                    </div>
+                    <div class="panel-body">
+                        <div class="method-flow">
+                            <div class="flow-step"><span class="flow-num">1</span>Capturar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">2</span>Clarificar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">3</span>Organizar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">4</span>Reflexionar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">5</span>Ejecutar</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">⚡ AGILE — Desarrollo Iterativo</h2>
+                    </div>
+                    <div class="panel-body">
+                        <div class="method-flow">
+                            <div class="flow-step"><span class="flow-num">1</span>Planificar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">2</span>Ejecutar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">3</span>Revisar</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="flow-num">4</span>Adaptar</div>
+                            <span class="flow-arrow">↻</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel quote-panel">
+                <div class="quote-mark">"</div>
+                <p class="quote-text">We turn challenges into opportunities for growth.</p>
+                <span class="quote-author">— Value Strategy Consulting</span>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: PROJECTS (dynamic)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-projects">
+
+            <!-- Add Project Panel -->
+            <div class="panel add-project-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">➕ Agregar Proyecto</h2>
+                    <button class="panel-action" id="toggleAddProject">Mostrar ↓</button>
+                </div>
+                <div class="panel-body add-project-body" id="addProjectBody" style="display:none;">
+                    <form class="add-project-form" id="addProjectForm">
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Nombre *</label>
+                                <input type="text" id="projName" placeholder="Mi Proyecto" required>
+                            </div>
+                            <div class="apf-field">
+                                <label>URL *</label>
+                                <input type="url" id="projUrl" placeholder="http://localhost:3001 o https://..."
+                                    required>
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
+                                <label>Descripción</label>
+                                <input type="text" id="projDesc" placeholder="Breve descripción del proyecto...">
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Icono (emoji)</label>
+                                <input type="text" id="projIcon" placeholder="🚀" maxlength="4">
+                            </div>
+                            <div class="apf-field">
+                                <label>Estado</label>
+                                <select id="projStatus">
+                                    <option value="active">● Activo</option>
+                                    <option value="beta">● Beta</option>
+                                    <option value="development">● En Desarrollo</option>
+                                    <option value="paused">● Pausado</option>
+                                </select>
+                            </div>
+                            <div class="apf-field apf-wide">
+                                <label>Tecnologías (coma separadas)</label>
+                                <input type="text" id="projTech" placeholder="Node.js, React, Python...">
+                            </div>
+                        </div>
+                        <div class="apf-actions">
+                            <button type="submit" class="btn btn-sm">Guardar Proyecto ✓</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="projects-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="projectSearch" placeholder="Buscar proyectos...">
+                </div>
+                <div class="filter-buttons" id="projectFilterBtns">
+                    <button class="filter-btn active" data-pfilter="all">Todos</button>
+                    <button class="filter-btn" data-pfilter="active">● Activos</button>
+                    <button class="filter-btn" data-pfilter="beta">● Beta</button>
+                    <button class="filter-btn" data-pfilter="development">● Desarrollo</button>
+                    <button class="filter-btn" data-pfilter="paused">● Pausados</button>
+                </div>
+            </div>
+
+            <div class="projects-grid" id="projectsGrid">
+                <div class="loading-sm">
+                    <div class="spinner-sm"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: ARCHIVOS
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-archivos">
+
+            <!-- Upload Panel -->
+            <div class="panel upload-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📤 Subir Archivo</h2>
+                    <button class="panel-action" id="toggleUpload">Mostrar ↓</button>
+                </div>
+                <div class="panel-body upload-body" id="uploadBody" style="display:none;">
+                    <form class="upload-form" id="uploadForm">
+                        <div class="upload-row">
+                            <div class="upload-dropzone" id="uploadDropzone">
+                                <input type="file" id="uploadFile" accept=".md,.pdf,.txt,.docx" hidden>
+                                <div class="dropzone-content">
+                                    <span class="dropzone-icon">📁</span>
+                                    <p>Arrastra un archivo o <button type="button" class="dropzone-btn"
+                                            id="uploadBrowse">explorar</button></p>
+                                    <span class="dropzone-formats">.md, .pdf, .txt, .docx — Máx 50MB</span>
+                                </div>
+                                <div class="dropzone-selected" id="dropzoneSelected" style="display:none;">
+                                    <span class="selected-icon">📄</span>
+                                    <span class="selected-name" id="selectedFileName"></span>
+                                    <button type="button" class="selected-clear" id="clearFile">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="upload-row">
+                            <div class="upload-tags-input">
+                                <label class="upload-label">Tags (separados por coma)</label>
+                                <input type="text" id="uploadTags" class="upload-text-input"
+                                    placeholder="protocolo, git, estrategia...">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-upload" id="btnUpload" disabled>
+                                Subir Archivo ↑
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="archivos-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Buscar documentos...">
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">Todos</button>
+                    <button class="filter-btn" data-filter="markdown">📝 Markdown</button>
+                    <button class="filter-btn" data-filter="pdf">📕 PDF</button>
+                </div>
+            </div>
+
+            <!-- Tag Filter Bar -->
+            <div class="tag-filter-bar" id="tagFilterBar"></div>
+
+            <div class="archivos-grid" id="archivosGrid">
+                <div class="loading-sm">
+                    <div class="spinner-sm"></div>
+                    <p>Cargando documentos...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: METHODOLOGIES
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-methodologies">
+            <div class="methodologies-grid">
+
+                <!-- GTD -->
+                <div class="methodology-card">
+                    <div class="methodology-header">
+                        <div class="methodology-icon gtd">🧠</div>
+                        <div>
+                            <h3>GTD</h3>
+                            <span class="methodology-tag">Getting Things Done</span>
+                        </div>
+                    </div>
+                    <!-- ... omitted for brevity ... -->
+                </div>
+
+                <!-- AGILE -->
+                <div class="methodology-card">
+                    <div class="methodology-header">
+                        <div class="methodology-icon agile">⚡</div>
+                        <div>
+                            <h3>AGILE</h3>
+                            <span class="methodology-tag">Desarrollo Ágil Iterativo</span>
+                        </div>
+                    </div>
+                    <!-- ... omitted ... -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+     SECTION: SKILLS
+     ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-skills">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📚 Biblioteca de Habilidades</h2>
+                    <div class="panel-controls">
+                        <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input">
+                    </div>
+                </div>
+                <div class="skills-grid" id="skillsGrid">
+                    <!-- Skills will be injected here -->
+                    <div class="loading-state">Cargando habilidades...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skill Viewer Modal -->
+        <div id="skillModal" class="modal">
+            <div class="modal-content" style="max-width: 800px; height: 80vh; display: flex; flex-direction: column;">
+                <span class="close-modal">&times;</span>
+                <h2 id="skillModalTitle" class="modal-title"></h2>
+                <div id="skillModalContent" style="flex: 1; overflow-y: auto; margin-top: 1rem;"></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: IDEAS
+             ══════════════════════════════════════════════════════ -->
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: IDEAS
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-ideas">
+            <div class="ideas-container">
+
+                <!-- Input Panel -->
+                <div class="panel ideas-input-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">💡 Nueva Idea</h2>
+                        <span class="mic-status" id="micStatus"></span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="ideas-form">
+                            <textarea id="ideaTextarea" class="ideas-textarea"
+                                placeholder="Escribe tu idea aquí o usa el micrófono..." rows="4"></textarea>
+                            <div class="ideas-actions">
+                                <button type="button" class="btn-mic" id="btnMic" title="Hablar para escribir">
+                                    <span class="mic-icon" id="micIcon">🎤</span>
+                                    <span class="mic-label" id="micLabel">Micrófono</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-save-idea" id="btnSaveIdea">
+                                    Guardar Idea ✓
+                                </button>
+                            </div>
+                            <p class="mic-hint" id="micHint">💡 Tip: Ctrl+Enter para guardar rápido</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ideas List -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📋 Mis Ideas</h2>
+                        <span class="ideas-count" id="ideasCount">0</span>
+                    </div>
+                    <div class="panel-body ideas-list" id="ideasList">
+                        <div class="loading-sm">
+                            <div class="spinner-sm"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: CONTEXT (MEMORY)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-context">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🧠 Memoria a Largo Plazo (Contexto)</h2>
+                    <button class="btn btn-sm" onclick="openContextModal()">+ Nuevo Dato</button>
+                </div>
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table class="data-table" id="contextTable">
+                            <thead>
+                                <tr>
+                                    <th>Clave / Tema</th>
+                                    <th>Contenido</th>
+                                    <th>Categoría</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Context Items -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Context Modal -->
+        <div id="contextModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal" onclick="closeContextModal()">&times;</span>
+                <h2 class="modal-title" id="contextModalTitle">Nuevo Dato de Contexto</h2>
+                <form id="contextForm">
+                    <input type="hidden" id="contextId">
+                    <div class="form-group">
+                        <label>Clave / Título</label>
+                        <input type="text" id="contextKey" required placeholder="Ej: Reglas de Reuniones">
+                    </div>
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select id="contextCategory">
+                            <option value="core">Core / Reglas</option>
+                            <option value="business">Negocio</option>
+                            <option value="personal">Personal</option>
+                            <option value="preference">Preferencia</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Contenido</label>
+                        <textarea id="contextContent" rows="5" required
+                            placeholder="Describe el conocimiento..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Overlay for mobile sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         FLOATING AI WIDGET
+         ══════════════════════════════════════════════════════ -->
+    <div id="aiWidget" class="ai-widget">
+        <div class="ai-header">
+            <div class="ai-header-title">
+                <span>🤖</span>
+                <select id="agentSelector" class="agent-selector" title="Seleccionar Agente">
+                    <option value="default">Asistente General</option>
+                    <option value="staffing">Staffing Agent (Dotación)</option>
+                    <option value="training">Training Agent (Capacitación)</option>
+                    <option value="finance">Finance Agent (Presupuesto)</option>
+                    <option value="compliance">Compliance Agent (Auditoría)</option>
+                </select>
+            </div>
+            <button id="closeAiBtn" class="ai-close-btn">&times;</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="msg-content">
+                    <strong>Asistente ValueStrategy</strong>
+                    <p>Hola. Soy tu asistente de operaciones. ¿En qué te ayudo hoy?</p>
+                    <small>Puedo ayudarte a organizar ideas, crear tareas o revisar metodologías.</small>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Escribe tu mensaje..." autocomplete="off">
+            <button id="sendBtn">➤</button>
+        </div>
+    </div>
+
+    <button id="aiToggleBtn" class="ai-toggle-btn" title="Abrir Asistente">
+        🤖
+    </button>
+
+    <script src="/js/main.js?v=<%= Date.now() %>"></script>
+</body>
+
+</html>

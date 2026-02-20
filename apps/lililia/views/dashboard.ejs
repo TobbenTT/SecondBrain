@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<%- include('partials/head') %>
+
+    <body class="bg-slate-50 text-slate-800 antialiased selection:bg-sky-500 selection:text-white overflow-x-hidden">
+
+        <%- include('partials/navbar') %>
+
+            <div class="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                <!-- Dashboard Header -->
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold text-slate-900">Panel de Control</h1>
+                    <p class="text-slate-500">Bienvenido a la plataforma de inteligencia institucional Lililia.</p>
+                </div>
+
+                <!-- Dashboard Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Stats Card 1 -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-slate-500">Reuniones Procesadas</h3>
+                            <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <i class="fa-solid fa-calendar-check"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900">124</div>
+                        <div class="text-xs text-green-600 mt-1 flex items-center">
+                            <i class="fa-solid fa-arrow-up mr-1"></i>
+                            <span>12% este mes</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats Card 2 -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-slate-500">Alertas de Riesgo</h3>
+                            <div class="p-2 bg-red-50 text-red-600 rounded-lg">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900">3</div>
+                        <div class="text-xs text-slate-500 mt-1">Requieren atención inmediata</div>
+                    </div>
+
+                    <!-- Stats Card 3 -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-slate-500">Ahorro Estimado</h3>
+                            <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900">850 hrs</div>
+                        <div class="text-xs text-green-600 mt-1 flex items-center">
+                            <i class="fa-solid fa-arrow-up mr-1"></i>
+                            <span>Optimización de procesos</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Table -->
+                <div class="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-900">Actividad Reciente</h3>
+                        <button class="text-sm text-sky-600 hover:text-sky-700 font-medium">Ver todo</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500">
+                                <tr>
+                                    <th class="px-6 py-3">Proyecto</th>
+                                    <th class="px-6 py-3">Tipo</th>
+                                    <th class="px-6 py-3">Estado</th>
+                                    <th class="px-6 py-3">Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Expansión Planta Norte</td>
+                                    <td class="px-6 py-4">Auditoría Process Guardian</td>
+                                    <td class="px-6 py-4"><span
+                                            class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold">En
+                                            Revisión</span></td>
+                                    <td class="px-6 py-4">Hace 2 horas</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Daily Meeting - Ops</td>
+                                    <td class="px-6 py-4">Action Engine Extraction</td>
+                                    <td class="px-6 py-4"><span
+                                            class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Completado</span>
+                                    </td>
+                                    <td class="px-6 py-4">Hace 5 horas</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Revisión Mensual Q1</td>
+                                    <td class="px-6 py-4">Corporate Oracle Indexing</td>
+                                    <td class="px-6 py-4"><span
+                                            class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">Procesando</span>
+                                    </td>
+                                    <td class="px-6 py-4">En curso</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <%- include('partials/footer') %>
+
+    </body>
+
+</html>

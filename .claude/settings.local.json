@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 8 node:*)",
+      "Bash(node -c:*)",
+      "WebFetch(domain:natesnewsletter.substack.com)",
+      "Bash(python:*)",
+      "Bash(node -e:*)",
+      "WebFetch(domain:www.clawcloud.dev)",
+      "WebFetch(domain:innfactory.ai)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

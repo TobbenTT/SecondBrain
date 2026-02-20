@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía: Segundo Cerebro - Value Strategy Consulting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            700: '#0f766e',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        .code-container:hover .copy-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 antialiased line-height-relaxed">
+
+    <!-- Navegación lateral -->
+    <nav
+        class="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm md:w-64 md:h-screen md:border-r md:border-b-0 md:block hidden overflow-y-auto">
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">Value Strategy<br><span
+                    class="text-brand-600 font-medium text-sm">Consulting</span></h2>
+            <p class="text-xs text-gray-500 mt-2 mb-6">Versión: 2026.1</p>
+
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Contenido</h3>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li><a href="#intro"
+                        class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">Introducción</a>
+                </li>
+                <li><a href="#flow"
+                        class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">Flujo
+                        de Trabajo</a></li>
+                <li><a href="#tips"
+                        class="hover:text-brand-600 hover:bg-brand-50 block py-1 px-2 rounded transition-colors">Tips
+                        Esenciales</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="md:ml-64 p-6 md:p-12 max-w-4xl mx-auto">
+
+        <!-- Header / Intro -->
+        <header id="intro" class="mb-12 pb-8 border-b border-gray-200">
+            <div
+                class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold mb-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Metodología Core
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Cómo usar tu Segundo
+                Cerebro</h1>
+            <p class="text-xl text-gray-500 mb-6 font-light">Captura, Organiza y Libera tu mente.</p>
+
+            <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
+                <p class="text-sm md:text-base text-purple-800">
+                    Este sistema está diseñado para liberar tu carga cognitiva. No intentes recordar todo; anótalo y
+                    deja que el sistema lo procese.
+                </p>
+            </div>
+        </header>
+
+        <!-- Flujo de Trabajo -->
+        <section id="flow" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Flujo de Trabajo (C.O.D.E)</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Paso 1 -->
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div
+                        class="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110">
+                    </div>
+                    <div class="relative z-10">
+                        <span class="text-4xl mb-4 block">📥</span>
+                        <h3 class="font-bold text-lg text-gray-900 mb-2">1. Capturar</h3>
+                        <p class="text-sm text-gray-600">Usa el micrófono o texto en "Ideas" para cualquier pensamiento
+                            rápido. No filtres, solo captura.</p>
+                    </div>
+                </div>
+
+                <!-- Paso 2 -->
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div
+                        class="absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110">
+                    </div>
+                    <div class="relative z-10">
+                        <span class="text-4xl mb-4 block">⚙️</span>
+                        <h3 class="font-bold text-lg text-gray-900 mb-2">2. Procesar</h3>
+                        <p class="text-sm text-gray-600">Usa el botón "Procesar" para que la IA categorice y extraiga
+                            tareas automáticamente.</p>
+                    </div>
+                </div>
+
+                <!-- Paso 3 -->
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div
+                        class="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110">
+                    </div>
+                    <div class="relative z-10">
+                        <span class="text-4xl mb-4 block">🔎</span>
+                        <h3 class="font-bold text-lg text-gray-900 mb-2">3. Revisar</h3>
+                        <p class="text-sm text-gray-600">Usa el "Weekly Review Agent" cada viernes para mantener el
+                            sistema limpio y relevante.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tips -->
+        <section id="tips" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Tips de Productividad</h2>
+            <div class="bg-gray-900 text-white rounded-2xl p-8 shadow-xl">
+                <ul class="space-y-4">
+                    <li class="flex items-start gap-4">
+                        <svg class="w-6 h-6 text-green-400 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
+                            </path>
+                        </svg>
+                        <div>
+                            <strong class="block text-lg">Usa Tags Inteligentes</strong>
+                            <p class="text-gray-400 text-sm">Etiqueta tus archivos al subirlos. La IA usa estos tags
+                                para conectar ideas relacionadas.</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start gap-4">
+                        <svg class="w-6 h-6 text-green-400 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
+                            </path>
+                        </svg>
+                        <div>
+                            <strong class="block text-lg">Centraliza tus PDFs</strong>
+                            <p class="text-gray-400 text-sm">Sube manuales y referencias a la sección
+                                <strong>Archivos</strong>. El buscador semántico podrá leer dentro de ellos.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <footer class="text-center text-sm text-gray-400 mt-16 pt-8 border-t border-gray-200">
+            <p>&copy; 2026 Value Strategy Consulting. Todos los derechos reservados.</p>
+        </footer>
+    </main>
+</body>
+
+</html>

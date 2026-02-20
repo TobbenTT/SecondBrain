@@ -1,0 +1,202 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PREMIUM DOCUMENT CARDS & UI
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Search & Toolbar ──────────────────────────────────────────────────────── */
+.archivos-toolbar {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+}
+
+.search-box {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.search-box:focus-within {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.2);
+}
+
+.search-box input {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    font-weight: 500;
+}
+
+.search-icon {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── Filter Buttons ────────────────────────────────────────────────────────── */
+.filter-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease !important;
+}
+
+.filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
+.filter-btn.active {
+    background: var(--accent-gradient) !important;
+    border-color: transparent !important;
+    color: #fff !important;
+    box-shadow: 0 4px 15px rgba(41, 128, 185, 0.3);
+}
+
+/* ─── Document Grid ─────────────────────────────────────────────────────────── */
+.archivos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.archivo-card {
+    background: rgba(30, 41, 59, 0.4) !important;
+    /* Glassmorphism */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    padding: 20px !important;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Hover Gradient Overlay */
+.archivo-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.archivo-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+}
+
+.archivo-card:hover::before {
+    opacity: 1;
+}
+
+/* ─── File Icons ────────────────────────────────────────────────────────────── */
+.archivo-icon {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    font-size: 1.4rem !important;
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
+}
+
+.archivo-icon.md {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.2), rgba(46, 204, 113, 0.1)) !important;
+    border: 1px solid rgba(39, 174, 96, 0.2) !important;
+    color: #2ecc71;
+}
+
+.archivo-icon.pdf {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(231, 76, 60, 0.1)) !important;
+    border: 1px solid rgba(231, 76, 60, 0.2) !important;
+    color: #e74c3c;
+}
+
+.archivo-icon.app {
+    background: linear-gradient(135deg, rgba(142, 68, 173, 0.2), rgba(155, 89, 182, 0.1)) !important;
+    border: 1px solid rgba(142, 68, 173, 0.2) !important;
+    color: #9b59b6;
+}
+
+.archivo-card:hover .archivo-icon {
+    transform: scale(1.1) rotate(5deg);
+    transition: transform 0.3s ease;
+}
+
+/* ─── Info Text ─────────────────────────────────────────────────────────────── */
+.archivo-info h4 {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    margin-bottom: 4px !important;
+}
+
+.archivo-meta {
+    font-size: 0.8rem !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ─── Tags ─────────────────────────────────────────────────────────────────── */
+.archivo-tag {
+    background: rgba(41, 128, 185, 0.15) !important;
+    border: 1px solid rgba(41, 128, 185, 0.2) !important;
+    color: #6bbef0 !important;
+    font-size: 0.7rem !important;
+    border-radius: 6px !important;
+    padding: 2px 8px !important;
+}
+
+/* ─── Action Arrow ─────────────────────────────────────────────────────────── */
+.archivo-arrow {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.4) !important;
+    transition: all 0.3s ease !important;
+    transform: none !important;
+}
+
+.archivo-card:hover .archivo-arrow {
+    background: var(--accent);
+    color: #fff !important;
+    transform: translateX(0) !important;
+    box-shadow: 0 4px 10px rgba(41, 128, 185, 0.4);
+}
+
+/* ─── Upload Panel Tweaks ───────────────────────────────────────────────────── */
+.upload-panel {
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-radius: 16px !important;
+    margin-bottom: 30px;
+}
+
+.panel-action {
+    color: var(--accent-light) !important;
+    font-weight: 600 !important;
+}

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía: Notas de Voz - Value Strategy Consulting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#f43f5e',
+                            700: '#be123c',
+                            900: '#881337',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        .mic-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(244, 63, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 antialiased">
+
+    <!-- Navegación lateral -->
+    <nav
+        class="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm md:w-64 md:h-screen md:border-r md:border-b-0 md:block hidden overflow-y-auto">
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">Value Strategy<br><span
+                    class="text-rose-600 font-medium text-sm">Voice Interface</span></h2>
+            <p class="text-xs text-gray-500 mt-2 mb-6">Versión: WebSpeech 1.0</p>
+
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li><a href="#intro"
+                        class="hover:text-rose-600 hover:bg-rose-50 block py-1 px-2 rounded transition-colors">Introducción</a>
+                </li>
+                <li><a href="#instrucciones"
+                        class="hover:text-rose-600 hover:bg-rose-50 block py-1 px-2 rounded transition-colors">Instrucciones</a>
+                </li>
+                <li><a href="#pro"
+                        class="hover:text-rose-600 hover:bg-rose-50 block py-1 px-2 rounded transition-colors">Comandos
+                        Pro</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="md:ml-64 p-6 md:p-12 max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <header id="intro" class="mb-12 pb-8 border-b border-gray-200">
+            <div
+                class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold mb-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                    </path>
+                </svg>
+                Captura Rápida
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Notas de Voz</h1>
+            <p class="text-xl text-gray-500 mb-6 font-light">Dictado inteligente y transcripción en tiempo real.</p>
+
+            <div
+                class="bg-gradient-to-r from-rose-500 to-pink-600 text-white p-6 rounded-xl shadow-lg flex items-center gap-6">
+                <div class="bg-white/20 p-4 rounded-full mic-animation">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                        </path>
+                    </svg>
+                </div>
+                <div>
+                    El sistema usa la <strong>Web Speech API</strong> nativa de tu navegador. Lo que dices se convierte
+                    instantáneamente en texto editable y procesable por la IA.
+                </div>
+            </div>
+        </header>
+
+        <!-- Instrucciones -->
+        <section id="instrucciones" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Instrucciones de Uso</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 text-center">
+                    <span class="text-4xl block mb-4">👆</span>
+                    <h3 class="font-bold">1. Click</h3>
+                    <p class="text-sm text-gray-500">Presiona el icono de micrófono en el widget de Ideas.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 text-center">
+                    <span class="text-4xl block mb-4">🗣️</span>
+                    <h3 class="font-bold">2. Dicta</h3>
+                    <p class="text-sm text-gray-500">Habla claro y pausado. El sistema detecta pausas naturales.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 text-center">
+                    <span class="text-4xl block mb-4">💾</span>
+                    <h3 class="font-bold">3. Guarda</h3>
+                    <p class="text-sm text-gray-500">El texto va a "Nueva Idea". El audio original se guarda como
+                        respaldo.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pro -->
+        <section id="pro" class="mb-12 scroll-mt-24">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Comandos de Puntuación</h2>
+            <div class="bg-gray-100 rounded-lg p-6">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr>
+                            <th class="pb-4 font-bold text-gray-500 uppercase text-xs">Di esto...</th>
+                            <th class="pb-4 font-bold text-gray-500 uppercase text-xs">Para obtener...</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 text-sm">
+                        <tr>
+                            <td class="py-3 font-mono text-rose-600">"Punto"</td>
+                            <td class="py-3">. (Final de frase)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 font-mono text-rose-600">"Coma"</td>
+                            <td class="py-3">, (Pausa breve)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 font-mono text-rose-600">"Nuevo párrafo"</td>
+                            <td class="py-3">Salto de línea doble</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="text-xs text-gray-400 mt-4">* La puntuación depende del motor de reconocimiento del navegador
+                    (Chrome recomendado).</p>
+            </div>
+        </section>
+
+        <footer class="text-center text-sm text-gray-400 mt-16 pt-8 border-t border-gray-200">
+            <p>&copy; 2026 Value Strategy Consulting.</p>
+        </footer>
+    </main>
+</body>
+
+</html>

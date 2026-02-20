@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Value Strategy Consulting - Hub Interno de Operaciones">
+    <title>VSC Hub — Dashboard Interno</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/custom_modal.css">
+    <link rel="stylesheet" href="/css/premium_cards.css">
+    <link rel="stylesheet" href="/css/premium_docs.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">VSC</div>
+                <div class="logo-text">
+                    <span class="logo-title">ValueStrategy</span>
+                    <span class="logo-sub">Consulting Hub</span>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-label">Principal</span>
+                <a href="#home" class="nav-link active" data-section="home">
+                    <span class="nav-icon">🏠</span>
+                    Home
+                </a>
+                <a href="#overview" class="nav-link" data-section="overview">
+                    <span class="nav-icon">📊</span>
+                    Overview
+                </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-label">PARA</span>
+                <a href="#projects" class="nav-link" data-section="projects">
+                    <span class="nav-icon">🚀</span>
+                    Proyectos
+                </a>
+                <a href="#areas" class="nav-link" data-section="areas">
+                    <span class="nav-icon">📋</span>
+                    Áreas
+                </a>
+                <a href="#archivos" class="nav-link" data-section="archivos">
+                    <span class="nav-icon">📄</span>
+                    Recursos
+                </a>
+                <a href="#skills" class="nav-link" data-section="skills">
+                    <span class="nav-icon">📚</span>
+                    Skills
+                </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-label">CODE</span>
+                <a href="#ideas" class="nav-link" data-section="ideas">
+                    <span class="nav-icon">💡</span>
+                    Captura
+                </a>
+                <a href="#context" class="nav-link" data-section="context">
+                    <span class="nav-icon">🧠</span>
+                    Memoria
+                </a>
+                <a href="#waiting" class="nav-link" data-section="waiting">
+                    <span class="nav-icon">⏳</span>
+                    A la Espera
+                </a>
+                <a href="#reportability" class="nav-link" data-section="reportability">
+                    <span class="nav-icon">📊</span>
+                    Reportabilidad
+                </a>
+                <a href="#analytics" class="nav-link" data-section="analytics">
+                    <span class="nav-icon">📈</span>
+                    Analytics
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-status">
+                <span class="status-dot"></span>
+                <span>Sistema Activo</span>
+            </div>
+            <a href="/logout" class="logout-link" title="Cerrar sesión">🔒 Salir</a>
+        </div>
+    </aside>
+
+    <!-- ═══════════════ MOBILE TOPBAR ═══════════════ -->
+    <div class="topbar" id="topbar">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu">☰</button>
+        <div class="topbar-logo">
+            <div class="logo-icon sm">VSC</div>
+            <span>ValueStrategy Hub</span>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ─── Top Bar ─── -->
+        <header class="content-header">
+            <div class="header-left">
+                <h1 class="page-title" id="pageTitle">Bienvenido</h1>
+                <p class="page-subtitle" id="pageSubtitle">Hub Interno de Operaciones</p>
+            </div>
+            <div class="header-right">
+                <!-- Global Search -->
+                <div class="global-search" id="globalSearch">
+                    <span class="global-search-icon">🔍</span>
+                    <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Buscar en todo..." autocomplete="off">
+                    <kbd class="global-search-kbd">Ctrl+K</kbd>
+                    <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
+                </div>
+                <!-- Notification Bell -->
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" title="Notificaciones">
+                        🔔 <span class="notification-badge" id="notificationBadge" style="display:none;">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown" style="display:none;">
+                        <div class="notification-header">Notificaciones</div>
+                        <div class="notification-list" id="notificationList"></div>
+                    </div>
+                </div>
+                <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
+                    <span class="theme-icon" id="themeIcon">🌙</span>
+                </button>
+                <div class="header-badge">
+                    <span class="badge-dot"></span>
+                    Hub Interno v2.3
+                </div>
+                <!-- User Profile Display -->
+                <% if (user) { %>
+                    <div class="user-profile"
+                        style="display:flex;align-items:center;gap:10px;margin-left:15px;padding:4px 12px;background:rgba(255,255,255,0.05);border-radius:20px;border:1px solid var(--border);">
+                        <div
+                            style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:white;">
+                            <%= user.username.charAt(0).toUpperCase() %>
+                        </div>
+                        <div style="display:flex;flex-direction:column;line-height:1.1;">
+                            <span
+                                style="font-size:0.8rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;">
+                                <%= user.username %>
+                            </span>
+                            <span style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">
+                                <%= user.role %>
+                            </span>
+                        </div>
+                    </div>
+                    <% } %>
+                        <div class="header-date" id="headerDate"></div>
+            </div>
+        </header>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: HOME
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section active" id="section-home">
+
+            <!-- Professional Hero -->
+            <div class="home-hero">
+                <div class="home-hero-bg"></div>
+                <div class="home-hero-content">
+                    <p class="home-hero-label">VALUE STRATEGY CONSULTING</p>
+                    <h2 class="home-hero-title">Hub Interno de<br>Operaciones</h2>
+                    <p class="home-hero-greeting" id="homeGreeting"></p>
+                    <div class="home-hero-divider"></div>
+                    <p class="home-hero-tagline">
+                        Plataforma centralizada para gestionar proyectos, documentación,
+                        metodologías y herramientas del equipo.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Inline Stats -->
+            <div class="home-stats-strip">
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatProjects">—</span>
+                    <span class="hss-label">Proyectos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatDocs">—</span>
+                    <span class="hss-label">Documentos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="homeStatIdeas">—</span>
+                    <span class="hss-label">Ideas Capturadas</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num">3</span>
+                    <span class="hss-label">Servicios Activos</span>
+                </div>
+            </div>
+
+            <!-- Mission Statement -->
+            <div class="home-mission">
+                <div class="home-mission-col">
+                    <h3>Nuestra Visión</h3>
+                    <p>Transformar desafíos empresariales en oportunidades de crecimiento sostenible
+                        mediante estrategias basadas en datos y ejecución ágil.</p>
+                </div>
+                <div class="home-mission-col">
+                    <h3>Este Hub</h3>
+                    <p>Centro de operaciones interno donde convergen documentación, proyectos
+                        en desarrollo e ideas del equipo — todo en un solo lugar.</p>
+                </div>
+            </div>
+
+            <!-- Quick Capture Bar (sub-5-second voice capture from Home) -->
+            <div class="quick-capture-bar" id="quickCaptureBar">
+                <div class="quick-capture-inner">
+                    <span class="quick-capture-icon">🎤</span>
+                    <input type="text" id="quickCaptureInput" class="quick-capture-input"
+                        placeholder="Captura rapida — escribe o habla..." autocomplete="off">
+                    <button type="button" class="quick-capture-mic" id="quickCaptureMic" title="Hablar para capturar">
+                        <span id="quickCaptureMicIcon">🎤</span>
+                    </button>
+                    <button type="button" class="quick-capture-send" id="quickCaptureSend" title="Guardar">
+                        ➤
+                    </button>
+                </div>
+                <span class="quick-capture-hint" id="quickCaptureHint">Ctrl+Shift+V desde cualquier seccion</span>
+            </div>
+
+            <!-- Quote -->
+            <div class="home-quote">
+                <span class="home-quote-mark">"</span>
+                <p class="home-quote-text">We turn challenges into opportunities for growth.</p>
+                <span class="home-quote-author">— Value Strategy Consulting</span>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: OVERVIEW
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-overview">
+
+            <!-- CODE Pipeline -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📊 Pipeline CODE — Flujo de Trabajo</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="code-pipeline">
+                        <div class="pipeline-stage" data-stage="captured">
+                            <div class="pipeline-icon">📥</div>
+                            <div class="pipeline-count" id="codeCaptured">0</div>
+                            <div class="pipeline-label">Capturadas</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="organized">
+                            <div class="pipeline-icon">📂</div>
+                            <div class="pipeline-count" id="codeOrganized">0</div>
+                            <div class="pipeline-label">Organizadas</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="distilled">
+                            <div class="pipeline-icon">💎</div>
+                            <div class="pipeline-count" id="codeDistilled">0</div>
+                            <div class="pipeline-label">Destiladas</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="expressed">
+                            <div class="pipeline-icon">🚀</div>
+                            <div class="pipeline-count" id="codeExpressed">0</div>
+                            <div class="pipeline-label">Expresadas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon projects-icon">🚀</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statProjects">—</span>
+                        <span class="stat-label">Proyectos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon docs-icon">📋</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statAreas">—</span>
+                        <span class="stat-label">Áreas</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon methods-icon">🧠</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statContext">—</span>
+                        <span class="stat-label">Memoria</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon status-icon">⏳</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statWaiting">—</span>
+                        <span class="stat-label">A la Espera</span>
+                    </div>
+                </div>
+                <div class="stat-card action-card" id="btnDeepResearch" title="Analizar un tema complejo">
+                    <div class="stat-icon research-icon">🕵️</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Deep Research</span>
+                        <span class="stat-desc">Investigar</span>
+                    </div>
+                </div>
+                <div class="stat-card action-card" id="btnWeeklyReview" title="Generar plan semanal">
+                    <div class="stat-icon review-icon">📅</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Weekly Review</span>
+                        <span class="stat-desc">Planificar</span>
+                    </div>
+                </div>
+                <div class="stat-card action-card" id="btnDigest" title="Generar resumen diario del equipo">
+                    <div class="stat-icon digest-icon">📬</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Digest</span>
+                        <span class="stat-desc">Tap on Shoulder</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inbox Log (Receipt — Audit Trail) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📬 Inbox Log — Audit Trail</h2>
+                    <span class="inbox-log-count" id="inboxLogCount">0 entradas</span>
+                </div>
+                <div class="panel-body">
+                    <div class="inbox-log-list" id="inboxLogList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                    <div class="pagination-controls" id="inboxPagination">
+                        <button class="pagination-btn" id="inboxPrevPage" disabled>← Anterior</button>
+                        <span class="pagination-info" id="inboxPageInfo">Pagina 1</span>
+                        <button class="pagination-btn" id="inboxNextPage">Siguiente →</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PARA Distribution -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📁 Distribución PARA</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="para-distribution">
+                        <div class="para-card" onclick="switchSection('projects')">
+                            <div class="para-icon">🚀</div>
+                            <div class="para-info">
+                                <span class="para-count" id="paraProjects">0</span>
+                                <span class="para-label">Proyectos</span>
+                            </div>
+                            <span class="para-desc">Con deadline</span>
+                        </div>
+                        <div class="para-card" onclick="switchSection('areas')">
+                            <div class="para-icon">📋</div>
+                            <div class="para-info">
+                                <span class="para-count" id="paraAreas">0</span>
+                                <span class="para-label">Áreas</span>
+                            </div>
+                            <span class="para-desc">Responsabilidades</span>
+                        </div>
+                        <div class="para-card" onclick="switchSection('archivos')">
+                            <div class="para-icon">📚</div>
+                            <div class="para-info">
+                                <span class="para-count" id="paraResources">0</span>
+                                <span class="para-label">Recursos</span>
+                            </div>
+                            <span class="para-desc">Referencia</span>
+                        </div>
+                        <div class="para-card">
+                            <div class="para-icon">🗄️</div>
+                            <div class="para-info">
+                                <span class="para-count" id="paraArchive">0</span>
+                                <span class="para-label">Archivo</span>
+                            </div>
+                            <span class="para-desc">Inactivo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: PROJECTS (dynamic)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-projects">
+
+            <!-- Add Project Panel -->
+            <div class="panel add-project-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">➕ Agregar Proyecto</h2>
+                    <button class="panel-action" id="toggleAddProject">Mostrar ↓</button>
+                </div>
+                <div class="panel-body add-project-body" id="addProjectBody" style="display:none;">
+                    <form class="add-project-form" id="addProjectForm">
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Nombre *</label>
+                                <input type="text" id="projName" placeholder="Mi Proyecto" required>
+                            </div>
+                            <div class="apf-field">
+                                <label>URL *</label>
+                                <input type="url" id="projUrl" placeholder="http://localhost:3001 o https://..."
+                                    required>
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
+                                <label>Descripción</label>
+                                <input type="text" id="projDesc" placeholder="Breve descripción del proyecto...">
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Icono (emoji)</label>
+                                <input type="text" id="projIcon" placeholder="🚀" maxlength="4">
+                            </div>
+                            <div class="apf-field">
+                                <label>Estado</label>
+                                <select id="projStatus">
+                                    <option value="active">● Activo</option>
+                                    <option value="beta">● Beta</option>
+                                    <option value="development">● En Desarrollo</option>
+                                    <option value="paused">● Pausado</option>
+                                    <option value="completed">● Completado</option>
+                                    <option value="review">● En Revisión</option>
+                                    <option value="cancelled">● Cancelado</option>
+                                </select>
+                            </div>
+                            <div class="apf-field apf-wide">
+                                <label>Tecnologías (coma separadas)</label>
+                                <input type="text" id="projTech" placeholder="Node.js, React, Python...">
+                            </div>
+                        </div>
+                        <div class="apf-actions">
+                            <button type="submit" class="btn btn-sm">Guardar Proyecto ✓</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="projects-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="projectSearch" placeholder="Buscar proyectos...">
+                </div>
+                <div class="filter-buttons" id="projectFilterBtns">
+                    <button class="filter-btn active" data-pfilter="all">Todos</button>
+                    <button class="filter-btn" data-pfilter="active">● Activos</button>
+                    <button class="filter-btn" data-pfilter="beta">● Beta</button>
+                    <button class="filter-btn" data-pfilter="development">● Desarrollo</button>
+                    <button class="filter-btn" data-pfilter="paused">● Pausados</button>
+                    <button class="filter-btn" data-pfilter="completed">● Completados</button>
+                    <button class="filter-btn" data-pfilter="review">● Revisión</button>
+                    <button class="filter-btn" data-pfilter="cancelled">● Cancelados</button>
+                </div>
+            </div>
+
+            <div class="projects-grid" id="projectsGrid">
+                <div class="loading-sm">
+                    <div class="spinner-sm"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: ARCHIVOS
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-archivos">
+
+            <!-- Upload Panel -->
+            <div class="panel upload-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📤 Subir Archivo</h2>
+                    <button class="panel-action" id="toggleUpload">Mostrar ↓</button>
+                </div>
+                <div class="panel-body upload-body" id="uploadBody" style="display:none;">
+                    <form class="upload-form" id="uploadForm">
+                        <div class="upload-row">
+                            <div class="upload-dropzone" id="uploadDropzone">
+                                <input type="file" id="uploadFile" accept=".md,.pdf,.txt,.docx" hidden>
+                                <div class="dropzone-content">
+                                    <span class="dropzone-icon">📁</span>
+                                    <p>Arrastra un archivo o <button type="button" class="dropzone-btn"
+                                            id="uploadBrowse">explorar</button></p>
+                                    <span class="dropzone-formats">.md, .pdf, .txt, .docx — Máx 50MB</span>
+                                </div>
+                                <div class="dropzone-selected" id="dropzoneSelected" style="display:none;">
+                                    <span class="selected-icon">📄</span>
+                                    <span class="selected-name" id="selectedFileName"></span>
+                                    <button type="button" class="selected-clear" id="clearFile">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="upload-row">
+                            <div class="upload-tags-input">
+                                <label class="upload-label">Tags (separados por coma)</label>
+                                <input type="text" id="uploadTags" class="upload-text-input"
+                                    placeholder="protocolo, git, estrategia...">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-upload" id="btnUpload" disabled>
+                                Subir Archivo ↑
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="archivos-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Buscar documentos...">
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">Todos</button>
+                    <button class="filter-btn" data-filter="markdown">📝 Markdown</button>
+                    <button class="filter-btn" data-filter="pdf">📕 PDF</button>
+                </div>
+            </div>
+
+            <!-- Tag Filter Bar -->
+            <div class="tag-filter-bar" id="tagFilterBar"></div>
+
+            <div class="archivos-grid" id="archivosGrid">
+                <div class="loading-sm">
+                    <div class="spinner-sm"></div>
+                    <p>Cargando documentos...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: AREAS (PARA)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-areas">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📋 Áreas de Responsabilidad</h2>
+                    <button class="btn btn-sm" onclick="openAreaModal()">+ Nueva Área</button>
+                </div>
+                <div class="panel-body">
+                    <div class="areas-grid" id="areasGrid">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Area Modal -->
+        <div id="areaModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal" onclick="closeAreaModal()">&times;</span>
+                <h2 class="modal-title" id="areaModalTitle">Nueva Área</h2>
+                <form id="areaForm">
+                    <input type="hidden" id="areaId">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="areaName" required placeholder="Ej: Operaciones">
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea id="areaDescription" rows="3" placeholder="Responsabilidades de esta área..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Icono (emoji)</label>
+                        <input type="text" id="areaIcon" placeholder="⚙️" maxlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label>Horizonte de Enfoque</label>
+                        <select id="areaHorizon">
+                            <option value="h2">H2 — Áreas de Responsabilidad</option>
+                            <option value="h3">H3 — Metas 1-2 años</option>
+                            <option value="h4">H4 — Visión 3-5 años</option>
+                            <option value="h5">H5 — Propósito/Misión</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: WAITING FOR (GTD)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-waiting">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">⏳ A la Espera (Delegaciones)</h2>
+                    <button class="btn btn-sm" onclick="openWaitingModal()">+ Nueva Delegación</button>
+                </div>
+                <div class="panel-body">
+                    <div class="waiting-list" id="waitingList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Waiting For Modal -->
+        <div id="waitingModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal" onclick="closeWaitingModal()">&times;</span>
+                <h2 class="modal-title">Nueva Delegación</h2>
+                <form id="waitingForm">
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <input type="text" id="waitingDesc" required placeholder="¿Qué se espera?">
+                    </div>
+                    <div class="form-group">
+                        <label>Delegado a</label>
+                        <select id="waitingDelegatedTo"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha límite (opcional)</label>
+                        <input type="date" id="waitingDueDate">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Crear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: METHODOLOGIES
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-methodologies">
+            <div class="methodologies-grid">
+
+                <!-- GTD -->
+                <div class="methodology-card">
+                    <div class="methodology-header">
+                        <div class="methodology-icon gtd">🧠</div>
+                        <div>
+                            <h3>GTD</h3>
+                            <span class="methodology-tag">Getting Things Done</span>
+                        </div>
+                    </div>
+                    <div class="methodology-body">
+                        <p>Captura, clarifica y organiza tu trabajo para liberar tu mente.</p>
+                        <div class="methodology-details">
+                            <div class="methodology-detail-item">
+                                <span class="methodology-detail-title">1. Capturar</span>
+                                <span class="methodology-detail-desc">Usa la sección de <b>Ideas</b> para anotar
+                                    todo.</span>
+                            </div>
+                            <div class="methodology-detail-item">
+                                <span class="methodology-detail-title">2. Clarificar</span>
+                                <span class="methodology-detail-desc">Usa al <b>Asistente IA</b> para procesar
+                                    notas.</span>
+                            </div>
+                            <div class="methodology-detail-item">
+                                <span class="methodology-detail-title">3. Organizar</span>
+                                <span class="methodology-detail-desc">Mueve las tareas a <b>Proyectos</b>
+                                    activos.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AGILE -->
+                <div class="methodology-card">
+                    <div class="methodology-header">
+                        <div class="methodology-icon agile">⚡</div>
+                        <div>
+                            <h3>AGILE</h3>
+                            <span class="methodology-tag">Desarrollo Ágil Iterativo</span>
+                        </div>
+                    </div>
+                    <div class="methodology-body">
+                        <p>Entrega valor rápido mediante iteraciones cortas.</p>
+                        <div class="methodology-details">
+                            <div class="methodology-detail-item">
+                                <span class="methodology-detail-title">Iteraciones</span>
+                                <span class="methodology-detail-desc">Trabaja en ciclos cortos (Sprints).</span>
+                            </div>
+                            <div class="methodology-detail-item">
+                                <span class="methodology-detail-title">Feedback</span>
+                                <span class="methodology-detail-desc">Revisa métricas en el <b>Overview</b> al
+                                    final.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+     SECTION: SKILLS
+     ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-skills">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📚 Biblioteca de Habilidades</h2>
+                    <div class="panel-controls">
+                        <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input">
+                    </div>
+                </div>
+                <div class="skills-grid" id="skillsGrid">
+                    <!-- Skills will be injected here -->
+                    <div class="loading-state">Cargando habilidades...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skill Viewer Modal -->
+        <div id="skillModal" class="modal">
+            <div class="modal-content" style="max-width: 800px; height: 80vh; display: flex; flex-direction: column;">
+                <span class="close-modal">&times;</span>
+                <h2 id="skillModalTitle" class="modal-title"></h2>
+                <div id="skillModalContent" style="flex: 1; overflow-y: auto; margin-top: 1rem;"></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: IDEAS
+             ══════════════════════════════════════════════════════ -->
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: IDEAS
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-ideas">
+            <div class="ideas-container">
+
+                <!-- Input Panel -->
+                <div class="panel ideas-input-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">💡 Nueva Idea</h2>
+                        <span class="mic-status" id="micStatus"></span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="ideas-form">
+                            <textarea id="ideaTextarea" class="ideas-textarea"
+                                placeholder="Escribe tu idea aquí o usa el micrófono..." rows="4"></textarea>
+                            <div class="ideas-actions">
+                                <button type="button" class="btn-mic" id="btnMic" title="Hablar para escribir">
+                                    <span class="mic-icon" id="micIcon">🎤</span>
+                                    <span class="mic-label" id="micLabel">Micrófono</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-save-idea" id="btnSaveIdea">
+                                    Guardar Idea ✓
+                                </button>
+                            </div>
+                            <p class="mic-hint" id="micHint">💡 Tip: Ctrl+Enter para guardar rápido</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ideas List -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📋 Mis Ideas</h2>
+                        <div class="ideas-controls">
+                            <div class="idea-filters">
+                                <button class="filter-chip active" data-ifilter="all">Todos</button>
+                                <button class="filter-chip" data-ifilter="captured">📥 Capturadas</button>
+                                <button class="filter-chip" data-ifilter="organized">📂 Organizadas</button>
+                                <button class="filter-chip" data-ifilter="distilled">💎 Destiladas</button>
+                                <button class="filter-chip" data-ifilter="expressed">🚀 Expresadas</button>
+                                <button class="filter-chip" data-ifilter="voice">🎤 Voz</button>
+                            </div>
+                            <span class="ideas-count" id="ideasCount">0</span>
+                            <% if (user && user.role==='admin' ) { %>
+                                <button class="btn-icon-danger" id="btnDeleteAllIdeas"
+                                    title="Borrar TODAS las ideas (Admin)">🗑️</button>
+                                <% } %>
+                        </div>
+                    </div>
+                    <div class="panel-body ideas-list" id="ideasList">
+                        <div class="loading-sm">
+                            <div class="spinner-sm"></div>
+                        </div>
+                    </div>
+                    <!-- Pagination -->
+                    <div class="pagination-controls" id="ideasPagination">
+                        <button class="pagination-btn" id="ideasPrevPage" disabled>← Anterior</button>
+                        <span class="pagination-info" id="ideasPageInfo">Pagina 1</span>
+                        <button class="pagination-btn" id="ideasNextPage">Siguiente →</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: CONTEXT (MEMORY)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-context">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🧠 Memoria — Contexto PARA</h2>
+                    <button class="btn btn-sm" onclick="openContextModal()">+ Nuevo Dato</button>
+                </div>
+                <div class="panel-body">
+                    <!-- PARA Tabs -->
+                    <div class="para-tabs" id="contextParaTabs">
+                        <button class="para-tab active" data-para="all">Todos</button>
+                        <button class="para-tab" data-para="project">🚀 Proyectos</button>
+                        <button class="para-tab" data-para="area">📋 Áreas</button>
+                        <button class="para-tab" data-para="resource">📚 Recursos</button>
+                        <button class="para-tab" data-para="archive">🗄️ Archivo</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="contextTable">
+                            <thead>
+                                <tr>
+                                    <th>Clave / Tema</th>
+                                    <th>Contenido</th>
+                                    <th>PARA</th>
+                                    <th>CODE</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Context Items -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Context Modal -->
+        <div id="contextModal" class="modal">
+            <div class="modal-content" style="max-width: 550px;">
+                <span class="close-modal" onclick="closeContextModal()">&times;</span>
+                <h2 class="modal-title" id="contextModalTitle">Nuevo Dato de Contexto</h2>
+                <form id="contextForm">
+                    <input type="hidden" id="contextId">
+                    <div class="form-group">
+                        <label>Clave / Título</label>
+                        <input type="text" id="contextKey" required placeholder="Ej: Reglas de Reuniones">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Categoría</label>
+                            <select id="contextCategory">
+                                <option value="core">Core / Reglas</option>
+                                <option value="business">Negocio</option>
+                                <option value="personal">Personal</option>
+                                <option value="preference">Preferencia</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo PARA</label>
+                            <select id="contextParaType">
+                                <option value="resource">📚 Recurso</option>
+                                <option value="project">🚀 Proyecto</option>
+                                <option value="area">📋 Área</option>
+                                <option value="archive">🗄️ Archivo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Área relacionada (opcional)</label>
+                        <select id="contextAreaId">
+                            <option value="">— Ninguna —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Contenido</label>
+                        <textarea id="contextContent" rows="5" required
+                            placeholder="Describe el conocimiento..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: REPORTABILITY (Per-Consultant Dashboard)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-reportability">
+
+            <!-- Team Summary Strip -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📊 Resumen del Equipo — Hoy</h2>
+                    <span class="report-date" id="reportDate"></span>
+                </div>
+                <div class="panel-body">
+                    <div class="team-summary-strip" id="teamSummaryStrip">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consultant Selector -->
+            <div class="report-controls">
+                <label class="report-label">Consultor:</label>
+                <select id="reportUserSelect" class="report-select">
+                    <option value="">— Seleccionar —</option>
+                </select>
+                <button class="btn btn-sm" id="btnLoadChecklist">Ver Checklist</button>
+                <button class="btn btn-sm" style="margin-left:auto;" id="btnFullReport">📋 Reporte Completo</button>
+            </div>
+
+            <!-- Consultant Checklist -->
+            <div class="panel" id="checklistPanel" style="display:none;">
+                <div class="panel-header">
+                    <h2 class="panel-title" id="checklistTitle">📋 Checklist Diario</h2>
+                    <div class="checklist-progress">
+                        <span id="checklistProgress">0/0</span>
+                        <div class="progress-bar-mini">
+                            <div class="progress-bar-fill" id="checklistProgressBar" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="checklist-list" id="checklistList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+
+                    <!-- Waiting For section for this user -->
+                    <div id="checklistWaiting" style="display:none;">
+                        <h3 class="checklist-section-title">⏳ Delegaciones Pendientes</h3>
+                        <div id="checklistWaitingList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Team Report (expanded view) -->
+            <div id="fullReportPanel" style="display:none;">
+                <div class="report-cards-grid" id="reportCardsGrid">
+                    <!-- Consultant cards injected here -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: ANALYTICS (Trend Charts)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-analytics">
+            <div class="analytics-toolbar">
+                <button class="btn btn-sm" id="btnExportData" title="Exportar todos los datos">📦 Exportar Datos</button>
+                <label class="btn btn-sm" id="btnImportData" title="Importar datos">📥 Importar
+                    <input type="file" id="importFileInput" accept=".json" hidden>
+                </label>
+                <button class="btn btn-sm" id="btnVoiceCommands" title="Comandos de voz">🎤 Voz</button>
+            </div>
+
+            <!-- Ideas Trend Chart -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📈 Ideas por Dia (30 dias)</h2>
+                </div>
+                <div class="panel-body">
+                    <canvas id="chartIdeasPerDay" height="250"></canvas>
+                </div>
+            </div>
+
+            <!-- Completion Rate Chart -->
+            <div class="analytics-row">
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📊 Tasa de Completado</h2>
+                    </div>
+                    <div class="panel-body">
+                        <canvas id="chartCompletionRate" height="250"></canvas>
+                    </div>
+                </div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">🏢 Areas Mas Activas</h2>
+                    </div>
+                    <div class="panel-body">
+                        <canvas id="chartActiveAreas" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Type & Priority Charts -->
+            <div class="analytics-row">
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📋 Ideas por Tipo</h2>
+                    </div>
+                    <div class="panel-body">
+                        <canvas id="chartByType" height="250"></canvas>
+                    </div>
+                </div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">🎯 Por Prioridad</h2>
+                    </div>
+                    <div class="panel-body">
+                        <canvas id="chartByPriority" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Productivity -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">👥 Productividad por Consultor</h2>
+                </div>
+                <div class="panel-body">
+                    <canvas id="chartUserProductivity" height="200"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Fix Idea Modal (Bouncer — human correction) -->
+    <div id="fixModal" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <span class="close-modal" onclick="closeFixModal()">&times;</span>
+            <h2 class="modal-title">🔧 Corregir Clasificacion</h2>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">La IA tiene baja confianza en esta clasificacion. Ajusta los campos correctos:</p>
+            <form id="fixForm">
+                <input type="hidden" id="fixIdeaId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select id="fixType">
+                            <option value="">— Sin cambio —</option>
+                            <option value="Tarea">Tarea</option>
+                            <option value="Proyecto">Proyecto</option>
+                            <option value="Nota">Nota</option>
+                            <option value="Meta">Meta</option>
+                            <option value="Delegacion">Delegacion</option>
+                            <option value="Referencia">Referencia</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="fixCategory">
+                            <option value="">— Sin cambio —</option>
+                            <option value="Operaciones">Operaciones</option>
+                            <option value="HSE">HSE</option>
+                            <option value="Finanzas">Finanzas</option>
+                            <option value="Contratos">Contratos</option>
+                            <option value="Ejecucion">Ejecucion</option>
+                            <option value="Gestion de Activos">Gestion de Activos</option>
+                            <option value="Capacitacion">Capacitacion</option>
+                            <option value="Desarrollo Profesional">Desarrollo Profesional</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo PARA</label>
+                        <select id="fixParaType">
+                            <option value="">— Sin cambio —</option>
+                            <option value="project">Proyecto</option>
+                            <option value="area">Area</option>
+                            <option value="resource">Recurso</option>
+                            <option value="archive">Archivo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Prioridad</label>
+                        <select id="fixPriority">
+                            <option value="">— Sin cambio —</option>
+                            <option value="alta">Alta</option>
+                            <option value="media">Media</option>
+                            <option value="baja">Baja</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Asignar a</label>
+                    <select id="fixAssignedTo">
+                        <option value="">— Sin cambio —</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Guardar Correccion</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Digest Result Modal -->
+    <div id="digestModal" class="modal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
+            <span class="close-modal" onclick="document.getElementById('digestModal').style.display='none'">&times;</span>
+            <h2 class="modal-title">📬 Digest — Tap on Shoulder</h2>
+            <div id="digestContent" style="flex: 1; overflow-y: auto; margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Result Modal -->
+    <div id="agentModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 85vh; display: flex; flex-direction: column;">
+            <span class="close-modal" id="closeAgentModal">&times;</span>
+            <h2 id="agentModalTitle" class="modal-title">Resultado del Agente</h2>
+            <div id="agentModalContent"
+                style="flex: 1; overflow-y: auto; margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <!-- Markdown content goes here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Generic Modal (Alert/Confirm/Prompt) -->
+    <div id="customModal" class="modal" style="display: none; z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h3 id="customModalTitle" class="modal-title" style="margin-bottom: 12px;">Título</h3>
+            <p id="customModalMessage" style="color: var(--text-secondary); margin-bottom: 20px;">Mensaje</p>
+
+            <div id="customModalInputContainer" style="display:none; margin-bottom: 20px;">
+                <input type="text" id="customModalInput" class="form-input" placeholder="Escribe aquí..."
+                    style="width: 100%;">
+            </div>
+
+            <div class="form-actions" style="justify-content: center; gap: 12px;">
+                <button id="customModalCancel" class="btn">Cancelar</button>
+                <button id="customModalConfirm" class="btn btn-primary">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         FLOATING AI WIDGET
+         ══════════════════════════════════════════════════════ -->
+    <div id="aiWidget" class="ai-widget">
+        <div class="ai-header">
+            <div class="ai-header-title">
+                <span>🤖</span>
+                <select id="agentSelector" class="agent-selector" title="Seleccionar Agente">
+                    <option value="default">Asistente General</option>
+                    <option value="staffing">Staffing Agent (Dotación)</option>
+                    <option value="training">Training Agent (Capacitación)</option>
+                    <option value="finance">Finance Agent (Presupuesto)</option>
+                    <option value="compliance">Compliance Agent (Auditoría)</option>
+                </select>
+            </div>
+            <button id="closeAiBtn" class="ai-close-btn">&times;</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="msg-content">
+                    <strong>Asistente ValueStrategy</strong>
+                    <p>Hola. Soy tu asistente de operaciones. ¿En qué te ayudo hoy?</p>
+                    <small>Puedo ayudarte a organizar ideas, crear tareas o revisar metodologías.</small>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Escribe tu mensaje..." autocomplete="off">
+            <button id="sendBtn">➤</button>
+        </div>
+    </div>
+
+    <button id="aiToggleBtn" class="ai-toggle-btn" title="Abrir Asistente">
+        🤖
+    </button>
+
+    <script src="/js/main.js?v=<%= Date.now() %>"></script>
+    <script>
+        // Fallback: Ensure AI Widget toggles even if main.js fails
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggle = document.getElementById('aiToggleBtn');
+            const widget = document.getElementById('aiWidget');
+            const close = document.getElementById('closeAiBtn');
+            const input = document.getElementById('chatInput');
+
+            if (toggle && widget) {
+                // Remove existing listeners to avoid duplicates (clone node)
+                const newToggle = toggle.cloneNode(true);
+                toggle.parentNode.replaceChild(newToggle, toggle);
+
+                newToggle.onclick = () => {
+                    widget.classList.toggle('open');
+                    if (widget.classList.contains('open') && input) input.focus();
+                };
+            }
+            if (close && widget) {
+                close.onclick = () => widget.classList.remove('open');
+            }
+        });
+    </script>
+</body>
+
+</html>
