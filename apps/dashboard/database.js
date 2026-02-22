@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const log = require('./helpers/logger');
 
 // Database file path
 const dbPath = path.join(__dirname, 'data', 'second_brain.db');
@@ -7,9 +8,14 @@ const dbPath = path.join(__dirname, 'data', 'second_brain.db');
 // Connect to SQLite
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-        console.error('Error opening database:', err.message);
+        log.error('Error opening database', { error: err.message });
     } else {
-        console.log('Connected to the SQLite database.');
+        log.info('Connected to SQLite database', { path: dbPath });
+        // Performance & reliability PRAGMAs
+        db.run('PRAGMA journal_mode = WAL');
+        db.run('PRAGMA synchronous = NORMAL');
+        db.run('PRAGMA foreign_keys = ON');
+        db.run('PRAGMA busy_timeout = 5000');
         initTables();
     }
 });
@@ -58,7 +64,7 @@ function initTables() {
             'is_project'          // 1=project, 0=single task/idea
         ];
         ideasColumnsToAdd.forEach(col => {
-            db.run(`ALTER TABLE ideas ADD COLUMN ${col} TEXT`, (err) => {
+            db.run(`ALTER TABLE ideas ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore error if column exists
             });
         });
@@ -78,7 +84,7 @@ function initTables() {
             'related_project_id', 'related_area_id', 'distilled_summary'
         ];
         contextColumnsToAdd.forEach(col => {
-            db.run(`ALTER TABLE context_items ADD COLUMN ${col} TEXT`, (err) => {
+            db.run(`ALTER TABLE context_items ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore error if column exists
             });
         });
@@ -133,7 +139,7 @@ function initTables() {
         // Migration: PARA columns for projects
         const projectColumnsToAdd = ['related_area_id', 'horizon', 'deadline'];
         projectColumnsToAdd.forEach(col => {
-            db.run(`ALTER TABLE projects ADD COLUMN ${col} TEXT`, (err) => {
+            db.run(`ALTER TABLE projects ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore error if column exists
             });
         });
@@ -163,7 +169,7 @@ function initTables() {
 
         // Migration: Add department/expertise to users
         ['department', 'expertise'].forEach(col => {
-            db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (err) => {
+            db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore if exists
             });
         });
@@ -183,14 +189,14 @@ function initTables() {
         )`);
 
         // Migration: Add confidence score to ideas
-        db.run(`ALTER TABLE ideas ADD COLUMN ai_confidence REAL`, (err) => {});
-        db.run(`ALTER TABLE ideas ADD COLUMN needs_review INTEGER DEFAULT 0`, (err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN ai_confidence REAL`, (_err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN needs_review INTEGER DEFAULT 0`, (_err) => {});
 
         // Migration: Add created_by (identity tracking — who captured this idea?)
-        db.run(`ALTER TABLE ideas ADD COLUMN created_by TEXT`, (err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN created_by TEXT`, (_err) => {});
 
         // Migration: Add last_reviewed for weekly review tracking
-        db.run(`ALTER TABLE ideas ADD COLUMN last_reviewed DATETIME`, (err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN last_reviewed DATETIME`, (_err) => {});
 
         // API Keys Table (for external integrations like OpenClaw)
         db.run(`CREATE TABLE IF NOT EXISTS api_keys (
@@ -241,7 +247,23 @@ function initTables() {
             if (!err) seedGtdContexts();
         });
 
-        console.log('Database tables initialized.');
+        // ─── Indexes (idempotent — safe to run on every startup) ────────
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_code_stage ON ideas(code_stage)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_assigned_to ON ideas(assigned_to)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_parent ON ideas(parent_idea_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_area ON ideas(related_area_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_priority ON ideas(priority)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_completada ON ideas(completada)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_checklist_user_date ON daily_checklist(username, date)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_waiting_status ON waiting_for(status)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_waiting_delegated ON waiting_for(delegated_to)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_context_para ON context_items(para_type)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_context_area ON context_items(related_area_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_inbox_log_idea ON inbox_log(original_idea_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)');
+
+        log.info('Database tables and indexes initialized');
 
         // Seed areas after tables are created
         seedAreas();
@@ -253,7 +275,7 @@ function seedAreas() {
     db.get('SELECT count(*) as count FROM areas', [], (err, row) => {
         if (err) return;
         if (row.count === 0) {
-            console.log('🌱 Seeding corporate areas...');
+            log.info('Seeding corporate areas');
             const areas = [
                 { name: 'Operaciones', description: 'Gestion operativa diaria, dotacion y turnos', icon: '⚙️', horizon: 'h2' },
                 { name: 'HSE', description: 'Salud, Seguridad y Medio Ambiente', icon: '🛡️', horizon: 'h2' },
@@ -267,16 +289,16 @@ function seedAreas() {
             const stmt = db.prepare('INSERT OR IGNORE INTO areas (name, description, icon, horizon) VALUES (?, ?, ?, ?)');
             areas.forEach(a => stmt.run(a.name, a.description, a.icon, a.horizon));
             stmt.finalize();
-            console.log('✅ Areas seeded successfully.');
+            log.info('Areas seeded successfully');
         }
     });
 }
 
 async function seedUsers() {
     db.get('SELECT count(*) as count FROM users', [], async (err, row) => {
-        if (err) return console.error(err.message);
+        if (err) return log.error('Seed users query failed', { error: err.message });
         if (row.count === 0) {
-            console.log('🌱 Seeding initial users...');
+            log.info('Seeding initial users');
             try {
                 const bcrypt = require('bcryptjs');
                 const salt = await bcrypt.genSalt(10);
@@ -293,9 +315,9 @@ async function seedUsers() {
                     stmt.run(user.username, hash, user.role, user.department, user.expertise);
                 });
                 stmt.finalize();
-                console.log('✅ Users seeded successfully.');
+                log.info('Users seeded successfully');
             } catch (e) {
-                console.error('Seeding error:', e);
+                log.error('Seeding error', { error: e.message });
             }
         }
     });
@@ -305,14 +327,14 @@ function seedApiKeys() {
     db.get('SELECT count(*) as count FROM api_keys', [], (err, row) => {
         if (err) return;
         if (row.count === 0) {
-            console.log('🔑 Seeding default API key for OpenClaw...');
+            log.info('Seeding default API key for OpenClaw');
             const crypto = require('crypto');
             const key = 'sb_' + crypto.randomBytes(24).toString('hex');
             db.run(
                 'INSERT INTO api_keys (key, name, username, permissions) VALUES (?, ?, ?, ?)',
                 [key, 'OpenClaw Agent', 'david', 'read,write'],
                 (err) => {
-                    if (!err) console.log(`✅ API Key created: ${key}\n   Save this key for OpenClaw config.`);
+                    if (!err) log.info('API Key created for OpenClaw — save this key', { key });
                 }
             );
         }
@@ -323,7 +345,7 @@ function seedGtdContexts() {
     db.get('SELECT count(*) as count FROM gtd_contexts', [], (err, row) => {
         if (err) return;
         if (row.count === 0) {
-            console.log('🌱 Seeding GTD contexts...');
+            log.info('Seeding GTD contexts');
             const contexts = [
                 { name: '@computador', icon: '💻', description: 'Tareas que requieren computador' },
                 { name: '@email', icon: '📧', description: 'Correos por enviar o responder' },
@@ -340,7 +362,7 @@ function seedGtdContexts() {
             const stmt = db.prepare('INSERT OR IGNORE INTO gtd_contexts (name, icon, description) VALUES (?, ?, ?)');
             contexts.forEach(c => stmt.run(c.name, c.icon, c.description));
             stmt.finalize();
-            console.log('✅ GTD contexts seeded.');
+            log.info('GTD contexts seeded');
         }
     });
 }

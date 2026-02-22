@@ -146,21 +146,24 @@ function initHomeGreeting() {
 // ─── Home Data (stats + projects + docs) ───────────────────────────────────────
 async function initHomeData() {
     try {
-        const [archRes, ideasRes, projRes] = await Promise.all([
-            fetch('/api/archivos'), fetch('/api/ideas'), fetch('/api/projects')
+        const [archRes, ideasRes, projRes, areasRes] = await Promise.all([
+            fetch('/api/archivos'), fetch('/api/ideas'), fetch('/api/projects'), fetch('/api/areas')
         ]);
         const archivos = await archRes.json();
         const ideasData = await ideasRes.json();
         const projects = await projRes.json();
+        const areas = await areasRes.json();
 
         // Handle paginated or raw response
         const ideasCount = ideasData.pagination ? ideasData.pagination.total : (Array.isArray(ideasData) ? ideasData.length : 0);
+        const activeAreas = Array.isArray(areas) ? areas.filter(a => a.status === 'active').length : 0;
 
         // Update stats
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
         set('homeStatDocs', archivos.length);
         set('homeStatIdeas', ideasCount);
         set('homeStatProjects', projects.length);
+        set('homeStatAreas', activeAreas);
         set('statProjects', projects.length);
     } catch (err) {
         console.error('Home data error:', err);
@@ -228,7 +231,22 @@ function initAgents() {
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                showAgentResult('📅 Plan Semanal', renderMarkdown(data.response));
+                let reviewHtml = renderMarkdown(data.response);
+                // Show stale ideas that should be archived
+                if (data.stale_ideas && data.stale_ideas.length > 0) {
+                    reviewHtml += `<hr style="margin:1.5rem 0;border-color:rgba(255,255,255,0.1);">`;
+                    reviewHtml += `<h3>📦 Ideas estancadas (${data.stale_ideas.length})</h3>`;
+                    reviewHtml += `<p style="opacity:0.7;font-size:0.85rem;">Estas ideas llevan +14 dias sin avanzar. Considera archivarlas o reactivarlas:</p>`;
+                    reviewHtml += `<ul style="list-style:none;padding:0;">`;
+                    data.stale_ideas.forEach(s => {
+                        reviewHtml += `<li style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <span style="opacity:0.5;font-size:0.75rem;">${s.code_stage}</span>
+                            ${escapeHtml(s.ai_summary || s.text)}
+                        </li>`;
+                    });
+                    reviewHtml += `</ul>`;
+                }
+                showAgentResult('📅 Plan Semanal', reviewHtml);
             } catch (err) {
                 showAgentResult('❌ Error', `Falló la revisión: ${err.message}`);
             }
@@ -243,16 +261,34 @@ function showAgentResult(title, contentHtml) {
 
     if (modal && titleEl && contentEl) {
         titleEl.textContent = title;
-        // Simple MD rendering or just HTML injection
-        contentEl.innerHTML = contentHtml;
+        contentEl.innerHTML = safeHTML(contentHtml);
         modal.style.display = 'flex';
     }
 }
 
+// ── Security: Sanitize HTML before injecting into DOM ─────────────────────
+function safeHTML(dirty) {
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(dirty, {
+            ALLOWED_TAGS: ['h1','h2','h3','h4','b','i','em','strong','ul','ol','li','br','p','pre','code','a','span','div','table','thead','tbody','tr','th','td','hr','blockquote'],
+            ALLOWED_ATTR: ['href','target','class','style'],
+        });
+    }
+    // Fallback: strip all tags
+    const div = document.createElement('div');
+    div.textContent = dirty;
+    return div.innerHTML;
+}
+
 function renderMarkdown(text) {
     if (!text) return '';
+    // Escape HTML entities first to prevent injection
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     // Basic Markdown parser for the agent response
-    return text
+    const html = escaped
         .replace(/^# (.*$)/gim, '<h1>$1</h1>')
         .replace(/^## (.*$)/gim, '<h2>$1</h2>')
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')
@@ -262,6 +298,7 @@ function renderMarkdown(text) {
         .replace(/<\/li>\n<li>/gim, '</li><li>')     // Fix lines
         .replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>')  // Wrap in ul (naive)
         .replace(/\n/gim, '<br>');
+    return safeHTML(html);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1090,7 +1127,7 @@ function showToast(msg, type = 'info') {
         box-shadow: 0 8px 24px rgba(0,0,0,0.25); pointer-events: auto;
         animation: fadeSlideIn 0.3s ease; display: flex; align-items: center; gap: 8px;
     `;
-    toast.innerHTML = `<span>${icons[type] || icons.info}</span> ${msg}`;
+    toast.innerHTML = `<span>${icons[type] || icons.info}</span> ${escapeHtml(msg)}`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.transition = 'all 0.3s ease';
@@ -1238,7 +1275,7 @@ function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
-    return div.innerHTML;
+    return div.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
 
 // ─── Assistant Logic (Floating Widget) ────────────────────────────────────────
@@ -1308,14 +1345,10 @@ function initChat() {
 
         let content = `<div class="msg-content"><p>${escapeHtml(text)}</p></div>`;
         if (role === 'ai') {
-            // Parse simplified markdown (bold/list)
-            let formatted = escapeHtml(text)
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>');
-            content = `<div class="msg-content">${formatted}</div>`;
+            content = `<div class="msg-content">${renderMarkdown(text)}</div>`;
         }
 
-        div.innerHTML = content;
+        div.innerHTML = safeHTML(content);
         messagesContainer.appendChild(div);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
@@ -1642,7 +1675,11 @@ async function viewSkill(filePath, title) {
 
         if (data.error) throw new Error(data.error);
 
-        modalContent.innerHTML = `<pre style="white-space: pre-wrap; font-family: monospace; color: #d1d5db;">${data.content}</pre>`;
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'white-space: pre-wrap; font-family: monospace; color: #d1d5db;';
+        pre.textContent = data.content;
+        modalContent.innerHTML = '';
+        modalContent.appendChild(pre);
 
         // Attach Discuss Handler
         const btnDiscuss = document.getElementById('btnDiscussSkill');
@@ -1725,19 +1762,7 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
 }
 window.showCustomModal = showCustomModal; // Make global just in case
 
-// Toast Notification
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 100);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-window.showToast = showToast;
+// (showToast defined above in TOAST NOTIFICATIONS section)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN LOGIC
@@ -1755,6 +1780,7 @@ async function saveIdea(skipPreview = false) {
         if (btn) btn.innerText = 'Analizando...';
 
         // Step 1: Preview — show what AI understood before saving
+        let cachedPreview = null;
         if (!skipPreview) {
             const previewRes = await fetch('/api/ai/preview', {
                 method: 'POST',
@@ -1763,10 +1789,10 @@ async function saveIdea(skipPreview = false) {
             });
 
             if (previewRes.ok) {
-                const preview = await previewRes.json();
+                cachedPreview = await previewRes.json();
                 if (btn) btn.innerText = originalText;
 
-                const confirmed = await showVoicePreview(preview, text);
+                const confirmed = await showVoicePreview(cachedPreview, text);
                 if (!confirmed) {
                     showToast('Captura cancelada', 'info');
                     return;
@@ -1774,12 +1800,12 @@ async function saveIdea(skipPreview = false) {
             }
         }
 
-        // Step 2: Save — commit to database
+        // Step 2: Save — send preview data to avoid duplicate AI call
         if (btn) btn.innerText = 'Guardando...';
         const res = await fetch('/api/ideas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, previewData: cachedPreview || undefined })
         });
 
         if (res.ok) {
@@ -1956,17 +1982,7 @@ function showVoicePreview(preview, originalText) {
 
 window.saveIdea = saveIdea;
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        if (typeof initIdeas === 'function') initIdeas();
-        if (typeof initContext === 'function') initContext();
-        if (typeof initChat === 'function') initChat();
-        if (typeof initSkills === 'function') initSkills();
-    } catch (e) {
-        console.error('Initialization error:', e);
-    }
-});
+// (Duplicate DOMContentLoaded removed — canonical init is at top of file)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SKILL DISCUSSION
@@ -2000,13 +2016,13 @@ function discussSkill(title, content) {
 }
 window.discussSkill = discussSkill;
 
-// Close modal logic for generic modals
-window.onclick = (event) => {
+// Close modal logic for generic modals (using addEventListener to avoid overriding)
+window.addEventListener('click', (event) => {
     const skillModal = document.getElementById('skillModal');
     const customModal = document.getElementById('customModal');
     if (event.target == skillModal && skillModal) skillModal.style.display = 'none';
     if (event.target == customModal && customModal) customModal.style.display = 'none';
-};
+});
 
 window.processIdea = processIdea;
 window.viewSkill = viewSkill;
@@ -2248,6 +2264,7 @@ async function completeWaiting(id) {
 }
 
 async function deleteWaiting(id) {
+    if (!confirm('¿Eliminar esta delegacion?')) return;
     try {
         await fetch(`/api/waiting-for/${id}`, { method: 'DELETE' });
         showToast('Eliminado', 'info');
@@ -2465,15 +2482,7 @@ async function generateDigest() {
         if (data.response) {
             const content = document.getElementById('digestContent');
             if (content) {
-                // Basic markdown rendering
-                content.innerHTML = data.response
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/^### (.*$)/gm, '<h4 style="margin-top:12px;color:var(--accent);">$1</h4>')
-                    .replace(/^## (.*$)/gm, '<h3 style="margin-top:16px;color:var(--accent);">$1</h3>')
-                    .replace(/^# (.*$)/gm, '<h2 style="margin-top:16px;color:var(--accent);">$1</h2>')
-                    .replace(/^- (.*$)/gm, '<li style="margin-left:16px;">$1</li>')
-                    .replace(/\n/g, '<br>');
+                content.innerHTML = renderMarkdown(data.response);
             }
             document.getElementById('digestModal').style.display = 'flex';
             showToast('Digest generado', 'success');
@@ -3072,23 +3081,32 @@ async function checkNotifications() {
             if (data.needs_review.length > 0) {
                 html += data.needs_review.map(n => `<div class="notification-item review"><span class="notif-icon">⚠️</span><span>Revisar: ${escapeHtml((n.ai_summary || n.text || '').substring(0, 50))}</span></div>`).join('');
             }
+            if (data.stale_captures && data.stale_captures.length > 0) {
+                html += data.stale_captures.map(s => `<div class="notification-item warning"><span class="notif-icon">📥</span><span>Sin procesar: ${escapeHtml((s.text || '').substring(0, 50))}</span></div>`).join('');
+            }
             if (data.total === 0) {
                 html = '<div class="notification-empty">Sin notificaciones pendientes</div>';
             }
             list.innerHTML = html;
         }
 
-        // Browser push notification for urgent items
+        // Browser push notification for urgent items (dedup: only notify on new items)
         if (data.urgent_tasks.length > 0 && 'Notification' in window) {
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
+            const currentIds = data.urgent_tasks.map(t => t.id).sort().join(',');
+            if (currentIds !== window._lastNotifiedIds) {
+                window._lastNotifiedIds = currentIds;
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+                if (Notification.permission === 'granted') {
+                    new Notification('SecondBrain — Tareas Urgentes', {
+                        body: `${data.urgent_tasks.length} tarea(s) de alta prioridad pendientes`,
+                        icon: '/favicon.ico'
+                    });
+                }
             }
-            if (Notification.permission === 'granted') {
-                new Notification('SecondBrain — Tareas Urgentes', {
-                    body: `${data.urgent_tasks.length} tarea(s) de alta prioridad pendientes`,
-                    icon: '/favicon.ico'
-                });
-            }
+        } else {
+            window._lastNotifiedIds = null;
         }
     } catch (err) {
         console.error('Notification check error:', err);
@@ -3401,9 +3419,10 @@ async function quickCaptureSave(text) {
             body: JSON.stringify({ text })
         });
 
+        let cachedPreview = null;
         if (previewRes.ok) {
-            const preview = await previewRes.json();
-            const confirmed = await showVoicePreview(preview, text);
+            cachedPreview = await previewRes.json();
+            const confirmed = await showVoicePreview(cachedPreview, text);
             if (!confirmed) {
                 if (hint) hint.textContent = 'Cancelado';
                 setTimeout(() => { if (hint) hint.textContent = 'Ctrl+Shift+V desde cualquier seccion'; }, 2000);
@@ -3411,12 +3430,12 @@ async function quickCaptureSave(text) {
             }
         }
 
-        // Save
+        // Save — send preview data to avoid duplicate AI call
         if (hint) hint.textContent = 'Guardando...';
         const res = await fetch('/api/ideas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, previewData: cachedPreview || undefined })
         });
 
         if (res.ok) {

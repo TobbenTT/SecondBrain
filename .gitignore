@@ -4,7 +4,7 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# Next.js
+# Build output
 .next/
 out/
 build/
@@ -17,31 +17,48 @@ yarn-error.log*
 logs/
 *.log
 
-# Environment variables
+# Environment variables (secrets)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Test coverage
+coverage/
+
 # OS Files
 .DS_Store
 Thumbs.db
 Desktop.ini
+ehthumbs.db
 
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
 # Project Specific
 _BACKUP_*/
-_BACKUP_orchestrator_beta/
 *.bak
 *.tmp
 *.code-workspace
 
-# User Content (adjust if you want to version this)
-# apps/dashboard/public/voice-notes/
-# knowledge/
+# Audio/media test files
+*.webm
+*.mp3
+*.wav
+
+# Claude Code
+.claude/

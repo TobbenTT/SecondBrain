@@ -8,7 +8,27 @@
       "Bash(node -e:*)",
       "WebFetch(domain:www.clawcloud.dev)",
       "WebFetch(domain:innfactory.ai)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx jest:*)",
+      "Bash(ls:*)",
+      "Bash(pip install:*)",
+      "Bash(/c/Users/Tobbe/Sistema-OpenClaw/venv/Scripts/pip install pytest pytest-cov)",
+      "Bash(/c/Users/Tobbe/Sistema-OpenClaw/venv/Scripts/python -m pytest:*)",
+      "Bash(npx eslint:*)",
+      "Read(//c/Users/Tobbe/Downloads/Practica/SecondBrain/**)",
+      "Bash(pip show:*)",
+      "Bash(py -m pytest:*)",
+      "Bash(source:*)",
+      "Bash(find:*)",
+      "Bash(docker build:*)",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker\" --version)",
+      "Bash(\"/c/ProgramData/DockerDesktop/version-bin/docker\" --version)",
+      "Bash(done)",
+      "Bash(wc:*)",
+      "Bash(grep:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Tobbe\\Sistema-OpenClaw"
     ]
   }
 }

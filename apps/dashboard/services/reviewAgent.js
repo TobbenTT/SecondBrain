@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const log = require('../helpers/logger');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -63,7 +64,7 @@ async function generateWeeklyReview(ideas) {
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("Weekly Review Error:", error);
+        log.error('Weekly review error', { error: error.message });
         return `## Error en la Revisión\nNo pude procesar las ideas: ${error.message}`;
     }
 }

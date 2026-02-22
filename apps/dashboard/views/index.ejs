@@ -13,6 +13,7 @@
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 </head>
 
 <body>
@@ -58,6 +59,10 @@
                 <a href="#skills" class="nav-link" data-section="skills">
                     <span class="nav-icon">📚</span>
                     Skills
+                </a>
+                <a href="#methodologies" class="nav-link" data-section="methodologies">
+                    <span class="nav-icon">📐</span>
+                    Metodologias
                 </a>
             </div>
             <div class="nav-section">
@@ -213,8 +218,8 @@
                 </div>
                 <div class="hss-divider"></div>
                 <div class="hss-item">
-                    <span class="hss-num">3</span>
-                    <span class="hss-label">Servicios Activos</span>
+                    <span class="hss-num" id="homeStatAreas">—</span>
+                    <span class="hss-label">Areas Activas</span>
                 </div>
             </div>
 
@@ -720,7 +725,6 @@
 
                 </div>
             </div>
-            </div>
         </section>
 
         <!-- ══════════════════════════════════════════════════════
@@ -749,10 +753,6 @@
                 <div id="skillModalContent" style="flex: 1; overflow-y: auto; margin-top: 1rem;"></div>
             </div>
         </div>
-
-        <!-- ══════════════════════════════════════════════════════
-             SECTION: IDEAS
-             ══════════════════════════════════════════════════════ -->
 
         <!-- ══════════════════════════════════════════════════════
              SECTION: IDEAS

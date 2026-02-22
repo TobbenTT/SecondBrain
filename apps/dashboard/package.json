@@ -1,25 +1,48 @@
 {
-  "name": "internal-landing",
-  "version": "1.0.0",
-  "description": "Value Strategy Consulting Hub - Internal Landing Page",
+  "name": "secondbrain-dashboard",
+  "version": "2.1.0",
+  "description": "Value Strategy Consulting — SecondBrain Knowledge Management Dashboard",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "NODE_ENV=production node server.js",
+    "dev": "node --watch server.js",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.js\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.js\" --ignore-path .prettierignore"
   },
-  "keywords": [],
+  "keywords": [
+    "knowledge-management",
+    "gtd",
+    "para",
+    "code-methodology",
+    "ai-dashboard"
+  ],
   "author": "Value Strategy Consulting",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "ejs": "^4.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "express-session": "^1.19.0",
+    "helmet": "^8.1.0",
     "marked": "^15.0.7",
     "multer": "^2.0.2",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "^29.7.0",
+    "prettier": "^3.8.1",
+    "supertest": "^7.2.2"
   }
 }

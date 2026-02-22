@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const log = require('../helpers/logger');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -62,7 +63,7 @@ async function researchTopic(query, context = "") {
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("Deep Research Error:", error);
+        log.error('Deep research error', { error: error.message });
         return `## Error en la Investigación\nNo se pudo completar el análisis debido a: ${error.message}`;
     }
 }

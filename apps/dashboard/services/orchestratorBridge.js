@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const log = require('../helpers/logger');
 
 /**
  * Orchestrator Bridge
@@ -13,7 +14,7 @@ const ALLOWED_COMMANDS_DIR = path.join(__dirname, '..', '..', '..', 'agents', 'e
 if (!fs.existsSync(ALLOWED_COMMANDS_DIR)) {
     try {
         fs.mkdirSync(ALLOWED_COMMANDS_DIR, { recursive: true });
-    } catch (e) { console.error("Could not create execution dir:", e); }
+    } catch (e) { log.error('Could not create execution dir', { error: e.message }); }
 }
 
 async function executeCommand(command, args = []) {
@@ -24,7 +25,7 @@ async function executeCommand(command, args = []) {
     // - "open-project": opens a folder
     // - "start-server": runs a bat file
 
-    console.log(`[Orchestrator] Request: ${command} ${args.join(' ')}`);
+    log.info('Orchestrator request', { command, args });
 
     return new Promise((resolve, reject) => {
         let cmdStr = '';
@@ -32,24 +33,24 @@ async function executeCommand(command, args = []) {
         if (command === 'open-project') {
             // Windows specific: explorer
             const targetPath = args[0]; // expecting absolute path or relative to project
-            if (!targetPath) return reject('No path provided');
+            if (!targetPath) return reject(new Error('No path provided'));
             cmdStr = `start "" "${targetPath}"`;
         } else if (command === 'run-script') {
             const scriptName = args[0];
             // Security check against directory traversal
             if (scriptName.includes('..') || scriptName.includes('/') || scriptName.includes('\\')) {
-                return reject('Invalid script name');
+                return reject(new Error('Invalid script name'));
             }
             const fullPath = path.join(ALLOWED_COMMANDS_DIR, scriptName);
-            if (!fs.existsSync(fullPath)) return reject('Script not found');
+            if (!fs.existsSync(fullPath)) return reject(new Error('Script not found'));
             cmdStr = `"${fullPath}"`;
         } else {
-            return reject(`Unknown command: ${command}`);
+            return reject(new Error(`Unknown command: ${command}`));
         }
 
-        exec(cmdStr, (error, stdout, stderr) => {
+        exec(cmdStr, (error, stdout, _stderr) => {
             if (error) {
-                console.warn(`[Orchestrator] Exec error: ${error.message}`);
+                log.warn('Orchestrator exec error', { error: error.message });
                 return resolve({ success: false, error: error.message });
             }
             resolve({ success: true, output: stdout });

@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
 const path = require('path');
+const log = require('../helpers/logger');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 
@@ -89,7 +90,7 @@ async function generateResponse(prompt, history = [], systemInstruction = null) 
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("Error generating AI response:", error);
+        log.error('Error generating AI response', { error: error.message });
         return "Lo siento, encontre un error al procesar tu solicitud. Por favor, verifica tu conexion o intenta mas tarde.";
     }
 }
@@ -214,7 +215,7 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
                 parsed = [direct];
             }
             // If direct is a string/number/etc, fall through to regex
-        } catch (e) {
+        } catch (_e) {
             // fall through to regex extraction
         }
 
@@ -227,7 +228,7 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
                     if (typeof obj === 'object' && obj !== null) {
                         parsed = [obj];
                     }
-                } catch (e2) { /* fall through */ }
+                } catch (_e2) { /* fall through */ }
             }
         }
 
@@ -240,12 +241,12 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
                     if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'object') {
                         parsed = arr;
                     }
-                } catch (e3) { /* fall through */ }
+                } catch (_e3) { /* fall through */ }
             }
         }
 
         if (!parsed || parsed.length === 0) {
-            console.error('RAW AI RESPONSE (no valid JSON found):', text.substring(0, 500));
+            log.warn('RAW AI RESPONSE (no valid JSON found)', { preview: text.substring(0, 300) });
             throw new Error('No valid JSON found in AI response');
         }
 
@@ -279,7 +280,7 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
         // Return single object for backward compat if only 1 idea, array if multiple
         return parsed.length === 1 ? parsed[0] : parsed;
     } catch (e) {
-        console.error("AI Process Error:", e);
+        log.error('AI process error', { error: e.message });
         fs.appendFileSync(path.join(__dirname, '..', 'ai_error.log'), `${new Date().toISOString()} - ${e.message}\n${e.stack}\n---\n`);
 
         return {
@@ -330,7 +331,7 @@ async function distillContent(text, context = "") {
 
         return JSON.parse(text_resp);
     } catch (e) {
-        console.error("Distill Error:", e);
+        log.error('Distill error', { error: e.message });
         return {
             insight_principal: "No se pudo destilar el contenido",
             accion_clave: "Revisar manualmente",
@@ -341,7 +342,7 @@ async function distillContent(text, context = "") {
 }
 
 // ─── Auto-Assign Task to Personnel ───────────────────────────────────────────
-async function autoAssign(taskDescription, users = [], areas = []) {
+async function autoAssign(taskDescription, users = [], _areas = []) {
     const userList = users.map(u =>
         `${u.username}: rol=${u.role}, dept=${u.department || 'General'}, expertise=${u.expertise || 'General'}`
     ).join('\n');
@@ -369,7 +370,7 @@ async function autoAssign(taskDescription, users = [], areas = []) {
         if (jsonMatch) text = jsonMatch[0];
         return JSON.parse(text);
     } catch (e) {
-        console.error("Auto-assign Error:", e);
+        log.error('Auto-assign error', { error: e.message });
         return { assigned_to: null, reason: "Error en auto-asignacion", estimated_time: null, priority: "media" };
     }
 }
@@ -410,7 +411,7 @@ async function generateDigest(ideas, waitingFor, context, areas) {
         const response = await result.response;
         return response.text();
     } catch (e) {
-        console.error("Digest Error:", e);
+        log.error('Digest error', { error: e.message });
         return "Error al generar el digest. Intente mas tarde.";
     }
 }
@@ -469,7 +470,7 @@ Este output sera guardado como entregable del sistema SecondBrain.
         const response = await result.response;
         return { success: true, output: response.text() };
     } catch (error) {
-        console.error("Agent Execution Error:", error);
+        log.error('Agent execution error', { error: error.message });
         return { success: false, error: error.message };
     }
 }
@@ -536,14 +537,14 @@ async function decomposeProject(projectText, context = "", users = [], areas = [
         if (jsonMatch) text = jsonMatch[0];
         return JSON.parse(text);
     } catch (e) {
-        console.error("Decompose Error:", e);
+        log.error('Decompose error', { error: e.message });
         return null;
     }
 }
 
 // ─── Generate Daily Report (GTD) ────────────────────────────────────────────
 async function generateDailyReport(data) {
-    const { ideas, projects, waitingFor, completedToday, userStats, areas } = data;
+    const { ideas, projects, waitingFor, completedToday, userStats, areas: _areas } = data;
 
     const prompt = `
     Genera un REPORTE DIARIO para el equipo de Value Strategy Consulting.
@@ -580,7 +581,7 @@ async function generateDailyReport(data) {
         const response = await result.response;
         return response.text();
     } catch (e) {
-        console.error("Daily Report Error:", e);
+        log.error('Daily report error', { error: e.message });
         return "Error al generar el reporte diario.";
     }
 }
