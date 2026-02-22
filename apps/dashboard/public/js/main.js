@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAnalytics();
     initExportImport();
     initVoiceCommands();
+    initSkills();
 });
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ const SECTION_META = {
     waiting: { title: 'A la Espera', subtitle: 'Delegaciones y seguimiento — GTD: Waiting For' },
     reportability: { title: 'Reportabilidad', subtitle: 'Checklist diario y actividad por consultor — Dashboard del equipo' },
     analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' },
+    openclaw: { title: 'Monitor OpenClaw', subtitle: 'Pipeline multi-agente — PM → DEV → BUILDER → QA / Consulting → Reviewer' },
     'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
     'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
     'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' }
@@ -88,6 +90,7 @@ function switchSection(sectionId) {
 
     // Lazy-load analytics charts when section is first visible
     if (sectionId === 'analytics') loadAnalytics();
+    if (sectionId === 'openclaw') loadOpenClawStatus();
     if (sectionId === 'gtd-board') loadGtdBoard('context');
     if (sectionId === 'gtd-projects') loadGtdProjects();
     if (sectionId === 'ideas') initGtdFilterDropdowns();
@@ -1025,7 +1028,7 @@ async function loadIdeas(filter = null, page = null) {
                 executionHtml = `<div class="execution-status running"><span class="spinner-small"></span> Ejecutando agente...</div>`;
             } else if (idea.execution_status === 'completed' && idea.execution_output) {
                 const outputPreview = (idea.execution_output || '').substring(0, 120).replace(/</g, '&lt;');
-                executionHtml = `<div class="execution-status completed" onclick="showExecutionOutput('${idea.id}')">
+                executionHtml = `<div class="execution-status completed" onclick="event.stopPropagation();showExecutionOutput('${idea.id}')">
                     🚀 <strong>Output generado</strong> — click para ver
                     <div style="margin-top:4px;opacity:0.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${outputPreview}...</div>
                 </div>`;
@@ -3061,6 +3064,9 @@ async function checkNotifications() {
         const badge = document.getElementById('notificationBadge');
         const list = document.getElementById('notificationList');
 
+        // Store current notifications for clear-all
+        window._currentNotifications = data;
+
         if (badge) {
             if (data.total > 0) {
                 badge.textContent = data.total;
@@ -3072,17 +3078,44 @@ async function checkNotifications() {
 
         if (list) {
             let html = '';
+            if (data.total > 0) {
+                html += '<button class="notif-clear-all" onclick="clearAllNotifications(event)">Limpiar todas</button>';
+            }
             if (data.urgent_tasks.length > 0) {
-                html += data.urgent_tasks.map(t => `<div class="notification-item urgent"><span class="notif-icon">🔴</span><span>${escapeHtml((t.ai_summary || t.text || '').substring(0, 60))}</span></div>`).join('');
+                html += data.urgent_tasks.map(t =>
+                    `<div class="notification-item urgent">
+                        <span class="notif-icon">🔴</span>
+                        <span class="notif-text">${escapeHtml((t.ai_summary || t.text || '').substring(0, 60))}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${t.id}, 'urgent_task')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
             }
             if (data.overdue_delegations.length > 0) {
-                html += data.overdue_delegations.map(d => `<div class="notification-item warning"><span class="notif-icon">⏳</span><span>Vencida: ${escapeHtml((d.description || '').substring(0, 50))} → ${d.delegated_to}</span></div>`).join('');
+                html += data.overdue_delegations.map(d =>
+                    `<div class="notification-item warning">
+                        <span class="notif-icon">⏳</span>
+                        <span class="notif-text">Vencida: ${escapeHtml((d.description || '').substring(0, 50))} → ${d.delegated_to}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${d.id}, 'overdue_delegation')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
             }
             if (data.needs_review.length > 0) {
-                html += data.needs_review.map(n => `<div class="notification-item review"><span class="notif-icon">⚠️</span><span>Revisar: ${escapeHtml((n.ai_summary || n.text || '').substring(0, 50))}</span></div>`).join('');
+                html += data.needs_review.map(n =>
+                    `<div class="notification-item review">
+                        <span class="notif-icon">⚠️</span>
+                        <span class="notif-text">Revisar: ${escapeHtml((n.ai_summary || n.text || '').substring(0, 50))}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${n.id}, 'needs_review')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
             }
             if (data.stale_captures && data.stale_captures.length > 0) {
-                html += data.stale_captures.map(s => `<div class="notification-item warning"><span class="notif-icon">📥</span><span>Sin procesar: ${escapeHtml((s.text || '').substring(0, 50))}</span></div>`).join('');
+                html += data.stale_captures.map(s =>
+                    `<div class="notification-item warning">
+                        <span class="notif-icon">📥</span>
+                        <span class="notif-text">Sin procesar: ${escapeHtml((s.text || '').substring(0, 50))}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${s.id}, 'stale_capture')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
             }
             if (data.total === 0) {
                 html = '<div class="notification-empty">Sin notificaciones pendientes</div>';
@@ -3113,6 +3146,52 @@ async function checkNotifications() {
     }
 }
 
+async function dismissNotification(event, id, type) {
+    event.stopPropagation();
+    try {
+        const item = event.target.closest('.notification-item');
+        if (item) {
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(20px)';
+            item.style.transition = 'all 0.25s ease';
+        }
+        await fetch(`/api/notifications/${id}/dismiss`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type })
+        });
+        setTimeout(() => checkNotifications(), 300);
+    } catch (err) {
+        console.error('Dismiss error:', err);
+    }
+}
+
+async function clearAllNotifications(event) {
+    event.stopPropagation();
+    const data = window._currentNotifications;
+    if (!data) return;
+
+    const notifications = [];
+    data.urgent_tasks.forEach(t => notifications.push({ id: t.id, type: 'urgent_task' }));
+    data.overdue_delegations.forEach(d => notifications.push({ id: d.id, type: 'overdue_delegation' }));
+    data.stale_captures.forEach(s => notifications.push({ id: s.id, type: 'stale_capture' }));
+    data.needs_review.forEach(n => notifications.push({ id: n.id, type: 'needs_review' }));
+
+    if (notifications.length === 0) return;
+
+    try {
+        await fetch('/api/notifications/clear-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notifications })
+        });
+        checkNotifications();
+        showToast('Notificaciones descartadas', 'success');
+    } catch (err) {
+        console.error('Clear all error:', err);
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ANALYTICS (Trend Charts)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3123,10 +3202,16 @@ async function initAnalytics() {
 }
 
 async function loadAnalytics() {
-    if (!window.Chart) return;
+    if (!window.Chart) {
+        document.querySelectorAll('#section-analytics canvas').forEach(c => {
+            c.parentElement.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);">Chart.js no disponible. Verifica tu conexion a internet.</div>';
+        });
+        return;
+    }
 
     try {
         const res = await fetch('/api/stats/analytics');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
         const chartDefaults = {
@@ -3228,6 +3313,7 @@ async function loadAnalytics() {
 
     } catch (err) {
         console.error('Analytics error:', err);
+        showToast('Error cargando analytics: ' + err.message, 'error');
     }
 }
 
@@ -3591,48 +3677,62 @@ function closeExecuteModal() {
 async function showExecutionOutput(ideaId) {
     try {
         const res = await fetch(`/api/ideas/${ideaId}/execution-output`);
+        if (!res.ok) {
+            showToast(`Error ${res.status} al cargar output`, 'error');
+            return;
+        }
         const data = await res.json();
-        if (data.execution_output) {
-            const agentLabel = { staffing: '👷 Staffing', training: '📚 Training', finance: '💰 Finance', compliance: '📋 Compliance' }[data.suggested_agent] || '🤖 Agente';
-            const executedDate = data.executed_at ? new Date(data.executed_at).toLocaleString('es-ES') : '';
+        if (!data.execution_output) {
+            showToast('No hay output disponible', 'warning');
+            return;
+        }
 
-            const modalHtml = `
-            <div id="execOutputModal" class="modal" style="display:flex;z-index:2100;">
-                <div class="modal-content exec-output-modal">
-                    <div class="exec-output-header">
-                        <div class="exec-output-title">
-                            <span class="exec-output-icon">🚀</span>
-                            <div>
-                                <h2>Output de Ejecucion</h2>
-                                <span class="exec-output-meta">${agentLabel} | ${data.executed_by || 'system'} | ${executedDate}</span>
-                            </div>
-                        </div>
-                        <div class="exec-output-actions">
-                            <button class="btn-exec-action" onclick="copyExecutionOutput()" title="Copiar al portapapeles">📋 Copiar</button>
-                            <button class="btn-exec-action" onclick="downloadExecutionOutput('${ideaId}')" title="Descargar como Markdown">⬇ Descargar</button>
-                            <span class="close-modal" onclick="document.getElementById('execOutputModal').remove()">&times;</span>
+        const agentLabel = { staffing: '👷 Staffing', training: '📚 Training', finance: '💰 Finance', compliance: '📋 Compliance' }[data.suggested_agent] || '🤖 Agente';
+        const executedDate = data.executed_at ? new Date(data.executed_at).toLocaleString('es-ES') : '';
+        const renderedOutput = renderMarkdown(data.execution_output);
+
+        // Store raw output for copy/download
+        window._lastExecOutput = data.execution_output;
+        window._lastExecAgent = data.suggested_agent || 'agent';
+
+        // Remove any existing modal first
+        const existing = document.getElementById('execOutputModal');
+        if (existing) existing.remove();
+
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'execOutputModal';
+        modalDiv.className = 'modal';
+        modalDiv.style.cssText = 'display:flex;z-index:2100;';
+        modalDiv.innerHTML = `
+            <div class="modal-content exec-output-modal">
+                <div class="exec-output-header">
+                    <div class="exec-output-title">
+                        <span class="exec-output-icon">🚀</span>
+                        <div>
+                            <h2>Output de Ejecucion</h2>
+                            <span class="exec-output-meta">${agentLabel} | ${data.executed_by || 'system'} | ${executedDate}</span>
                         </div>
                     </div>
-                    <div class="exec-output-body" id="execOutputBody">
-                        ${renderMarkdown(data.execution_output)}
+                    <div class="exec-output-actions">
+                        <button class="btn-exec-action" onclick="copyExecutionOutput()" title="Copiar al portapapeles">📋 Copiar</button>
+                        <button class="btn-exec-action" onclick="downloadExecutionOutput('${ideaId}')" title="Descargar como Markdown">⬇ Descargar</button>
+                        <span class="close-modal" onclick="document.getElementById('execOutputModal').remove()">&times;</span>
                     </div>
+                </div>
+                <div class="exec-output-body" id="execOutputBody">
+                    ${renderedOutput}
                 </div>
             </div>`;
 
-            // Store raw output for copy/download
-            window._lastExecOutput = data.execution_output;
-            window._lastExecAgent = data.suggested_agent || 'agent';
+        // Click outside modal to close
+        modalDiv.addEventListener('click', (e) => {
+            if (e.target === modalDiv) modalDiv.remove();
+        });
 
-            let container = document.getElementById('execOutputContainer');
-            if (!container) {
-                container = document.createElement('div');
-                container.id = 'execOutputContainer';
-                document.body.appendChild(container);
-            }
-            container.innerHTML = modalHtml;
-        }
+        document.body.appendChild(modalDiv);
     } catch (err) {
-        showToast('Error al cargar output', 'error');
+        console.error('showExecutionOutput error:', err);
+        showToast('Error al cargar output: ' + err.message, 'error');
     }
 }
 
@@ -4042,6 +4142,7 @@ async function loadGtdProjects() {
                     ${progressHtml}
                     ${subtasksHtml}
                     <div style="margin-top:8px;display:flex;gap:6px;">
+                        ${proj.execution_output ? `<button class="btn-code-action" onclick="event.stopPropagation();showExecutionOutput('${proj.id}')">🚀 Ver Output</button>` : ''}
                         <button class="btn-code-action" onclick="viewSubtasks('${proj.id}')">📋 Ver Sub-tareas</button>
                         ${!isDone ? `<button class="btn-code-action btn-complete" onclick="completeIdea('${proj.id}')">✅ Completar</button>` : ''}
                     </div>
@@ -4097,4 +4198,133 @@ window.generateDailyReport = generateDailyReport;
 window.applyGtdFilters = applyGtdFilters;
 window.clearGtdFilters = clearGtdFilters;
 window.initGtdFilterDropdowns = initGtdFilterDropdowns;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OPENCLAW MONITOR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const OC_AGENT_META = {
+    PM:         { icon: '📋', label: 'Project Manager', color: '#6366f1' },
+    DEV:        { icon: '💻', label: 'Developer',       color: '#10b981' },
+    BUILDER:    { icon: '🔨', label: 'Builder',         color: '#f59e0b' },
+    QA:         { icon: '🔍', label: 'Quality Assurance',color: '#8b5cf6' },
+    CONSULTING: { icon: '📊', label: 'Consulting',      color: '#06b6d4' },
+    REVIEWER:   { icon: '📝', label: 'Reviewer',        color: '#ec4899' }
+};
+
+async function loadOpenClawStatus() {
+    try {
+        const res = await fetch('/api/openclaw/status');
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        renderOpenClawPipeline(data.pipeline);
+        renderOpenClawAgents(data.agents);
+        renderOpenClawActivity(data.activity);
+        const el = document.getElementById('ocProjectsBuilt');
+        if (el) el.textContent = data.projects_built || 0;
+    } catch (err) {
+        console.error('OpenClaw status error:', err);
+    }
+}
+
+function renderOpenClawPipeline(p) {
+    if (!p) return;
+    const map = {
+        ocPending: p.pending, ocQueued: p.queued, ocInProgress: p.in_progress,
+        ocDeveloped: p.developed, ocBuilt: p.built, ocReviewing: p.reviewing,
+        ocCompleted: p.completed, ocFailed: p.failed, ocBlocked: p.blocked
+    };
+    Object.entries(map).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val || 0;
+    });
+}
+
+function renderOpenClawAgents(agents) {
+    const container = document.getElementById('openclawAgents');
+    if (!container) return;
+
+    if (!agents || agents.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">OpenClaw no ha procesado ideas todavia. Ejecuta <code>python main.py</code> desde la carpeta openclaw.</p>';
+        return;
+    }
+
+    // Build cards for all known agents
+    const knownAgents = ['PM', 'DEV', 'BUILDER', 'QA', 'CONSULTING', 'REVIEWER'];
+    const agentMap = {};
+    agents.forEach(a => { agentMap[a.agent] = a; });
+
+    container.innerHTML = knownAgents.map(name => {
+        const meta = OC_AGENT_META[name] || { icon: '🤖', label: name, color: '#6b7280' };
+        const a = agentMap[name];
+        const lastActive = a ? timeAgo(a.last_active) : 'Inactivo';
+        const count = a ? a.total_processed : 0;
+        const isActive = a && a.last_active && (Date.now() - new Date(a.last_active + 'Z').getTime()) < 5 * 60 * 1000;
+
+        return `
+            <div class="stat-card" style="border-left:3px solid ${meta.color};">
+                <div class="stat-icon" style="font-size:1.5rem;">${meta.icon}</div>
+                <div class="stat-info">
+                    <span class="stat-number">${count}</span>
+                    <span class="stat-label">${meta.label}</span>
+                    <span style="font-size:0.7rem;color:var(--text-muted);">
+                        ${isActive ? '<span style="color:#10b981;">●</span>' : '<span style="color:#6b7280;">●</span>'} ${lastActive}
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderOpenClawActivity(activity) {
+    const container = document.getElementById('openclawActivity');
+    if (!container) return;
+
+    if (!activity || activity.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;">Sin actividad registrada.</p>';
+        return;
+    }
+
+    const STATUS_ICONS = {
+        queued_software: '📋', queued_consulting: '📋',
+        in_progress: '⚙️', developed: '💻', built: '🔨',
+        reviewing: '🔍', completed: '✅', failed: '❌', blocked: '🚫'
+    };
+
+    container.innerHTML = activity.map(a => {
+        const icon = STATUS_ICONS[a.execution_status] || '📌';
+        const title = a.ai_summary || (a.text || '').substring(0, 80);
+        const agent = a.executed_by || '—';
+        const when = a.executed_at ? timeAgo(a.executed_at) : '';
+
+        return `
+            <div class="inbox-log-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);">
+                <span style="font-size:1.1rem;">${icon}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${a.id} — ${escapeHtml(title)}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);">
+                        <span class="badge ${a.execution_status}" style="font-size:0.65rem;padding:1px 6px;">${a.execution_status}</span>
+                        por <strong>${escapeHtml(agent)}</strong> · ${when}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const now = Date.now();
+    const then = new Date(dateStr + (dateStr.includes('Z') ? '' : 'Z')).getTime();
+    const diff = Math.max(0, now - then);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'ahora';
+    if (mins < 60) return `hace ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `hace ${days}d`;
+}
+
+window.loadOpenClawStatus = loadOpenClawStatus;
 

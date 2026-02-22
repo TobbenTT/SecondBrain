@@ -243,27 +243,39 @@ router.get('/search', async (req, res) => {
 router.get('/notifications/check', async (req, res) => {
     try {
         const username = req.query.username || (req.session.user ? req.session.user.username : null);
+        const dismissUser = username || '_system';
 
-        const urgentTasks = await all(`SELECT i.id, i.text, i.ai_summary, i.priority, i.assigned_to, a.name as area_name
+        // Get dismissed notification IDs per type
+        const dismissed = await all(
+            `SELECT notification_type, notification_id FROM notification_dismissals WHERE username = ?`,
+            [dismissUser]
+        );
+        const dismissedMap = {};
+        dismissed.forEach(d => {
+            if (!dismissedMap[d.notification_type]) dismissedMap[d.notification_type] = new Set();
+            dismissedMap[d.notification_type].add(d.notification_id);
+        });
+
+        const urgentTasks = (await all(`SELECT i.id, i.text, i.ai_summary, i.priority, i.assigned_to, a.name as area_name
             FROM ideas i LEFT JOIN areas a ON i.related_area_id = a.id
             WHERE i.priority = 'alta' AND i.code_stage NOT IN ('expressed')
             ${username ? 'AND i.assigned_to = ?' : ''}
             ORDER BY i.created_at DESC LIMIT 10`,
-            username ? [username] : []);
+            username ? [username] : [])).filter(t => !(dismissedMap.urgent_task && dismissedMap.urgent_task.has(t.id)));
 
-        const overdueDelegations = await all(`SELECT w.id, w.description, w.delegated_to, w.delegated_by, w.created_at, a.name as area_name
+        const overdueDelegations = (await all(`SELECT w.id, w.description, w.delegated_to, w.delegated_by, w.created_at, a.name as area_name
             FROM waiting_for w LEFT JOIN areas a ON w.related_area_id = a.id
             WHERE w.status = 'waiting' AND w.created_at <= datetime('now', '-3 days')
             ${username ? 'AND w.delegated_to = ?' : ''}
             ORDER BY w.created_at ASC LIMIT 10`,
-            username ? [username] : []);
+            username ? [username] : [])).filter(d => !(dismissedMap.overdue_delegation && dismissedMap.overdue_delegation.has(d.id)));
 
-        const staleCaptures = await all(`SELECT id, text, created_at FROM ideas
+        const staleCaptures = (await all(`SELECT id, text, created_at FROM ideas
             WHERE code_stage = 'captured' AND created_at <= datetime('now', '-1 day')
-            ORDER BY created_at ASC LIMIT 5`);
+            ORDER BY created_at ASC LIMIT 5`)).filter(s => !(dismissedMap.stale_capture && dismissedMap.stale_capture.has(s.id)));
 
-        const needsReview = await all(`SELECT id, text, ai_summary, ai_confidence, ai_type FROM ideas
-            WHERE needs_review = 1 ORDER BY created_at DESC LIMIT 5`);
+        const needsReview = (await all(`SELECT id, text, ai_summary, ai_confidence, ai_type FROM ideas
+            WHERE needs_review = 1 ORDER BY created_at DESC LIMIT 5`)).filter(n => !(dismissedMap.needs_review && dismissedMap.needs_review.has(n.id)));
 
         const total = urgentTasks.length + overdueDelegations.length + staleCaptures.length + needsReview.length;
 
@@ -277,6 +289,48 @@ router.get('/notifications/check', async (req, res) => {
     } catch (err) {
         log.error('Notifications error', { error: err.message });
         res.status(500).json({ error: 'Notifications check failed' });
+    }
+});
+
+// Dismiss a single notification
+router.post('/notifications/:id/dismiss', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { type } = req.body;
+        const username = req.session.user ? req.session.user.username : '_system';
+        const validTypes = ['urgent_task', 'overdue_delegation', 'stale_capture', 'needs_review'];
+        if (!validTypes.includes(type)) {
+            return res.status(400).json({ error: 'Invalid notification type' });
+        }
+        await run(
+            `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
+            [username, type, parseInt(id)]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Dismiss notification error', { error: err.message });
+        res.status(500).json({ error: 'Failed to dismiss notification' });
+    }
+});
+
+// Clear all notifications for current user
+router.post('/notifications/clear-all', async (req, res) => {
+    try {
+        const username = req.session.user ? req.session.user.username : '_system';
+        const { notifications } = req.body;
+        if (!Array.isArray(notifications)) {
+            return res.status(400).json({ error: 'notifications array required' });
+        }
+        for (const n of notifications) {
+            await run(
+                `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
+                [username, n.type, parseInt(n.id)]
+            );
+        }
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Clear notifications error', { error: err.message });
+        res.status(500).json({ error: 'Failed to clear notifications' });
     }
 });
 
@@ -358,6 +412,63 @@ router.post('/import', requireAdmin, async (req, res) => {
     } catch (err) {
         log.error('Import error', { error: err.message });
         res.status(500).json({ error: 'Import failed' });
+    }
+});
+
+// ─── OpenClaw Pipeline Monitor ──────────────────────────────────────────────
+
+router.get('/openclaw/status', async (req, res) => {
+    try {
+        // Pipeline counts
+        const pipeline = await get(`
+            SELECT
+                COALESCE(SUM(CASE WHEN execution_status IS NULL AND code_stage = 'organized' THEN 1 ELSE 0 END), 0) as pending,
+                COALESCE(SUM(CASE WHEN execution_status LIKE 'queued_%' THEN 1 ELSE 0 END), 0) as queued,
+                COALESCE(SUM(CASE WHEN execution_status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+                COALESCE(SUM(CASE WHEN execution_status = 'developed' THEN 1 ELSE 0 END), 0) as developed,
+                COALESCE(SUM(CASE WHEN execution_status = 'built' THEN 1 ELSE 0 END), 0) as built,
+                COALESCE(SUM(CASE WHEN execution_status = 'reviewing' THEN 1 ELSE 0 END), 0) as reviewing,
+                COALESCE(SUM(CASE WHEN execution_status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
+                COALESCE(SUM(CASE WHEN execution_status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+                COALESCE(SUM(CASE WHEN execution_status = 'blocked' THEN 1 ELSE 0 END), 0) as blocked
+            FROM ideas
+        `);
+
+        // Recent activity (last 20 processed ideas)
+        const activity = await all(`
+            SELECT id, text, ai_type, ai_category, execution_status, executed_by, executed_at,
+                   ai_summary, code_stage
+            FROM ideas
+            WHERE execution_status IS NOT NULL AND execution_status != ''
+            ORDER BY executed_at DESC
+            LIMIT 20
+        `);
+
+        // Agent last-seen (most recent action per agent)
+        const agents = await all(`
+            SELECT executed_by as agent,
+                   MAX(executed_at) as last_active,
+                   COUNT(*) as total_processed
+            FROM ideas
+            WHERE executed_by IS NOT NULL
+            GROUP BY executed_by
+            ORDER BY last_active DESC
+        `);
+
+        // Built projects count
+        const projectsBuilt = await get(`
+            SELECT COUNT(*) as count FROM projects WHERE icon = '🤖'
+        `);
+
+        res.json({
+            pipeline,
+            activity,
+            agents,
+            projects_built: projectsBuilt ? projectsBuilt.count : 0
+        });
+    } catch (err) {
+        log.error('OpenClaw status error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch OpenClaw status' });
     }
 });
 

@@ -11,7 +11,7 @@
       "Express",
       "EJS"
     ],
-    "createdAt": "2026-02-19T17:13:29.459Z"
+    "createdAt": "2026-02-22T18:05:52.120Z"
   },
   {
     "id": "2",
@@ -25,6 +25,21 @@
       "TypeScript",
       "Tailwind"
     ],
-    "createdAt": "2026-02-19T17:13:29.459Z"
+    "createdAt": "2026-02-22T18:05:52.121Z"
+  },
+  {
+    "id": "3",
+    "name": "OpenClaw",
+    "description": "Sistema multi-agente autónomo (PM→DEV→QA + Consulting→Reviewer) para SecondBrain.",
+    "icon": "🦞",
+    "status": "active",
+    "url": "",
+    "tech": [
+      "Python",
+      "SQLite",
+      "Gemini",
+      "Claude"
+    ],
+    "createdAt": "2026-02-22T18:05:52.121Z"
   }
 ]

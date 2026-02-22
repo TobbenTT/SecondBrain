@@ -92,26 +92,34 @@
 }
 
 #customModalConfirm {
-    background: var(--accent);
+    background: var(--accent-gradient);
     color: white;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
     border: none;
+    transition: all 0.25s ease;
 }
 
 #customModalConfirm:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
-    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+    filter: brightness(1.08);
+}
+
+#customModalConfirm:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
 
 #customModalCancel {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-secondary);
+    transition: all 0.25s ease;
 }
 
 #customModalCancel:hover {
     background: var(--bg-card-hover);
     color: var(--text-primary);
     border-color: var(--border-hover);
+    transform: translateY(-1px);
 }

@@ -89,6 +89,13 @@
                 </a>
             </div>
             <div class="nav-section">
+                <span class="nav-label">OPENCLAW</span>
+                <a href="#openclaw" class="nav-link" data-section="openclaw">
+                    <span class="nav-icon">🦞</span>
+                    Monitor Agentes
+                </a>
+            </div>
+            <div class="nav-section">
                 <span class="nav-label">GTD</span>
                 <a href="#gtd-board" class="nav-link" data-section="gtd-board">
                     <span class="nav-icon">🎯</span>
@@ -159,20 +166,13 @@
                 </div>
                 <!-- User Profile Display -->
                 <% if (user) { %>
-                    <div class="user-profile"
-                        style="display:flex;align-items:center;gap:10px;margin-left:15px;padding:4px 12px;background:rgba(255,255,255,0.05);border-radius:20px;border:1px solid var(--border);">
-                        <div
-                            style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:white;">
+                    <div class="user-profile">
+                        <div class="user-avatar">
                             <%= user.username.charAt(0).toUpperCase() %>
                         </div>
-                        <div style="display:flex;flex-direction:column;line-height:1.1;">
-                            <span
-                                style="font-size:0.8rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;">
-                                <%= user.username %>
-                            </span>
-                            <span style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">
-                                <%= user.role %>
-                            </span>
+                        <div class="user-info">
+                            <span class="user-name"><%= user.username %></span>
+                            <span class="user-role"><%= user.role %></span>
                         </div>
                     </div>
                     <% } %>
@@ -1064,6 +1064,105 @@
                     <canvas id="chartUserProductivity" height="200"></canvas>
                 </div>
             </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: OPENCLAW MONITOR
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-openclaw">
+
+            <!-- Pipeline Status -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🦞 Pipeline OpenClaw</h2>
+                    <button class="btn btn-sm" id="btnRefreshOpenClaw" onclick="loadOpenClawStatus()">🔄 Refrescar</button>
+                </div>
+                <div class="panel-body">
+                    <div class="code-pipeline" id="openclawPipeline">
+                        <div class="pipeline-stage" data-stage="pending">
+                            <div class="pipeline-icon">📥</div>
+                            <div class="pipeline-count" id="ocPending">0</div>
+                            <div class="pipeline-label">Pendientes</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="queued">
+                            <div class="pipeline-icon">📋</div>
+                            <div class="pipeline-count" id="ocQueued">0</div>
+                            <div class="pipeline-label">En Cola</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="in_progress">
+                            <div class="pipeline-icon">⚙️</div>
+                            <div class="pipeline-count" id="ocInProgress">0</div>
+                            <div class="pipeline-label">En Progreso</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="developed">
+                            <div class="pipeline-icon">💻</div>
+                            <div class="pipeline-count" id="ocDeveloped">0</div>
+                            <div class="pipeline-label">Desarrollado</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="built">
+                            <div class="pipeline-icon">🔨</div>
+                            <div class="pipeline-count" id="ocBuilt">0</div>
+                            <div class="pipeline-label">Construido</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="reviewing">
+                            <div class="pipeline-icon">🔍</div>
+                            <div class="pipeline-count" id="ocReviewing">0</div>
+                            <div class="pipeline-label">En Revision</div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-stage" data-stage="completed">
+                            <div class="pipeline-icon">✅</div>
+                            <div class="pipeline-count" id="ocCompleted">0</div>
+                            <div class="pipeline-label">Completado</div>
+                        </div>
+                    </div>
+                    <!-- Failed/Blocked row -->
+                    <div style="display:flex;gap:24px;justify-content:center;margin-top:12px;">
+                        <div style="text-align:center;">
+                            <span style="color:var(--danger);font-size:1.3rem;font-weight:700;" id="ocFailed">0</span>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">❌ Fallidos</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <span style="color:var(--warning);font-size:1.3rem;font-weight:700;" id="ocBlocked">0</span>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">🚫 Bloqueados</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <span style="color:var(--success);font-size:1.3rem;font-weight:700;" id="ocProjectsBuilt">0</span>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">🤖 Proyectos</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Status Cards -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🤖 Estado de Agentes</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="stats-row" id="openclawAgents">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Feed -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📜 Actividad Reciente</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="openclawActivity" class="inbox-log-list">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <!-- ══════════════════════════════════════════════════════

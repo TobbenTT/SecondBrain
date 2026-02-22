@@ -25,7 +25,9 @@
       "Bash(\"/c/ProgramData/DockerDesktop/version-bin/docker\" --version)",
       "Bash(done)",
       "Bash(wc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm test:*)",
+      "Bash(test:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Tobbe\\Sistema-OpenClaw"

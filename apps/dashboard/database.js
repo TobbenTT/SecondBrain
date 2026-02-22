@@ -247,6 +247,16 @@ function initTables() {
             if (!err) seedGtdContexts();
         });
 
+        // Notification Dismissals Table (track dismissed notifications per user)
+        db.run(`CREATE TABLE IF NOT EXISTS notification_dismissals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            notification_type TEXT NOT NULL,
+            notification_id INTEGER NOT NULL,
+            dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(username, notification_type, notification_id)
+        )`);
+
         // ─── Indexes (idempotent — safe to run on every startup) ────────
         db.run('CREATE INDEX IF NOT EXISTS idx_ideas_code_stage ON ideas(code_stage)');
         db.run('CREATE INDEX IF NOT EXISTS idx_ideas_assigned_to ON ideas(assigned_to)');
@@ -261,6 +271,7 @@ function initTables() {
         db.run('CREATE INDEX IF NOT EXISTS idx_context_para ON context_items(para_type)');
         db.run('CREATE INDEX IF NOT EXISTS idx_context_area ON context_items(related_area_id)');
         db.run('CREATE INDEX IF NOT EXISTS idx_inbox_log_idea ON inbox_log(original_idea_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_notif_dismiss_user ON notification_dismissals(username, notification_type)');
         db.run('CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)');
 
         log.info('Database tables and indexes initialized');

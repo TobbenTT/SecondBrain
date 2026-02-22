@@ -62,6 +62,11 @@ if (!fs.existsSync(PROJECTS_FILE)) {
             id: '2', name: 'Orchestrator Beta', description: 'Plataforma de orquestación de agentes IA para preparación operativa.',
             icon: '🤖', status: 'beta', url: 'http://localhost:3001',
             tech: ['Next.js', 'TypeScript', 'Tailwind'], createdAt: new Date().toISOString()
+        },
+        {
+            id: '3', name: 'OpenClaw', description: 'Sistema multi-agente autónomo (PM→DEV→QA + Consulting→Reviewer) para SecondBrain.',
+            icon: '🦞', status: 'active', url: '',
+            tech: ['Python', 'SQLite', 'Gemini', 'Claude'], createdAt: new Date().toISOString()
         }
     ];
     fs.writeFileSync(PROJECTS_FILE, JSON.stringify(defaultProjects, null, 2), 'utf-8');
@@ -91,11 +96,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdn.tailwindcss.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:"],
-            connectSrc: ["'self'"],
+            connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
             mediaSrc: ["'self'", "blob:"],
         }
     },
