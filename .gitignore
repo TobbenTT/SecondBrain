@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -82,8 +81,8 @@ openclaw/projects/
 # OpenClaw - logs
 openclaw/logs/
 
-# Docker
-docker-compose.yml
+# Docker (local overrides only)
+# docker-compose.override.yml
 
 # Claude Code
 .claude/
