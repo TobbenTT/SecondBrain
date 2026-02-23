@@ -1,6 +1,6 @@
 # Create Operations Manual
 ## Skill ID: create-operations-manual
-## Version: 1.0.0
+## Version: 2.0.0
 ## Category: A - Document Generation
 ## Priority: Critical
 
