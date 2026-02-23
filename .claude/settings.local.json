@@ -27,7 +27,13 @@
       "Bash(wc:*)",
       "Bash(grep:*)",
       "Bash(npm test:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(to cache dependencies\" because package-lock.json wasn''t in the repo:*)",
+      "Bash(git push:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Tobbe\\Sistema-OpenClaw"
