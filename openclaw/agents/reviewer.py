@@ -9,31 +9,14 @@ revisa la calidad del documento generado con Claude, y:
 from compartido import log, logger, pensar_con_claude, pensar_con_gemini, pensar_con_local, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
+from skills.loader import load_skill
 
 NOMBRE = "REVIEWER"
 
-SISTEMA_REVIEWER = """Eres un Director de Calidad de Value Strategy Consulting.
-Revisas documentos generados por agentes consultores especializados.
-
-Evalua estos 5 criterios:
-
-1. **Completitud**: Cubre todos los aspectos relevantes de la solicitud?
-2. **Profesionalismo**: Es presentable directamente a un cliente?
-3. **Especificidad**: Tiene datos concretos, numeros y plazos? O es demasiado generico?
-4. **Estructura**: Tiene secciones claras, tablas, y formato markdown adecuado?
-5. **Proximos Pasos**: Incluye acciones concretas y asignables?
-
-Responde en este formato EXACTO:
-
-VEREDICTO: APROBADO o RECHAZADO
-SCORE: [1-10]
-RESUMEN: [1 linea]
-DETALLES:
-- [punto 1]
-- [punto 2]
-- [punto 3]
-
-Si RECHAZAS, explica exactamente que falta o que mejorar."""
+# Loaded from core/skills/core/review-document-quality.md (editable SOP)
+SISTEMA_REVIEWER = load_skill('core/review-document-quality.md') or """Eres un Director de Calidad.
+Evalua: Completitud, Profesionalismo, Especificidad, Estructura, Proximos Pasos.
+Responde: VEREDICTO: APROBADO/RECHAZADO, SCORE: [1-10], RESUMEN, DETALLES."""
 
 
 def ciclo():

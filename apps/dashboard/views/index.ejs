@@ -88,6 +88,13 @@
                     Analytics
                 </a>
             </div>
+            <div class="nav-section nav-section-revision">
+                <span class="nav-label">CONSULTOR</span>
+                <a href="#revision" class="nav-link" data-section="revision">
+                    <span class="nav-icon">📝</span>
+                    Revision
+                </a>
+            </div>
             <div class="nav-section">
                 <span class="nav-label">OPENCLAW</span>
                 <a href="#openclaw" class="nav-link" data-section="openclaw">
@@ -745,12 +752,32 @@
             </div>
         </section>
 
-        <!-- Skill Viewer Modal -->
+        <!-- Skill Viewer Modal (with tabs) -->
         <div id="skillModal" class="modal">
             <div class="modal-content" style="max-width: 800px; height: 80vh; display: flex; flex-direction: column;">
                 <span class="close-modal">&times;</span>
                 <h2 id="skillModalTitle" class="modal-title"></h2>
-                <div id="skillModalContent" style="flex: 1; overflow-y: auto; margin-top: 1rem;"></div>
+                <input type="hidden" id="skillModalPath">
+                <!-- Tabs -->
+                <div class="review-tabs" id="skillTabs">
+                    <button class="review-tab active" onclick="switchSkillTab('content')">Contenido</button>
+                    <button class="review-tab" onclick="switchSkillTab('documents')">Documentos</button>
+                    <button class="review-tab" onclick="switchSkillTab('comments')">Comentarios</button>
+                </div>
+                <!-- Tab Content -->
+                <div id="skillTabContent" style="flex: 1; overflow-y: auto; margin-top: 0.5rem;">
+                    <div id="skillModalContent"></div>
+                </div>
+                <div id="skillTabDocuments" style="flex: 1; overflow-y: auto; margin-top: 0.5rem; display: none;">
+                    <div id="skillDocsList" class="skill-docs-list"></div>
+                </div>
+                <div id="skillTabComments" style="flex: 1; overflow-y: auto; margin-top: 0.5rem; display: none;">
+                    <div id="skillCommentsList" class="comments-list"></div>
+                    <div class="comment-form" id="skillCommentForm">
+                        <textarea id="skillCommentInput" rows="3" placeholder="Escribe tu comentario..."></textarea>
+                        <button class="btn btn-sm" onclick="submitSkillComment()">Enviar Comentario</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1166,6 +1193,68 @@
         </section>
 
         <!-- ══════════════════════════════════════════════════════
+             SECTION: REVISION (Consultor)
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-revision">
+
+            <!-- Review Stats -->
+            <div class="home-stats-strip" id="reviewStatsStrip">
+                <div class="hss-item">
+                    <span class="hss-num" id="revStatSkills">—</span>
+                    <span class="hss-label">Skills</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="revStatPending">—</span>
+                    <span class="hss-label">Pendientes</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="revStatApproved">—</span>
+                    <span class="hss-label">Aprobados</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="revStatChanges">—</span>
+                    <span class="hss-label">Requieren Cambios</span>
+                </div>
+            </div>
+
+            <!-- Skills Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📚 Skills (SOPs)</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="review-list" id="reviewSkillsList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outputs Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📄 Outputs de Agentes</h2>
+                    <div class="panel-controls">
+                        <select id="reviewOutputFilter" class="gtd-filter-select" onchange="filterReviewOutputs()">
+                            <option value="all">Todos</option>
+                            <option value="pending">Pendientes</option>
+                            <option value="approved">Aprobados</option>
+                            <option value="needs_changes">Requieren Cambios</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="review-list" id="reviewOutputsList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
              SECTION: GTD BOARD — Proximas Acciones por Contexto
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-gtd-board">
@@ -1371,6 +1460,9 @@
         🤖
     </button>
 
+    <script>
+        window.__USER__ = <%- JSON.stringify({ username: user?.username || null, role: user?.role || null }) %>;
+    </script>
     <script src="/js/main.js?v=<%= Date.now() %>"></script>
     <script>
         // Fallback: Ensure AI Widget toggles even if main.js fails

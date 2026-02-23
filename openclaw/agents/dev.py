@@ -13,8 +13,12 @@ import time
 from compartido import CONFIG, log, logger, pensar_con_gemini, pensar_con_local, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
+from skills.loader import load_skill
 
 NOMBRE = "DEV"
+
+# Loaded from core/skills/core/generate-python-code.md (editable SOP)
+_DEV_SKILL = load_skill('core/generate-python-code.md') or ""
 MAX_INTENTOS_GEMINI = 5
 MAX_INTENTOS_CORRECCION = 3
 ESPERA_ENTRE_INTENTOS = 3
@@ -52,22 +56,15 @@ def _programar_con_ia(requerimiento, error_previo="", es_correccion=False):
     """
     if error_previo:
         prompt = (
-            "Eres un programador experto en Python.\n"
-            "Tu codigo anterior fue RECHAZADO. Corrigelo.\n\n"
+            f"{_DEV_SKILL}\n\n"
+            f"MODO CORRECCION: Tu codigo anterior fue RECHAZADO. Corrigelo.\n\n"
             f"REQUERIMIENTO ORIGINAL:\n{requerimiento}\n\n"
             f"ERROR O CRITICA:\n{error_previo}\n\n"
             "Genera el codigo corregido completo."
         )
     else:
         prompt = (
-            "Eres un programador experto en Python.\n"
-            "Genera el codigo para la siguiente tarea.\n"
-            "Para cada archivo usa:\n"
-            "=== FILE: nombre_archivo.py ===\n<codigo>\n=== ENDFILE ===\n\n"
-            "IMPORTANTE:\n"
-            "- Incluye un archivo requirements.txt con TODAS las dependencias externas.\n"
-            "- El punto de entrada debe ser main.py (o app.py para web apps).\n"
-            "- El codigo debe ejecutar sin errores.\n\n"
+            f"{_DEV_SKILL}\n\n"
             f"TAREA:\n{requerimiento}"
         )
 

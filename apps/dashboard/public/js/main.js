@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initExportImport();
     initVoiceCommands();
     initSkills();
+    initConsultorUI();
 });
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
@@ -48,7 +49,8 @@ const SECTION_META = {
     openclaw: { title: 'Monitor OpenClaw', subtitle: 'Pipeline multi-agente — PM → DEV → BUILDER → QA / Consulting → Reviewer' },
     'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
     'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
-    'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' }
+    'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' },
+    'revision': { title: 'Revision', subtitle: 'Cola de revision de Skills y Outputs para el equipo consultor' }
 };
 
 
@@ -94,6 +96,7 @@ function switchSection(sectionId) {
     if (sectionId === 'gtd-board') loadGtdBoard('context');
     if (sectionId === 'gtd-projects') loadGtdProjects();
     if (sectionId === 'ideas') initGtdFilterDropdowns();
+    if (sectionId === 'revision') loadReviewQueue();
 }
 
 // ─── Panel actions + Home quick cards ──────────────────────────────────────────
@@ -1662,6 +1665,7 @@ async function viewSkill(filePath, title) {
     const modal = document.getElementById('skillModal');
     const modalTitle = document.getElementById('skillModalTitle');
     const modalContent = document.getElementById('skillModalContent');
+    const pathInput = document.getElementById('skillModalPath');
 
     if (modalTitle) {
         modalTitle.innerHTML = `
@@ -1669,8 +1673,12 @@ async function viewSkill(filePath, title) {
             <button id="btnDiscussSkill" class="btn-icon" style="margin-left:auto;font-size:1.2rem;" title="Discutir con IA">💬</button>
         `;
     }
+    if (pathInput) pathInput.value = filePath;
     if (modalContent) modalContent.innerHTML = '<div class="loading-spinner">Cargando...</div>';
     if (modal) modal.style.display = 'block';
+
+    // Reset to content tab
+    switchSkillTab('content');
 
     try {
         const res = await fetch(`/api/skills/content?file=${encodeURIComponent(filePath)}`);
@@ -1689,6 +1697,10 @@ async function viewSkill(filePath, title) {
         if (btnDiscuss) {
             btnDiscuss.onclick = () => discussSkill(title, data.content);
         }
+
+        // Load comments and documents for this skill
+        loadSkillComments(filePath);
+        loadSkillDocuments(filePath);
 
     } catch (err) {
         if (modalContent) modalContent.innerHTML = '<div class="error-msg">Error al cargar contenido</div>';
@@ -3703,13 +3715,17 @@ async function showExecutionOutput(ideaId) {
         modalDiv.id = 'execOutputModal';
         modalDiv.className = 'modal';
         modalDiv.style.cssText = 'display:flex;z-index:2100;';
+        const reviewBadge = data.review_status === 'approved' ? '<span class="review-badge approved">Aprobado</span>'
+            : data.review_status === 'needs_changes' ? '<span class="review-badge needs-changes">Requiere Cambios</span>'
+            : '<span class="review-badge pending">Pendiente de Revision</span>';
+
         modalDiv.innerHTML = `
             <div class="modal-content exec-output-modal">
                 <div class="exec-output-header">
                     <div class="exec-output-title">
                         <span class="exec-output-icon">🚀</span>
                         <div>
-                            <h2>Output de Ejecucion</h2>
+                            <h2>Output de Ejecucion ${reviewBadge}</h2>
                             <span class="exec-output-meta">${agentLabel} | ${data.executed_by || 'system'} | ${executedDate}</span>
                         </div>
                     </div>
@@ -3722,6 +3738,20 @@ async function showExecutionOutput(ideaId) {
                 <div class="exec-output-body" id="execOutputBody">
                     ${renderedOutput}
                 </div>
+                <div class="exec-review-section" id="execReviewSection">
+                    <h3>Revision</h3>
+                    <div class="exec-review-actions">
+                        <button class="btn btn-success" onclick="reviewApprove(${ideaId})">Aprobar</button>
+                        <button class="btn btn-warning" onclick="reviewNeedsChanges(${ideaId})">Requiere Cambios</button>
+                    </div>
+                    <div class="exec-review-comments" id="execComments-${ideaId}">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                    <div class="comment-form">
+                        <textarea id="execCommentInput-${ideaId}" rows="2" placeholder="Comentario sobre este output..."></textarea>
+                        <button class="btn btn-sm" onclick="submitOutputComment(${ideaId})">Enviar</button>
+                    </div>
+                </div>
             </div>`;
 
         // Click outside modal to close
@@ -3730,6 +3760,7 @@ async function showExecutionOutput(ideaId) {
         });
 
         document.body.appendChild(modalDiv);
+        loadOutputComments(ideaId);
     } catch (err) {
         console.error('showExecutionOutput error:', err);
         showToast('Error al cargar output: ' + err.message, 'error');
@@ -4327,4 +4358,351 @@ function timeAgo(dateStr) {
 }
 
 window.loadOpenClawStatus = loadOpenClawStatus;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REVISION — Review Queue, Comments, Skill Tabs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _reviewData = null;
+
+async function loadReviewQueue() {
+    try {
+        const [reviewRes, skillsRes] = await Promise.all([
+            fetch('/api/review/queue'),
+            fetch('/api/skills')
+        ]);
+        const reviewData = await reviewRes.json();
+        const skills = await skillsRes.json();
+        _reviewData = reviewData;
+
+        // Stats
+        const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+        el('revStatSkills', skills.length);
+        el('revStatPending', reviewData.stats.pending_review);
+        el('revStatApproved', reviewData.stats.approved);
+        el('revStatChanges', reviewData.stats.needs_changes);
+
+        // Build skill comment map
+        const skillCommentMap = {};
+        (reviewData.skill_comments || []).forEach(sc => { skillCommentMap[sc.target_id] = sc.comment_count; });
+
+        // Render skills list
+        const skillsList = document.getElementById('reviewSkillsList');
+        if (skillsList) {
+            if (skills.length === 0) {
+                skillsList.innerHTML = '<div class="empty-state">No hay skills disponibles.</div>';
+            } else {
+                skillsList.innerHTML = skills.map(s => {
+                    let displayName = s.name.replace(/\.md$/i, '').replace(/-/g, ' ');
+                    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+                    const commentCount = skillCommentMap[s.path] || 0;
+                    const badge = commentCount > 0 ? `<span class="review-badge reviewed">${commentCount} comentario${commentCount > 1 ? 's' : ''}</span>` : '';
+                    return `<div class="review-item" onclick="viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">
+                        <div class="review-item-info">
+                            <span class="review-item-icon">${s.category === 'core' ? '🧠' : '🛠️'}</span>
+                            <div>
+                                <strong>${displayName}</strong>
+                                <span class="review-item-meta">${s.category}</span>
+                            </div>
+                        </div>
+                        <div class="review-item-actions">
+                            ${badge}
+                            <button class="btn btn-sm" onclick="event.stopPropagation(); viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">Revisar</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // Render outputs list
+        renderReviewOutputs(reviewData.outputs, reviewData.output_comments);
+
+    } catch (err) {
+        console.error('loadReviewQueue error:', err);
+    }
+}
+
+function renderReviewOutputs(outputs, outputComments) {
+    const list = document.getElementById('reviewOutputsList');
+    if (!list) return;
+
+    const commentMap = {};
+    (outputComments || []).forEach(oc => { commentMap[oc.target_id] = oc.comment_count; });
+
+    if (!outputs || outputs.length === 0) {
+        list.innerHTML = '<div class="empty-state">No hay outputs pendientes de revision.</div>';
+        return;
+    }
+
+    list.innerHTML = outputs.map(o => {
+        const badge = o.review_status === 'approved' ? '<span class="review-badge approved">Aprobado</span>'
+            : o.review_status === 'needs_changes' ? '<span class="review-badge needs-changes">Requiere Cambios</span>'
+            : '<span class="review-badge pending">Pendiente</span>';
+        const agentLabel = o.suggested_agent || o.executed_by || 'agente';
+        const commentCount = commentMap[String(o.id)] || 0;
+        const commentBadge = commentCount > 0 ? `<span class="review-badge reviewed">${commentCount} com.</span>` : '';
+        const date = o.executed_at ? new Date(o.executed_at).toLocaleDateString('es-ES') : '';
+
+        return `<div class="review-item" onclick="showExecutionOutput(${o.id})">
+            <div class="review-item-info">
+                <span class="review-item-icon">📄</span>
+                <div>
+                    <strong>#${o.id}: ${(o.ai_summary || o.text || '').substring(0, 60)}</strong>
+                    <span class="review-item-meta">${agentLabel} | ${date}</span>
+                </div>
+            </div>
+            <div class="review-item-actions">
+                ${badge} ${commentBadge}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function filterReviewOutputs() {
+    if (!_reviewData) return;
+    const filter = document.getElementById('reviewOutputFilter')?.value || 'all';
+    let filtered = _reviewData.outputs;
+    if (filter === 'pending') filtered = filtered.filter(o => !o.review_status);
+    else if (filter === 'approved') filtered = filtered.filter(o => o.review_status === 'approved');
+    else if (filter === 'needs_changes') filtered = filtered.filter(o => o.review_status === 'needs_changes');
+    renderReviewOutputs(filtered, _reviewData.output_comments);
+}
+
+// ─── Skill Tabs ─────────────────────────────────────────────────────────────
+
+function switchSkillTab(tab) {
+    const tabs = document.querySelectorAll('#skillTabs .review-tab');
+    tabs.forEach((t, i) => {
+        const tabNames = ['content', 'documents', 'comments'];
+        if (tabNames[i] === tab) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    ['skillTabContent', 'skillTabDocuments', 'skillTabComments'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(
+        tab === 'content' ? 'skillTabContent' :
+        tab === 'documents' ? 'skillTabDocuments' : 'skillTabComments'
+    );
+    if (activePanel) activePanel.style.display = 'block';
+}
+
+async function loadSkillComments(skillPath) {
+    const container = document.getElementById('skillCommentsList');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const res = await fetch(`/api/comments?target_type=skill&target_id=${encodeURIComponent(skillPath)}`);
+        const comments = await res.json();
+        renderCommentsList(container, comments, 'skill', skillPath);
+    } catch (err) {
+        container.innerHTML = '<div class="error-msg">Error al cargar comentarios</div>';
+    }
+}
+
+async function loadSkillDocuments(skillPath) {
+    const container = document.getElementById('skillDocsList');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const res = await fetch(`/api/skill-documents?skill=${encodeURIComponent(skillPath)}`);
+        const docs = await res.json();
+
+        if (docs.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:16px;">No hay documentos vinculados a este skill.</div>';
+            return;
+        }
+
+        container.innerHTML = docs.map(d => `
+            <div class="skill-doc-item">
+                <span class="skill-doc-icon">📎</span>
+                <div class="skill-doc-info">
+                    <strong>${d.document_name}</strong>
+                    ${d.description ? `<p>${d.description}</p>` : ''}
+                    ${d.document_url ? `<a href="${d.document_url}" target="_blank">Abrir documento</a>` : ''}
+                </div>
+                <span class="skill-doc-meta">${d.created_by || ''}</span>
+            </div>
+        `).join('');
+    } catch (err) {
+        container.innerHTML = '<div class="error-msg">Error al cargar documentos</div>';
+    }
+}
+
+async function submitSkillComment() {
+    const skillPath = document.getElementById('skillModalPath')?.value;
+    const input = document.getElementById('skillCommentInput');
+    if (!skillPath || !input || !input.value.trim()) return;
+
+    try {
+        const res = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_type: 'skill', target_id: skillPath, content: input.value.trim() })
+        });
+        if (!res.ok) throw new Error('Failed');
+        input.value = '';
+        loadSkillComments(skillPath);
+        showToast('Comentario enviado', 'success');
+    } catch (err) {
+        showToast('Error al enviar comentario', 'error');
+    }
+}
+
+// ─── Output Review Actions ──────────────────────────────────────────────────
+
+async function reviewApprove(ideaId) {
+    try {
+        const res = await fetch(`/api/review/${ideaId}/approve`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Output aprobado', 'success');
+        // Update badge in modal
+        const modal = document.getElementById('execOutputModal');
+        if (modal) modal.remove();
+        loadReviewQueue();
+    } catch (err) {
+        showToast('Error al aprobar', 'error');
+    }
+}
+
+async function reviewNeedsChanges(ideaId) {
+    const feedback = document.getElementById(`execCommentInput-${ideaId}`)?.value || '';
+    try {
+        const res = await fetch(`/api/review/${ideaId}/needs-changes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feedback })
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Marcado como requiere cambios', 'success');
+        const modal = document.getElementById('execOutputModal');
+        if (modal) modal.remove();
+        loadReviewQueue();
+    } catch (err) {
+        showToast('Error al marcar cambios', 'error');
+    }
+}
+
+// ─── Output Comments ────────────────────────────────────────────────────────
+
+async function loadOutputComments(ideaId) {
+    const container = document.getElementById(`execComments-${ideaId}`);
+    if (!container) return;
+
+    try {
+        const res = await fetch(`/api/comments?target_type=output&target_id=${ideaId}`);
+        const comments = await res.json();
+        renderCommentsList(container, comments, 'output', String(ideaId));
+    } catch (err) {
+        container.innerHTML = '<div class="error-msg">Error al cargar comentarios</div>';
+    }
+}
+
+async function submitOutputComment(ideaId) {
+    const input = document.getElementById(`execCommentInput-${ideaId}`);
+    if (!input || !input.value.trim()) return;
+
+    try {
+        const res = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_type: 'output', target_id: String(ideaId), content: input.value.trim() })
+        });
+        if (!res.ok) throw new Error('Failed');
+        input.value = '';
+        loadOutputComments(ideaId);
+        showToast('Comentario enviado', 'success');
+    } catch (err) {
+        showToast('Error al enviar comentario', 'error');
+    }
+}
+
+// ─── Shared comment renderer ────────────────────────────────────────────────
+
+function renderCommentsList(container, comments, targetType, targetId) {
+    if (!comments || comments.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No hay comentarios aun.</div>';
+        return;
+    }
+
+    container.innerHTML = comments.map(c => {
+        const date = new Date(c.created_at).toLocaleString('es-ES');
+        const canDelete = window.__USER__ && (window.__USER__.username === c.username || window.__USER__.role === 'admin');
+        const deleteBtn = canDelete ? `<button class="btn-icon-danger" onclick="event.stopPropagation(); deleteComment(${c.id}, '${targetType}', '${targetId.replace(/'/g, "\\'")}')" title="Eliminar">🗑️</button>` : '';
+        return `<div class="comment-item">
+            <div class="comment-header">
+                <strong>${c.username}</strong>
+                <span class="comment-role">${c.role || ''}</span>
+                <span class="comment-date">${date}</span>
+                ${deleteBtn}
+            </div>
+            <div class="comment-body">${c.content}</div>
+        </div>`;
+    }).join('');
+}
+
+async function deleteComment(commentId, targetType, targetId) {
+    try {
+        const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Comentario eliminado', 'success');
+        // Reload comments for the appropriate context
+        if (targetType === 'skill') loadSkillComments(targetId);
+        else if (targetType === 'output') loadOutputComments(parseInt(targetId));
+    } catch (err) {
+        showToast('Error al eliminar comentario', 'error');
+    }
+}
+
+// ─── Consultor UI restrictions ──────────────────────────────────────────────
+
+function initConsultorUI() {
+    if (!window.__USER__ || window.__USER__.role !== 'consultor') return;
+
+    // Hide elements that consultors cannot use
+    const selectorsToHide = [
+        '.ideas-input-panel',           // New idea input
+        '#btnDeleteAllIdeas',           // Delete all ideas
+        '.upload-panel',                // File upload
+        '#btnExportData',              // Export
+        '#btnImportData',              // Import
+        '.add-project-panel',          // Add project
+        '#quickCaptureBar',            // Quick capture bar
+        '#aiToggleBtn',                // AI widget toggle
+        '#aiWidget',                   // AI widget
+    ];
+
+    selectorsToHide.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.style.display = 'none';
+    });
+
+    // Hide nav sections not relevant for consultor
+    const navToHide = ['openclaw', 'analytics'];
+    navToHide.forEach(section => {
+        const link = document.querySelector(`.nav-link[data-section="${section}"]`);
+        if (link) link.style.display = 'none';
+    });
+
+    // Auto-navigate to revision section
+    const hash = window.location.hash.replace('#', '');
+    if (!hash || !SECTION_META[hash]) {
+        switchSection('revision');
+    }
+}
+
+// Expose functions globally
+window.loadReviewQueue = loadReviewQueue;
+window.filterReviewOutputs = filterReviewOutputs;
+window.switchSkillTab = switchSkillTab;
+window.submitSkillComment = submitSkillComment;
+window.reviewApprove = reviewApprove;
+window.reviewNeedsChanges = reviewNeedsChanges;
+window.submitOutputComment = submitOutputComment;
+window.deleteComment = deleteComment;
 

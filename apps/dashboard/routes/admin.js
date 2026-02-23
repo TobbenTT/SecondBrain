@@ -4,7 +4,8 @@ const fs = require('fs');
 const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
 const orchestratorBridge = require('../services/orchestratorBridge');
-const { requireAdmin } = require('../middleware/authorize');
+const { requireAdmin, denyRole } = require('../middleware/authorize');
+const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.get('/projects', async (req, res) => {
     }
 });
 
-router.post('/projects', async (req, res) => {
+router.post('/projects', blockConsultor, async (req, res) => {
     const { name, description, url, icon, status, tech } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'Name and URL required' });
 
@@ -69,7 +70,7 @@ router.post('/projects', async (req, res) => {
     }
 });
 
-router.delete('/projects/:id', requireAdmin, async (req, res) => {
+router.delete('/projects/:id', blockConsultor, requireAdmin, async (req, res) => {
     try {
         await run('DELETE FROM projects WHERE id = ?', [req.params.id]);
         res.json({ deleted: true });
@@ -80,7 +81,7 @@ router.delete('/projects/:id', requireAdmin, async (req, res) => {
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
 
-router.post('/orchestrator/execute', async (req, res) => {
+router.post('/orchestrator/execute', blockConsultor, async (req, res) => {
     const { command, args } = req.body;
     const user = req.session.user;
     if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
@@ -363,7 +364,7 @@ router.get('/export', async (req, res) => {
     }
 });
 
-router.post('/import', requireAdmin, async (req, res) => {
+router.post('/import', blockConsultor, requireAdmin, async (req, res) => {
     try {
         const { data } = req.body;
         if (!data) return res.status(400).json({ error: 'No data provided' });

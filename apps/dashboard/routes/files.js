@@ -181,4 +181,48 @@ router.get('/api/skills/content', async (req, res) => {
     }
 });
 
+// ─── Skill Documents API ────────────────────────────────────────────────────
+
+const { run, all } = require('../database');
+
+router.get('/api/skill-documents', async (req, res) => {
+    const { skill } = req.query;
+    if (!skill) return res.status(400).json({ error: 'skill parameter required' });
+
+    try {
+        const docs = await all(
+            'SELECT * FROM skill_documents WHERE skill_path = ? ORDER BY created_at DESC',
+            [skill]
+        );
+        res.json(docs);
+    } catch (err) {
+        log.error('Skill documents fetch error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch skill documents' });
+    }
+});
+
+router.post('/api/skill-documents', async (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    if (!['admin', 'manager'].includes(user.role)) {
+        return res.status(403).json({ error: 'Only admin or manager can link documents' });
+    }
+
+    const { skill_path, document_name, document_url, description } = req.body;
+    if (!skill_path || !document_name) {
+        return res.status(400).json({ error: 'skill_path and document_name required' });
+    }
+
+    try {
+        const result = await run(
+            'INSERT INTO skill_documents (skill_path, document_name, document_url, description, created_by) VALUES (?, ?, ?, ?, ?)',
+            [skill_path, document_name, document_url || null, description || null, user.username]
+        );
+        res.json({ id: result.lastID, skill_path, document_name });
+    } catch (err) {
+        log.error('Skill document create error', { error: err.message });
+        res.status(500).json({ error: 'Failed to create skill document' });
+    }
+});
+
 module.exports = router;

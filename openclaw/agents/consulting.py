@@ -14,9 +14,12 @@ import json
 from compartido import CONFIG, log, logger, pensar_con_gemini, pensar_con_local, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
-from skills.loader import load_skills
+from skills.loader import load_skill, load_skills
 
 NOMBRE = "CONSULTING"
+
+# Loaded from core/skills/core/execute-consulting-task.md (editable SOP)
+_CONSULTING_INSTRUCTIONS = load_skill('core/execute-consulting-task.md') or ""
 
 # Mapeo agente -> metadata + skills (replica AGENT_CATEGORY_MAP de ai.js)
 AGENT_SKILLS_MAP = {
@@ -57,14 +60,7 @@ def _build_prompt(agent_key, agent_config, skill_contents, idea_text, context):
 TU CONOCIMIENTO PRINCIPAL (SOPs):
 {skills_block}
 
-INSTRUCCIONES DE EJECUCION:
-1. Analiza la idea/solicitud proporcionada.
-2. Usando tu conocimiento de las Skills/SOPs, genera un OUTPUT ESTRUCTURADO y COMPLETO.
-3. El output debe ser un documento profesional listo para presentar.
-4. Usa formato Markdown con secciones claras, tablas donde aplique, y datos cuantitativos.
-5. Se especifico: incluye numeros, plazos, responsables donde sea posible.
-6. Incluye una seccion de "Proximos Pasos" al final.
-7. Responde en espanol."""
+{_CONSULTING_INSTRUCTIONS}"""
 
     user_prompt = f"""CONTEXTO ORGANIZACIONAL:
 {context}

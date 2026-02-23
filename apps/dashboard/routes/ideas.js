@@ -7,7 +7,8 @@ const { validateBody } = require('../helpers/validate');
 const aiService = require('../services/ai');
 const { processAndSaveIdea } = require('../helpers/ideaProcessor');
 const { requireAuth } = require('../middleware/auth');
-const { requireOwnerOrAdmin } = require('../middleware/authorize');
+const { requireOwnerOrAdmin, denyRole } = require('../middleware/authorize');
+const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
 
@@ -105,7 +106,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.post('/', validateBody({ text: { required: true, type: 'string', maxLen: 10000 } }), async (req, res) => {
+router.post('/', blockConsultor, validateBody({ text: { required: true, type: 'string', maxLen: 10000 } }), async (req, res) => {
     try {
         const { text, previewData } = req.body;
 
@@ -145,7 +146,7 @@ router.post('/', validateBody({ text: { required: true, type: 'string', maxLen: 
 
 router.post('/voice', (req, res, next) => { req._uploadType = 'voice'; next(); });
 
-router.delete('/', async (req, res) => {
+router.delete('/', blockConsultor, async (req, res) => {
     const user = req.session.user;
     if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede eliminar todo' });
     try {
@@ -160,7 +161,7 @@ router.delete('/', async (req, res) => {
     }
 });
 
-router.delete('/:id', ideaOwnerOrAdmin, async (req, res) => {
+router.delete('/:id', blockConsultor, ideaOwnerOrAdmin, async (req, res) => {
     try {
         const id = req.params.id;
         await run('DELETE FROM daily_checklist WHERE idea_id = ?', [id]);
@@ -175,7 +176,7 @@ router.delete('/:id', ideaOwnerOrAdmin, async (req, res) => {
 
 // ─── CODE Actions ────────────────────────────────────────────────────────────
 
-router.post('/:id/organize', validateBody({
+router.post('/:id/organize', blockConsultor, validateBody({
     para_type: { type: 'string', oneOf: ['project', 'area', 'resource', 'archive'] },
 }), async (req, res) => {
     const { para_type, area_id, project_id } = req.body;
@@ -188,7 +189,7 @@ router.post('/:id/organize', validateBody({
     }
 });
 
-router.post('/:id/distill', async (req, res) => {
+router.post('/:id/distill', blockConsultor, async (req, res) => {
     try {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
@@ -205,7 +206,7 @@ router.post('/:id/distill', async (req, res) => {
     }
 });
 
-router.post('/:id/express', async (req, res) => {
+router.post('/:id/express', blockConsultor, async (req, res) => {
     const { output } = req.body;
     try {
         await run(`UPDATE ideas SET code_stage = 'expressed', expressed_output = ? WHERE id = ?`,
@@ -218,7 +219,7 @@ router.post('/:id/express', async (req, res) => {
 
 // ─── Execution Pipeline ──────────────────────────────────────────────────────
 
-router.post('/:id/execute', requireAuth, async (req, res) => {
+router.post('/:id/execute', blockConsultor, requireAuth, async (req, res) => {
     const ideaId = req.params.id;
     const { agent, skills } = req.body;
     const executedBy = req.session.user ? req.session.user.username : 'system';
@@ -364,7 +365,7 @@ router.put('/:id/gtd', validateBody({
     }
 });
 
-router.post('/:id/complete', async (req, res) => {
+router.post('/:id/complete', blockConsultor, async (req, res) => {
     try {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
@@ -412,7 +413,7 @@ router.get('/:id/subtasks', async (req, res) => {
     }
 });
 
-router.post('/:id/decompose', async (req, res) => {
+router.post('/:id/decompose', blockConsultor, async (req, res) => {
     try {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });

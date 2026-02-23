@@ -11,28 +11,14 @@ Adaptado de Sistema-OpenClaw/revisor.py
 from compartido import log, logger, pensar_con_claude, pensar_con_gemini, pensar_con_local, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
+from skills.loader import load_skill
 
 NOMBRE = "QA"
 
-SISTEMA_QA = """Eres un Code Reviewer Senior experto en Python.
-Tu trabajo es revisar el codigo generado y evaluar:
-
-1. **Funcionalidad**: El codigo cumple con los requerimientos?
-2. **Errores**: Hay bugs obvios, errores de logica o crashes potenciales?
-3. **Seguridad**: Hay vulnerabilidades (inyeccion, paths sin validar, etc)?
-4. **Calidad**: El codigo es legible, bien estructurado y documentado?
-
-Responde en este formato EXACTO:
-
-VEREDICTO: APROBADO o RECHAZADO
-SCORE: [1-10]
-RESUMEN: [1 linea]
-DETALLES:
-- [punto 1]
-- [punto 2]
-- [punto 3]
-
-Si RECHAZAS, explica exactamente que hay que corregir."""
+# Loaded from core/skills/core/review-code-quality.md (editable SOP)
+SISTEMA_QA = load_skill('core/review-code-quality.md') or """Eres un Code Reviewer Senior experto en Python.
+Evalua: Funcionalidad, Errores, Seguridad, Calidad.
+Responde: VEREDICTO: APROBADO/RECHAZADO, SCORE: [1-10], RESUMEN, DETALLES."""
 
 
 def ciclo():

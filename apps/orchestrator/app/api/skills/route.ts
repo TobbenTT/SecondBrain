@@ -5,11 +5,11 @@ import path from 'path';
 
 // =============================================
 // SKILL SOURCES:
-// 1. LOCAL:  ./externo/skills/  (for offline demo)
+// 1. LOCAL:  core/skills/ (shared ASA skills directory)
 // 2. GITHUB: github.com/TobbenTT/orchestrator-skills (private repo)
 // =============================================
 
-const EXTERNO_DIR = path.join(process.cwd(), 'externo', 'skills');
+const EXTERNO_DIR = path.join(process.cwd(), '..', '..', 'core', 'skills');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'TobbenTT/orchestrator-skills';
 const GITHUB_SKILLS_PATH = process.env.GITHUB_SKILLS_PATH || 'skills';

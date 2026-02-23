@@ -15,6 +15,8 @@ const { db, run, get, all } = require('./database');
 
 // Middleware
 const { apiKeyAuth, requireAuth } = require('./middleware/auth');
+const { denyRole } = require('./middleware/authorize');
+const blockConsultor = denyRole('consultor');
 
 // Helpers
 const { formatFileSize, loadTags, saveTags } = require('./helpers/utils');
@@ -30,6 +32,8 @@ const gtdRoutes = require('./routes/gtd');
 const statsRoutes = require('./routes/stats');
 const externalRoutes = require('./routes/external');
 const adminRoutes = require('./routes/admin');
+const commentsRoutes = require('./routes/comments');
+const reviewRoutes = require('./routes/review');
 
 const app = express();
 const PORT = process.argv.includes('-p') ? parseInt(process.argv[process.argv.indexOf('-p') + 1]) : 3000;
@@ -230,7 +234,7 @@ app.get('/', (req, res) => {
 app.use(filesRoutes);
 
 // Voice upload handler (needs multer, defined here because multer is in server.js)
-app.post('/api/ideas/voice', upload.single('audio'), async (req, res) => {
+app.post('/api/ideas/voice', blockConsultor, upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
         const textToSave = (req.body.text || 'Nota de voz').trim();
@@ -265,7 +269,7 @@ app.post('/api/ideas/voice', upload.single('audio'), async (req, res) => {
 });
 
 // File upload handler (needs multer)
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.post('/api/upload', blockConsultor, upload.single('file'), (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file provided' });
         const rawTags = req.body.tags || '';
@@ -295,6 +299,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api', gtdRoutes);      // /api/gtd/*, /api/waiting-for/*, /api/inbox-log/*, /api/checklist/*
 app.use('/api', externalRoutes);  // /api/external/*, /api/webhook/*, /api/keys/*
 app.use('/api', adminRoutes);     // /api/users, /api/projects, /api/search, /api/export, etc.
+app.use('/api/comments', commentsRoutes);
+app.use('/api/review', reviewRoutes);
 
 // ─── Centralized Error Handler ───────────────────────────────────────────────
 const AppError = require('./helpers/AppError');

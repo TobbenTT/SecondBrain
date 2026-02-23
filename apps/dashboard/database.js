@@ -257,6 +257,32 @@ function initTables() {
             UNIQUE(username, notification_type, notification_id)
         )`);
 
+        // Comments Table (consultant feedback on skills and outputs)
+        db.run(`CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_type TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Skill Documents Table (reference docs linked to skills)
+        db.run(`CREATE TABLE IF NOT EXISTS skill_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            skill_path TEXT NOT NULL,
+            document_name TEXT NOT NULL,
+            document_url TEXT,
+            description TEXT,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migration: Review columns for consultant workflow
+        db.run(`ALTER TABLE ideas ADD COLUMN review_status TEXT`, (_err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN reviewed_by TEXT`, (_err) => {});
+        db.run(`ALTER TABLE ideas ADD COLUMN reviewed_at DATETIME`, (_err) => {});
+
         // ─── Indexes (idempotent — safe to run on every startup) ────────
         db.run('CREATE INDEX IF NOT EXISTS idx_ideas_code_stage ON ideas(code_stage)');
         db.run('CREATE INDEX IF NOT EXISTS idx_ideas_assigned_to ON ideas(assigned_to)');
@@ -273,12 +299,17 @@ function initTables() {
         db.run('CREATE INDEX IF NOT EXISTS idx_inbox_log_idea ON inbox_log(original_idea_id)');
         db.run('CREATE INDEX IF NOT EXISTS idx_notif_dismiss_user ON notification_dismissals(username, notification_type)');
         db.run('CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_comments_target ON comments(target_type, target_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_comments_username ON comments(username)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_skill_docs_path ON skill_documents(skill_path)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_review ON ideas(review_status)');
 
         log.info('Database tables and indexes initialized');
 
         // Seed areas after tables are created
         seedAreas();
         seedApiKeys();
+        seedConsultor();
     });
 }
 
@@ -374,6 +405,27 @@ function seedGtdContexts() {
             contexts.forEach(c => stmt.run(c.name, c.icon, c.description));
             stmt.finalize();
             log.info('GTD contexts seeded');
+        }
+    });
+}
+
+async function seedConsultor() {
+    db.get("SELECT id FROM users WHERE username = 'consultor'", [], async (err, row) => {
+        if (err) return;
+        if (!row) {
+            try {
+                const bcrypt = require('bcryptjs');
+                const hash = await bcrypt.hash('vsc2026', 10);
+                db.run(
+                    'INSERT OR IGNORE INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
+                    ['consultor', hash, 'consultor', 'Consultoria', 'Gestion de Activos,Confiabilidad,Normativa'],
+                    (err) => {
+                        if (!err) log.info('Consultor user seeded');
+                    }
+                );
+            } catch (e) {
+                log.error('Consultor seed error', { error: e.message });
+            }
         }
     });
 }
