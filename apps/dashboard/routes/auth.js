@@ -71,7 +71,8 @@ router.post('/login', async (req, res) => {
 
             // Get role from user_roles table in Supabase
             let role = 'analyst'; // default
-            const { data: roleRow } = await supabase
+            const sbClient = supabaseAdmin || supabase;
+            const { data: roleRow } = await sbClient
                 .from('user_roles')
                 .select('role')
                 .eq('user_id', uid)

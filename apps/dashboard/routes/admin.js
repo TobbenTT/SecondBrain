@@ -18,8 +18,8 @@ router.get('/users', async (req, res) => {
     try {
         // ─── Supabase: get users from user_roles + getUserById ───
         if (isSupabaseConfigured() && supabaseAdmin) {
-            // Get roles from user_roles table (this works — verified via login)
-            const { data: roles, error: rolesErr } = await supabase.from('user_roles').select('user_id, role');
+            // Get roles from user_roles table (use admin client to bypass RLS)
+            const { data: roles, error: rolesErr } = await supabaseAdmin.from('user_roles').select('user_id, role');
             if (rolesErr) {
                 log.error('Supabase user_roles error', { error: rolesErr.message });
             }
@@ -119,7 +119,7 @@ router.post('/users', requireAdmin, async (req, res) => {
             const uid = sbUser.user.id;
 
             // Insert role in user_roles
-            await supabase.from('user_roles').insert({ user_id: uid, role: safeRole });
+            await supabaseAdmin.from('user_roles').insert({ user_id: uid, role: safeRole });
 
             // Create local profile
             const displayName = (username || email.split('@')[0]).trim();
@@ -176,7 +176,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
         if (user.supabase_uid && isSupabaseConfigured()) {
             // Sync role to user_roles in Supabase
             if (supabase && newRole !== user.role) {
-                await supabase.from('user_roles')
+                await supabaseAdmin.from('user_roles')
                     .update({ role: newRole })
                     .eq('user_id', user.supabase_uid);
             }
@@ -240,7 +240,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
         // Delete from Supabase if applicable
         if (user.supabase_uid && isSupabaseConfigured() && supabaseAdmin) {
             // Delete from user_roles
-            await supabase.from('user_roles').delete().eq('user_id', user.supabase_uid);
+            await supabaseAdmin.from('user_roles').delete().eq('user_id', user.supabase_uid);
             // Delete from Supabase Auth
             const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(user.supabase_uid);
             if (delErr) log.error('Supabase delete user error', { error: delErr.message });
