@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const ExcelJS = require('exceljs');
 const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
 const orchestratorBridge = require('../services/orchestratorBridge');
@@ -651,6 +652,351 @@ router.get('/export', async (req, res) => {
     } catch (err) {
         log.error('Export error', { error: err.message });
         res.status(500).json({ error: 'Export failed' });
+    }
+});
+
+// ─── Excel Export with KPIs and Charts ───────────────────────────────────────
+router.get('/export-excel', async (req, res) => {
+    try {
+        const [ideas, users, projects, areas, waitingFor, checklist] = await Promise.all([
+            all('SELECT * FROM ideas ORDER BY created_at DESC'),
+            all('SELECT id, username, role, department, expertise FROM users'),
+            all('SELECT * FROM projects'),
+            all('SELECT * FROM areas'),
+            all('SELECT * FROM waiting_for'),
+            all('SELECT * FROM daily_checklist ORDER BY date DESC LIMIT 90')
+        ]);
+
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'SecondBrain Dashboard';
+        wb.created = new Date();
+
+        const accentFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } };
+        const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+        const titleFont = { bold: true, size: 14, color: { argb: 'FF6366F1' } };
+        const kpiFont = { bold: true, size: 20, color: { argb: 'FF1F2937' } };
+        const kpiLabelFont = { size: 10, color: { argb: 'FF6B7280' } };
+        const borderThin = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+
+        // ─── Sheet 1: Dashboard KPIs ─────────────────────────────────
+        const ws1 = wb.addWorksheet('Dashboard KPIs', { properties: { tabColor: { argb: 'FF6366F1' } } });
+        ws1.columns = [{ width: 3 }, { width: 25 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }];
+
+        // Title
+        ws1.mergeCells('B2:G2');
+        const titleCell = ws1.getCell('B2');
+        titleCell.value = 'SecondBrain — Reporte Ejecutivo';
+        titleCell.font = titleFont;
+        ws1.getCell('B3').value = `Generado: ${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+        ws1.getCell('B3').font = kpiLabelFont;
+
+        // KPI Cards Row 1
+        const totalIdeas = ideas.length;
+        const completadas = ideas.filter(i => i.completada).length;
+        const enProgreso = ideas.filter(i => !i.completada && i.estado === 'doing').length;
+        const pendientes = ideas.filter(i => !i.completada && (!i.estado || i.estado === 'capture')).length;
+        const teamSize = users.filter(u => !['usuario', 'cliente'].includes(u.role)).length;
+        const totalProjects = projects.length;
+
+        const kpis = [
+            { label: 'Total Ideas/Tareas', value: totalIdeas, col: 'B' },
+            { label: 'Completadas', value: completadas, col: 'C' },
+            { label: 'En Progreso', value: enProgreso, col: 'D' },
+            { label: 'Pendientes', value: pendientes, col: 'E' },
+            { label: 'Equipo Activo', value: teamSize, col: 'F' },
+            { label: 'Proyectos', value: totalProjects, col: 'G' }
+        ];
+
+        kpis.forEach(kpi => {
+            const valCell = ws1.getCell(`${kpi.col}5`);
+            valCell.value = kpi.value;
+            valCell.font = kpiFont;
+            valCell.alignment = { horizontal: 'center' };
+            valCell.border = borderThin;
+            valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+
+            const lblCell = ws1.getCell(`${kpi.col}6`);
+            lblCell.value = kpi.label;
+            lblCell.font = kpiLabelFont;
+            lblCell.alignment = { horizontal: 'center' };
+        });
+
+        // Completion rate
+        const rate = totalIdeas > 0 ? ((completadas / totalIdeas) * 100).toFixed(1) : 0;
+        ws1.getCell('B8').value = 'Tasa de Completitud:';
+        ws1.getCell('B8').font = { bold: true, size: 11 };
+        ws1.getCell('C8').value = `${rate}%`;
+        ws1.getCell('C8').font = { bold: true, size: 14, color: { argb: completadas > totalIdeas * 0.5 ? 'FF10B981' : 'FFEF4444' } };
+
+        // ─── Chart Data: Ideas por Estado ─────────────────────────────
+        ws1.getCell('B10').value = 'Distribucion por Estado';
+        ws1.getCell('B10').font = { bold: true, size: 12 };
+
+        const statusCounts = {};
+        ideas.forEach(i => {
+            const st = i.completada ? 'Completada' : (i.estado || 'capture');
+            statusCounts[st] = (statusCounts[st] || 0) + 1;
+        });
+
+        const statusLabels = { capture: 'Captura', clarify: 'Clarificar', organize: 'Organizar', doing: 'En Progreso', review: 'Revision', done: 'Hecho', Completada: 'Completada' };
+        let chartRow = 11;
+        ws1.getCell(`B${chartRow}`).value = 'Estado';
+        ws1.getCell(`B${chartRow}`).font = headerFont;
+        ws1.getCell(`B${chartRow}`).fill = accentFill;
+        ws1.getCell(`C${chartRow}`).value = 'Cantidad';
+        ws1.getCell(`C${chartRow}`).font = headerFont;
+        ws1.getCell(`C${chartRow}`).fill = accentFill;
+        ws1.getCell(`D${chartRow}`).value = '%';
+        ws1.getCell(`D${chartRow}`).font = headerFont;
+        ws1.getCell(`D${chartRow}`).fill = accentFill;
+
+        const statusStartRow = chartRow + 1;
+        Object.entries(statusCounts).forEach(([status, count]) => {
+            chartRow++;
+            ws1.getCell(`B${chartRow}`).value = statusLabels[status] || status;
+            ws1.getCell(`B${chartRow}`).border = borderThin;
+            ws1.getCell(`C${chartRow}`).value = count;
+            ws1.getCell(`C${chartRow}`).border = borderThin;
+            ws1.getCell(`D${chartRow}`).value = totalIdeas > 0 ? Math.round((count / totalIdeas) * 100) : 0;
+            ws1.getCell(`D${chartRow}`).border = borderThin;
+        });
+        const statusEndRow = chartRow;
+
+        // ─── Chart Data: Ideas por Prioridad ─────────────────────────
+        chartRow += 2;
+        ws1.getCell(`B${chartRow}`).value = 'Distribucion por Prioridad';
+        ws1.getCell(`B${chartRow}`).font = { bold: true, size: 12 };
+        chartRow++;
+
+        const priCounts = {};
+        ideas.forEach(i => { const p = i.prioridad || 'Sin prioridad'; priCounts[p] = (priCounts[p] || 0) + 1; });
+
+        ws1.getCell(`B${chartRow}`).value = 'Prioridad';
+        ws1.getCell(`B${chartRow}`).font = headerFont;
+        ws1.getCell(`B${chartRow}`).fill = accentFill;
+        ws1.getCell(`C${chartRow}`).value = 'Cantidad';
+        ws1.getCell(`C${chartRow}`).font = headerFont;
+        ws1.getCell(`C${chartRow}`).fill = accentFill;
+
+        Object.entries(priCounts).forEach(([pri, count]) => {
+            chartRow++;
+            ws1.getCell(`B${chartRow}`).value = pri;
+            ws1.getCell(`B${chartRow}`).border = borderThin;
+            ws1.getCell(`C${chartRow}`).value = count;
+            ws1.getCell(`C${chartRow}`).border = borderThin;
+        });
+
+        // ─── Chart Data: Ideas por Tipo ───────────────────────────────
+        chartRow += 2;
+        ws1.getCell(`B${chartRow}`).value = 'Distribucion por Tipo';
+        ws1.getCell(`B${chartRow}`).font = { bold: true, size: 12 };
+        chartRow++;
+
+        const typeCounts = {};
+        ideas.forEach(i => { const t = i.tipo || 'Sin tipo'; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+
+        ws1.getCell(`B${chartRow}`).value = 'Tipo';
+        ws1.getCell(`B${chartRow}`).font = headerFont;
+        ws1.getCell(`B${chartRow}`).fill = accentFill;
+        ws1.getCell(`C${chartRow}`).value = 'Cantidad';
+        ws1.getCell(`C${chartRow}`).font = headerFont;
+        ws1.getCell(`C${chartRow}`).fill = accentFill;
+
+        Object.entries(typeCounts).forEach(([tipo, count]) => {
+            chartRow++;
+            ws1.getCell(`B${chartRow}`).value = tipo;
+            ws1.getCell(`B${chartRow}`).border = borderThin;
+            ws1.getCell(`C${chartRow}`).value = count;
+            ws1.getCell(`C${chartRow}`).border = borderThin;
+        });
+
+        // Add chart for status distribution
+        try {
+            const chart = ws1.addChart('chart1', {
+                type: 'pie',
+                title: { text: 'Ideas por Estado' },
+                series: [{
+                    categoryData: { ref: `'Dashboard KPIs'!B${statusStartRow}:B${statusEndRow}` },
+                    values: { ref: `'Dashboard KPIs'!C${statusStartRow}:C${statusEndRow}` }
+                }],
+                legend: { position: 'right' }
+            });
+            chart.width = 450;
+            chart.height = 280;
+            ws1.addChartToCell('E10', chart);
+        } catch (_chartErr) {
+            // Charts may not be supported in all ExcelJS versions — data tables are the fallback
+        }
+
+        // ─── Sheet 2: Ideas & Tareas ─────────────────────────────────
+        const ws2 = wb.addWorksheet('Ideas y Tareas', { properties: { tabColor: { argb: 'FF10B981' } } });
+
+        const ideaCols = [
+            { header: 'ID', key: 'id', width: 6 },
+            { header: 'Titulo', key: 'titulo', width: 40 },
+            { header: 'Tipo', key: 'tipo', width: 14 },
+            { header: 'Prioridad', key: 'prioridad', width: 12 },
+            { header: 'Estado', key: 'estado', width: 14 },
+            { header: 'Completada', key: 'completada', width: 12 },
+            { header: 'Asignado', key: 'assigned_to', width: 16 },
+            { header: 'Proyecto', key: 'project_id', width: 10 },
+            { header: 'Creada', key: 'created_at', width: 18 },
+            { header: 'Finalizada', key: 'fecha_finalizacion', width: 18 }
+        ];
+        ws2.columns = ideaCols;
+
+        // Style header row
+        ws2.getRow(1).eachCell(cell => {
+            cell.font = headerFont;
+            cell.fill = accentFill;
+            cell.border = borderThin;
+            cell.alignment = { horizontal: 'center' };
+        });
+
+        ideas.forEach(idea => {
+            const row = ws2.addRow({
+                id: idea.id,
+                titulo: idea.titulo || idea.contenido,
+                tipo: idea.tipo || '',
+                prioridad: idea.prioridad || '',
+                estado: idea.estado || 'capture',
+                completada: idea.completada ? 'Si' : 'No',
+                assigned_to: idea.assigned_to || '',
+                project_id: idea.project_id || '',
+                created_at: idea.created_at || '',
+                fecha_finalizacion: idea.fecha_finalizacion || ''
+            });
+            row.eachCell(cell => { cell.border = borderThin; });
+
+            // Conditional coloring
+            const statusCell = row.getCell(5);
+            const statusColors = {
+                capture: 'FFFBBF24', clarify: 'FF3B82F6', organize: 'FF8B5CF6',
+                doing: 'FFF97316', review: 'FF6366F1', done: 'FF10B981'
+            };
+            if (statusColors[idea.estado]) {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: statusColors[idea.estado] } };
+                statusCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            }
+
+            if (idea.completada) {
+                row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+                row.getCell(6).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            }
+        });
+
+        // Auto-filter
+        ws2.autoFilter = { from: 'A1', to: `J${ideas.length + 1}` };
+
+        // ─── Sheet 3: Equipo ──────────────────────────────────────────
+        const ws3 = wb.addWorksheet('Equipo', { properties: { tabColor: { argb: 'FF3B82F6' } } });
+        ws3.columns = [
+            { header: 'Usuario', key: 'username', width: 22 },
+            { header: 'Rol', key: 'role', width: 14 },
+            { header: 'Departamento', key: 'department', width: 20 },
+            { header: 'Especialidad', key: 'expertise', width: 25 },
+            { header: 'Tareas Asignadas', key: 'assigned', width: 16 },
+            { header: 'Completadas', key: 'completed', width: 14 },
+            { header: '% Completitud', key: 'rate', width: 14 }
+        ];
+
+        ws3.getRow(1).eachCell(cell => {
+            cell.font = headerFont;
+            cell.fill = accentFill;
+            cell.border = borderThin;
+            cell.alignment = { horizontal: 'center' };
+        });
+
+        const teamUsers = users.filter(u => !['usuario', 'cliente'].includes(u.role));
+        teamUsers.forEach(u => {
+            const userIdeas = ideas.filter(i => i.assigned_to === u.username);
+            const userDone = userIdeas.filter(i => i.completada).length;
+            const row = ws3.addRow({
+                username: u.username,
+                role: u.role,
+                department: u.department || '',
+                expertise: u.expertise || '',
+                assigned: userIdeas.length,
+                completed: userDone,
+                rate: userIdeas.length > 0 ? Math.round((userDone / userIdeas.length) * 100) + '%' : 'N/A'
+            });
+            row.eachCell(cell => { cell.border = borderThin; });
+
+            const roleColors = { admin: 'FFEF4444', manager: 'FF3B82F6', analyst: 'FF10B981', consultor: 'FFF59E0B' };
+            if (roleColors[u.role]) {
+                row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: roleColors[u.role] } };
+                row.getCell(2).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            }
+        });
+
+        // ─── Sheet 4: Proyectos ───────────────────────────────────────
+        const ws4 = wb.addWorksheet('Proyectos', { properties: { tabColor: { argb: 'FFF59E0B' } } });
+        ws4.columns = [
+            { header: 'ID', key: 'id', width: 6 },
+            { header: 'Nombre', key: 'name', width: 35 },
+            { header: 'Descripcion', key: 'description', width: 40 },
+            { header: 'Estado', key: 'status', width: 14 },
+            { header: 'Ideas Asociadas', key: 'ideaCount', width: 16 }
+        ];
+
+        ws4.getRow(1).eachCell(cell => {
+            cell.font = headerFont;
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
+            cell.border = borderThin;
+            cell.alignment = { horizontal: 'center' };
+        });
+
+        projects.forEach(p => {
+            const pIdeas = ideas.filter(i => i.project_id === p.id).length;
+            const row = ws4.addRow({
+                id: p.id,
+                name: p.name,
+                description: p.description || '',
+                status: p.status || 'active',
+                ideaCount: pIdeas
+            });
+            row.eachCell(cell => { cell.border = borderThin; });
+        });
+
+        // ─── Sheet 5: Productividad (últimos 30 días) ────────────────
+        const ws5 = wb.addWorksheet('Productividad', { properties: { tabColor: { argb: 'FF8B5CF6' } } });
+        ws5.columns = [
+            { header: 'Fecha', key: 'date', width: 14 },
+            { header: 'Ideas Creadas', key: 'created', width: 16 },
+            { header: 'Ideas Completadas', key: 'completed', width: 18 }
+        ];
+
+        ws5.getRow(1).eachCell(cell => {
+            cell.font = headerFont;
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8B5CF6' } };
+            cell.border = borderThin;
+            cell.alignment = { horizontal: 'center' };
+        });
+
+        // Build daily stats for last 30 days
+        const now = new Date();
+        for (let d = 29; d >= 0; d--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - d);
+            const dateStr = date.toISOString().split('T')[0];
+
+            const created = ideas.filter(i => i.created_at && i.created_at.startsWith(dateStr)).length;
+            const completed = ideas.filter(i => i.fecha_finalizacion && i.fecha_finalizacion.startsWith(dateStr)).length;
+
+            const row = ws5.addRow({ date: dateStr, created, completed });
+            row.eachCell(cell => { cell.border = borderThin; });
+        }
+
+        // Send the workbook
+        const filename = `SecondBrain_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+        await wb.xlsx.write(res);
+        res.end();
+    } catch (err) {
+        log.error('Excel export error', { error: err.message, stack: err.stack });
+        res.status(500).json({ error: 'Excel export failed' });
     }
 });
 

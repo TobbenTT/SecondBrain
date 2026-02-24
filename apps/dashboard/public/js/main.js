@@ -69,11 +69,20 @@ function initNavigation() {
             closeMobileSidebar();
         });
     });
+
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', (e) => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash && SECTION_META[hash]) {
+            switchSectionSilent(hash);
+        }
+    });
+
     const hash = window.location.hash.replace('#', '');
     if (hash && SECTION_META[hash]) switchSection(hash);
 }
 
-function switchSection(sectionId) {
+function _applySectionSwitch(sectionId) {
     document.querySelectorAll('.nav-link[data-section]').forEach(l => l.classList.remove('active'));
     const activeLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
     if (activeLink) activeLink.classList.add('active');
@@ -93,7 +102,6 @@ function switchSection(sectionId) {
         if (title) title.textContent = meta.title;
         if (subtitle) subtitle.textContent = meta.subtitle;
     }
-    history.replaceState(null, '', '#' + sectionId);
 
     // Lazy-load section-specific data
     if (sectionId === 'analytics') loadAnalytics();
@@ -103,12 +111,21 @@ function switchSection(sectionId) {
     if (sectionId === 'gtd-projects') loadGtdProjects();
     if (sectionId === 'ideas') initGtdFilterDropdowns();
     if (sectionId === 'revision') { loadReviewQueue(); loadAuditTrail(); }
-    // methodologies section is static/explanatory — no data to load
     if (sectionId === 'reportability') initReportability();
     if (sectionId === 'reuniones') loadReuniones();
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
     if (sectionId === 'graph-view') loadGraphView();
+}
+
+function switchSection(sectionId) {
+    _applySectionSwitch(sectionId);
+    history.pushState({ section: sectionId }, '', '#' + sectionId);
+}
+
+// Same as switchSection but without pushing to history (for popstate handler)
+function switchSectionSilent(sectionId) {
+    _applySectionSwitch(sectionId);
 }
 
 function navigateToSection(id) { switchSection(id); }
@@ -1626,6 +1643,7 @@ async function loadIdeas(filter = null, page = null) {
                             </div>
                         </div>
                     </div>
+                    <button type="button" class="idea-edit" onclick="event.stopPropagation(); openEditIdeaModal('${idea.id}')" title="Editar idea">✏️</button>
                     <button type="button" class="idea-delete" onclick="deleteIdea('${idea.id}')" title="Eliminar idea">🗑</button>
                 </div>`;
         }).join('');
@@ -1664,6 +1682,116 @@ async function deleteIdea(id) {
     }
 }
 window.deleteIdea = deleteIdea;
+
+// ─── Edit Idea Modal ─────────────────────────────────────────────────────────
+
+async function openEditIdeaModal(ideaId) {
+    try {
+        const res = await fetch(`/api/ideas`);
+        const allIdeas = await res.json();
+        const idea = (allIdeas.ideas || allIdeas).find(i => String(i.id) === String(ideaId));
+        if (!idea) { showToast('Idea no encontrada', 'error'); return; }
+
+        // Fetch team users for assignment dropdown
+        let teamUsers = [];
+        try {
+            const uRes = await fetch('/api/users');
+            const users = await uRes.json();
+            teamUsers = users.filter(u => !['usuario', 'cliente'].includes(u.role));
+        } catch (_e) { /* ignore */ }
+
+        const formHtml = `
+            <div class="edit-idea-form" style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                <label style="font-size:0.8rem;color:var(--text-muted);">Texto / Descripcion</label>
+                <textarea id="_editIdeaText" style="min-height:80px;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:0.9rem;resize:vertical;">${escapeHtml(idea.text || '')}</textarea>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Responsable</label>
+                        <select id="_editIdeaAssigned" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                            <option value="">— Sin asignar —</option>
+                            ${teamUsers.map(u => `<option value="${u.username}" ${idea.assigned_to === u.username ? 'selected' : ''}>${u.username}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Prioridad</label>
+                        <select id="_editIdeaPriority" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                            <option value="">— Sin prioridad —</option>
+                            <option value="alta" ${idea.priority === 'alta' ? 'selected' : ''}>Alta</option>
+                            <option value="media" ${idea.priority === 'media' ? 'selected' : ''}>Media</option>
+                            <option value="baja" ${idea.priority === 'baja' ? 'selected' : ''}>Baja</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Energia</label>
+                        <select id="_editIdeaEnergia" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                            <option value="">—</option>
+                            <option value="baja" ${idea.energia === 'baja' ? 'selected' : ''}>Baja</option>
+                            <option value="media" ${idea.energia === 'media' ? 'selected' : ''}>Media</option>
+                            <option value="alta" ${idea.energia === 'alta' ? 'selected' : ''}>Alta</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Compromiso</label>
+                        <select id="_editIdeaCompromiso" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                            <option value="">—</option>
+                            <option value="comprometida" ${idea.tipo_compromiso === 'comprometida' ? 'selected' : ''}>Comprometida</option>
+                            <option value="esta_semana" ${idea.tipo_compromiso === 'esta_semana' ? 'selected' : ''}>Esta semana</option>
+                            <option value="algun_dia" ${idea.tipo_compromiso === 'algun_dia' ? 'selected' : ''}>Algun dia</option>
+                            <option value="tal_vez" ${idea.tipo_compromiso === 'tal_vez' ? 'selected' : ''}>Tal vez</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label style="font-size:0.8rem;color:var(--text-muted);">Objetivo</label>
+                <input id="_editIdeaObjetivo" type="text" value="${escapeHtml(idea.objetivo || '')}" placeholder="Objetivo que apoya esta tarea" style="padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+
+                <label style="font-size:0.8rem;color:var(--text-muted);">Notas</label>
+                <textarea id="_editIdeaNotas" style="min-height:50px;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;resize:vertical;" placeholder="Notas adicionales...">${escapeHtml(idea.notas || '')}</textarea>
+            </div>
+        `;
+
+        const confirmed = await showCustomModal({
+            title: '✏️ Editar Idea',
+            message: formHtml,
+            html: true,
+            isConfirm: true
+        });
+
+        if (!confirmed) return;
+
+        const body = {
+            text: document.getElementById('_editIdeaText')?.value || idea.text,
+            assigned_to: document.getElementById('_editIdeaAssigned')?.value || '',
+            priority: document.getElementById('_editIdeaPriority')?.value || '',
+            energia: document.getElementById('_editIdeaEnergia')?.value || '',
+            tipo_compromiso: document.getElementById('_editIdeaCompromiso')?.value || '',
+            objetivo: document.getElementById('_editIdeaObjetivo')?.value || '',
+            notas: document.getElementById('_editIdeaNotas')?.value || ''
+        };
+
+        const putRes = await fetch(`/api/ideas/${ideaId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (putRes.ok) {
+            showToast('Idea actualizada', 'success');
+            loadIdeas();
+        } else {
+            const err = await putRes.json();
+            showToast(err.error || 'Error al editar', 'error');
+        }
+    } catch (err) {
+        console.error('Edit idea error:', err);
+        showToast('Error al editar idea', 'error');
+    }
+}
+window.openEditIdeaModal = openEditIdeaModal;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TOAST NOTIFICATIONS
@@ -3362,14 +3490,15 @@ async function initReportability() {
         });
     }
 
-    // Load users into selector
+    // Load users into selector (only ranked members — exclude usuario/cliente)
     try {
         const res = await fetch('/api/users');
-        const users = await res.json();
+        const allUsers = await res.json();
+        const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('reportUserSelect');
         if (sel) {
             sel.innerHTML = '<option value="">— Seleccionar —</option>';
-            users.forEach(u => {
+            rankedUsers.forEach(u => {
                 sel.innerHTML += `<option value="${u.username}">${u.username} — ${u.department || u.role}</option>`;
             });
         }
@@ -4139,20 +4268,54 @@ function initExportImport() {
 
     if (btnExport) {
         btnExport.addEventListener('click', async () => {
-            showToast('Exportando datos...', 'info');
-            try {
-                const res = await fetch('/api/export');
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `secondbrain_export_${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showToast('Datos exportados', 'success');
-            } catch (err) {
-                showToast('Error al exportar', 'error');
-            }
+            const choice = await showCustomModal({
+                title: '📦 Exportar Datos',
+                message: `
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                        <button id="_expJSON" class="btn btn-sm" style="padding:12px;font-size:0.95rem;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;color:var(--text-primary);">
+                            📄 <strong>JSON</strong> — Datos crudos (backup / importar)
+                        </button>
+                        <button id="_expExcel" class="btn btn-sm" style="padding:12px;font-size:0.95rem;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;cursor:pointer;text-align:left;color:#fff;">
+                            📊 <strong>Excel con KPIs</strong> — Reporte ejecutivo con graficos, metricas y datos por hoja
+                        </button>
+                    </div>
+                `,
+                html: true,
+                isConfirm: false,
+                onOpen: () => {
+                    document.getElementById('_expJSON')?.addEventListener('click', async () => {
+                        document.getElementById('customModal').style.display = 'none';
+                        showToast('Exportando JSON...', 'info');
+                        try {
+                            const res = await fetch('/api/export');
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `secondbrain_export_${new Date().toISOString().split('T')[0]}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            showToast('Datos exportados (JSON)', 'success');
+                        } catch (err) { showToast('Error al exportar', 'error'); }
+                    });
+                    document.getElementById('_expExcel')?.addEventListener('click', async () => {
+                        document.getElementById('customModal').style.display = 'none';
+                        showToast('Generando reporte Excel...', 'info');
+                        try {
+                            const res = await fetch('/api/export-excel');
+                            if (!res.ok) throw new Error('Export failed');
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `SecondBrain_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            showToast('Reporte Excel exportado', 'success');
+                        } catch (err) { showToast('Error al exportar Excel', 'error'); }
+                    });
+                }
+            });
         });
     }
 
@@ -5538,8 +5701,9 @@ function _handleContentMouseUp(e) {
 function _showInlinePopover(e) {
     _removeInlinePopover();
 
-    // Append to modal-content so it can float to the right side (Jira style)
-    const modalContent = document.querySelector('#skillModal .modal-content');
+    // Append INSIDE the modal so it shares its stacking context
+    const modalEl = document.getElementById('skillModal');
+    const modalContent = modalEl ? modalEl.querySelector('.modal-content') : null;
     if (!modalContent) return;
 
     const modalRect = modalContent.getBoundingClientRect();
@@ -5553,21 +5717,21 @@ function _showInlinePopover(e) {
     popover.innerHTML = `
         <div class="popover-quote">"${escapeHtml(truncated)}"</div>
         <button class="inline-comment-btn" onclick="event.stopPropagation(); _expandInlineForm()">
-            💬 Comentar selección
+            💬 Comentar seleccion
         </button>
     `;
 
-    // Position: fixed to the right edge of the modal, at the selection height
-    popover.style.position = 'fixed';
-    popover.style.top = Math.max(modalRect.top + 60, Math.min(e.clientY - 20, modalRect.bottom - 200)) + 'px';
-    popover.style.left = (modalRect.right + 8) + 'px';
+    // Position absolute inside modal-content, anchored to right edge at selection height
+    const contentRect = modalContent.getBoundingClientRect();
+    const topOffset = e.clientY - contentRect.top + modalContent.scrollTop - 20;
 
-    // If no space on the right, show inside at the right edge
-    if (modalRect.right + 360 > window.innerWidth) {
-        popover.style.left = (modalRect.right - 350) + 'px';
-    }
+    popover.style.position = 'absolute';
+    popover.style.top = Math.max(10, topOffset) + 'px';
+    popover.style.right = '12px';
+    popover.style.left = 'auto';
 
-    document.body.appendChild(popover);
+    modalContent.style.position = 'relative';
+    modalContent.appendChild(popover);
     _inlinePopover = popover;
 }
 

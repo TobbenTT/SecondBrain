@@ -313,6 +313,38 @@ router.post('/:id/fix', ideaOwnerOrAdmin, async (req, res) => {
     }
 });
 
+// ─── Edit idea (text, assigned_to, priority, tipo_compromiso) ────────────────
+
+router.put('/:id', blockConsultor, async (req, res) => {
+    const { text, assigned_to, priority, tipo_compromiso, contexto, energia, notas, objetivo } = req.body;
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        const updates = [];
+        const params = [];
+
+        if (text !== undefined) { updates.push('text = ?'); params.push(text.trim()); }
+        if (assigned_to !== undefined) { updates.push('assigned_to = ?'); params.push(assigned_to || null); }
+        if (priority !== undefined) { updates.push('priority = ?'); params.push(priority || null); }
+        if (tipo_compromiso !== undefined) { updates.push('tipo_compromiso = ?'); params.push(tipo_compromiso || null); }
+        if (contexto !== undefined) { updates.push('contexto = ?'); params.push(contexto || null); }
+        if (energia !== undefined) { updates.push('energia = ?'); params.push(energia || null); }
+        if (notas !== undefined) { updates.push('notas = ?'); params.push(notas || null); }
+        if (objetivo !== undefined) { updates.push('objetivo = ?'); params.push(objetivo || null); }
+
+        if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+        params.push(req.params.id);
+        await run(`UPDATE ideas SET ${updates.join(', ')} WHERE id = ?`, params);
+        const updated = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        res.json(updated);
+    } catch (err) {
+        log.error('Edit idea error', { error: err.message });
+        res.status(500).json({ error: 'Failed to edit idea' });
+    }
+});
+
 // ─── Project link ────────────────────────────────────────────────────────────
 
 router.put('/:id/project', async (req, res) => {
