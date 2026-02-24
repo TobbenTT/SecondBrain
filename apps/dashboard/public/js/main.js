@@ -5678,7 +5678,7 @@ function initInlineComments() {
     // Close popover when clicking outside
     document.addEventListener('mousedown', (e) => {
         if (_inlinePopover && !_inlinePopover.contains(e.target)) {
-            _removeInlinePopover();
+            _cancelInlineComment();
         }
     });
 }
@@ -5720,7 +5720,7 @@ function _showInlinePopover(e) {
         <div class="popover-header">
             <span class="popover-icon">💬</span>
             <span>Comentar seleccion</span>
-            <button class="popover-close" onclick="_removeInlinePopover()">&times;</button>
+            <button class="popover-close" onclick="_cancelInlineComment()">&times;</button>
         </div>
         <div class="popover-quote">"${escapeHtml(truncated)}"</div>
         <button class="inline-comment-btn" onclick="event.stopPropagation(); _expandInlineForm()">
@@ -5757,13 +5757,13 @@ function _expandInlineForm() {
         <div class="popover-header">
             <span class="popover-icon">💬</span>
             <span>Nuevo comentario</span>
-            <button class="popover-close" onclick="_removeInlinePopover()">&times;</button>
+            <button class="popover-close" onclick="_cancelInlineComment()">&times;</button>
         </div>
         <div class="popover-quote">"${escapeHtml(truncated)}"</div>
         <div class="inline-comment-form">
             <textarea id="inlineCommentText" placeholder="Escribe tu comentario..." autofocus></textarea>
             <div class="actions">
-                <button class="btn-cancel" onclick="_removeInlinePopover()">Cancelar</button>
+                <button class="btn-cancel" onclick="_cancelInlineComment()">Cancelar</button>
                 <button class="btn-send" onclick="_submitInlineComment()">Enviar</button>
             </div>
         </div>
@@ -5793,7 +5793,7 @@ async function _submitInlineComment() {
         });
         if (!res.ok) throw new Error('Failed');
 
-        _removeInlinePopover();
+        _cancelInlineComment();
         showToast('Comentario inline enviado', 'success');
 
         // Refresh highlights and comments
@@ -5809,6 +5809,10 @@ function _removeInlinePopover() {
         _inlinePopover.remove();
         _inlinePopover = null;
     }
+}
+
+function _cancelInlineComment() {
+    _removeInlinePopover();
     _inlineSelectedText = '';
 }
 
@@ -5983,6 +5987,7 @@ function _goToSection(sectionName) {
 window._expandInlineForm = _expandInlineForm;
 window._submitInlineComment = _submitInlineComment;
 window._removeInlinePopover = _removeInlinePopover;
+window._cancelInlineComment = _cancelInlineComment;
 window._scrollToInlineComment = _scrollToInlineComment;
 window._goToHighlightedText = _goToHighlightedText;
 window._goToSection = _goToSection;
