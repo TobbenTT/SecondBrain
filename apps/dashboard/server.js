@@ -74,8 +74,7 @@ if (!fs.existsSync(PROJECTS_FILE)) {
 
 // ─── Startup Validation ──────────────────────────────────────────────────────
 if (!process.env.GEMINI_API_KEY && process.env.NODE_ENV !== 'test') {
-    log.error('FATAL: GEMINI_API_KEY not set in .env');
-    process.exit(1);
+    log.warn('GEMINI_API_KEY not set — Gemini fallback disabled (Ollama is primary)');
 }
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'change-me-to-a-random-string') {
     log.warn('Using default SESSION_SECRET — set a strong random value in .env for production');
