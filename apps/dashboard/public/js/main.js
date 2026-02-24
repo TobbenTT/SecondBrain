@@ -201,7 +201,8 @@ async function loadHomeTeam() {
     try {
         const res = await fetch('/api/users');
         if (!res.ok) return;
-        const users = await res.json();
+        const allUsers = await res.json();
+        const users = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         if (users.length === 0) {
             grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
             return;
