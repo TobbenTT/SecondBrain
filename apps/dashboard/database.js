@@ -273,6 +273,7 @@ function initTables() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
         db.run(`ALTER TABLE comments ADD COLUMN section TEXT`, (_err) => {});
+        db.run(`ALTER TABLE comments ADD COLUMN highlighted_text TEXT`, (_err) => {});
 
         // Skill Documents Table (reference docs linked to skills)
         db.run(`CREATE TABLE IF NOT EXISTS skill_documents (

@@ -2380,6 +2380,10 @@ async function viewSkill(filePath, title) {
         loadSkillComments(filePath);
         loadSkillDocuments(filePath);
 
+        // Init inline comments and apply highlights
+        initInlineComments();
+        await _applyInlineHighlights(filePath);
+
     } catch (err) {
         if (modalContent) modalContent.innerHTML = '<div class="error-msg">Error al cargar contenido</div>';
         console.error(err);
@@ -5473,6 +5477,215 @@ async function submitSkillComment() {
     }
 }
 
+// ─── Inline Comments (text selection → comment) ─────────────────────────────
+
+let _inlinePopover = null;
+let _inlineSelectedText = '';
+
+function initInlineComments() {
+    const contentArea = document.getElementById('skillModalContent');
+    if (!contentArea) return;
+
+    // Remove old listeners to avoid duplicates
+    contentArea.removeEventListener('mouseup', _handleContentMouseUp);
+    contentArea.addEventListener('mouseup', _handleContentMouseUp);
+
+    // Close popover when clicking outside
+    document.addEventListener('mousedown', (e) => {
+        if (_inlinePopover && !_inlinePopover.contains(e.target)) {
+            _removeInlinePopover();
+        }
+    });
+}
+
+function _handleContentMouseUp(e) {
+    const sel = window.getSelection();
+    const text = sel ? sel.toString().trim() : '';
+
+    if (!text || text.length < 3) {
+        return;
+    }
+
+    // Don't show popover if clicking inside existing popover
+    if (_inlinePopover && _inlinePopover.contains(e.target)) return;
+
+    _inlineSelectedText = text;
+    _showInlinePopover(e);
+}
+
+function _showInlinePopover(e) {
+    _removeInlinePopover();
+
+    const container = document.getElementById('skillTabContent');
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const popover = document.createElement('div');
+    popover.className = 'inline-comment-popover';
+
+    const truncated = _inlineSelectedText.length > 80
+        ? _inlineSelectedText.substring(0, 80) + '...'
+        : _inlineSelectedText;
+
+    popover.innerHTML = `
+        <div class="popover-quote">"${escapeHtml(truncated)}"</div>
+        <button class="inline-comment-btn" onclick="event.stopPropagation(); _expandInlineForm()">
+            💬 Comentar selección
+        </button>
+    `;
+
+    // Position relative to the content area
+    popover.style.top = (e.clientY - rect.top + container.scrollTop + 8) + 'px';
+    popover.style.left = Math.min(e.clientX - rect.left, rect.width - 350) + 'px';
+
+    container.style.position = 'relative';
+    container.appendChild(popover);
+    _inlinePopover = popover;
+}
+
+function _expandInlineForm() {
+    if (!_inlinePopover) return;
+
+    const truncated = _inlineSelectedText.length > 80
+        ? _inlineSelectedText.substring(0, 80) + '...'
+        : _inlineSelectedText;
+
+    _inlinePopover.innerHTML = `
+        <div class="popover-quote">"${escapeHtml(truncated)}"</div>
+        <div class="inline-comment-form">
+            <textarea id="inlineCommentText" placeholder="Tu comentario sobre esta sección..." autofocus></textarea>
+            <div class="actions">
+                <button class="btn-cancel" onclick="_removeInlinePopover()">Cancelar</button>
+                <button class="btn-send" onclick="_submitInlineComment()">Enviar</button>
+            </div>
+        </div>
+    `;
+
+    // Focus textarea
+    setTimeout(() => {
+        const ta = document.getElementById('inlineCommentText');
+        if (ta) ta.focus();
+    }, 50);
+}
+
+async function _submitInlineComment() {
+    const textarea = document.getElementById('inlineCommentText');
+    const skillPath = document.getElementById('skillModalPath')?.value;
+    if (!textarea || !textarea.value.trim() || !skillPath) return;
+
+    try {
+        const res = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_type: 'skill',
+                target_id: skillPath,
+                content: textarea.value.trim(),
+                highlighted_text: _inlineSelectedText
+            })
+        });
+        if (!res.ok) throw new Error('Failed');
+
+        _removeInlinePopover();
+        showToast('Comentario inline enviado', 'success');
+
+        // Refresh highlights and comments
+        await _applyInlineHighlights(skillPath);
+        loadSkillComments(skillPath);
+    } catch (err) {
+        showToast('Error al enviar comentario', 'error');
+    }
+}
+
+function _removeInlinePopover() {
+    if (_inlinePopover) {
+        _inlinePopover.remove();
+        _inlinePopover = null;
+    }
+    _inlineSelectedText = '';
+}
+
+// ─── Highlight existing comments on skill content ───────────────────────────
+
+async function _applyInlineHighlights(skillPath) {
+    const contentEl = document.getElementById('skillModalContent');
+    if (!contentEl) return;
+
+    try {
+        const res = await fetch(`/api/comments?target_type=skill&target_id=${encodeURIComponent(skillPath)}`);
+        const comments = await res.json();
+        const highlighted = comments.filter(c => c.highlighted_text);
+
+        if (highlighted.length === 0) return;
+
+        // Group by highlighted_text
+        const groups = {};
+        highlighted.forEach(c => {
+            const key = c.highlighted_text;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(c);
+        });
+
+        // Walk through text nodes and wrap matches
+        const pre = contentEl.querySelector('pre');
+        if (!pre) return;
+
+        const fullText = pre.textContent;
+        const fragments = [];
+        let lastIndex = 0;
+
+        // Collect all match ranges, sorted by position
+        const matches = [];
+        for (const [text, cmts] of Object.entries(groups)) {
+            let searchFrom = 0;
+            while (true) {
+                const idx = fullText.indexOf(text, searchFrom);
+                if (idx === -1) break;
+                matches.push({ start: idx, end: idx + text.length, text, count: cmts.length, ids: cmts.map(c => c.id) });
+                searchFrom = idx + text.length;
+                break; // Only highlight first occurrence per unique text
+            }
+        }
+
+        if (matches.length === 0) return;
+        matches.sort((a, b) => a.start - b.start);
+
+        // Build new content with <mark> tags (avoid overlaps)
+        let html = '';
+        let cursor = 0;
+        for (const m of matches) {
+            if (m.start < cursor) continue; // Skip overlapping
+            html += escapeHtml(fullText.substring(cursor, m.start));
+            html += `<mark class="inline-comment-highlight" data-comment-ids="${m.ids.join(',')}" title="${m.count} comentario${m.count > 1 ? 's' : ''}" onclick="_scrollToInlineComment(${m.ids[0]})">${escapeHtml(m.text)}</mark>`;
+            cursor = m.end;
+        }
+        html += escapeHtml(fullText.substring(cursor));
+
+        pre.innerHTML = html;
+    } catch (err) {
+        console.error('Error applying inline highlights:', err);
+    }
+}
+
+function _scrollToInlineComment(commentId) {
+    // Switch to comments tab and scroll to the comment
+    switchSkillTab('comments');
+    setTimeout(() => {
+        const commentEl = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
+        if (commentEl) {
+            commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            commentEl.style.outline = '2px solid #f59e0b';
+            setTimeout(() => { commentEl.style.outline = ''; }, 2000);
+        }
+    }, 200);
+}
+
+// Expose to window
+window._expandInlineForm = _expandInlineForm;
+window._submitInlineComment = _submitInlineComment;
+window._removeInlinePopover = _removeInlinePopover;
+window._scrollToInlineComment = _scrollToInlineComment;
+
 // ─── Output Review Actions ──────────────────────────────────────────────────
 
 async function reviewApprove(ideaId) {
@@ -5555,8 +5768,9 @@ function renderCommentsList(container, comments, targetType, targetId) {
         const safeTargetId = escapeHtml(String(targetId));
         const deleteBtn = canDelete ? `<button class="btn-icon-danger" data-comment-id="${c.id}" data-target-type="${escapeHtml(targetType)}" data-target-id="${safeTargetId}" onclick="event.stopPropagation(); deleteComment(this.dataset.commentId, this.dataset.targetType, this.dataset.targetId)" title="Eliminar">🗑️</button>` : '';
         const sectionBadge = c.section ? `<span class="comment-section-badge">${escapeHtml(c.section)}</span>` : '';
+        const quoteBadge = c.highlighted_text ? `<div class="comment-quote">"${escapeHtml(c.highlighted_text.length > 120 ? c.highlighted_text.substring(0, 120) + '...' : c.highlighted_text)}"</div>` : '';
         const avatarHtml = _avatarHtml(c.avatar, c.username, 28);
-        return `<div class="comment-item">
+        return `<div class="comment-item" data-comment-id="${c.id}">
             <div class="comment-header">
                 <span class="comment-avatar">${avatarHtml}</span>
                 <strong>${escapeHtml(c.username)}</strong>
@@ -5565,6 +5779,7 @@ function renderCommentsList(container, comments, targetType, targetId) {
                 <span class="comment-date">${date}</span>
                 ${deleteBtn}
             </div>
+            ${quoteBadge}
             <div class="comment-body">${escapeHtml(c.content)}</div>
         </div>`;
     }).join('');
