@@ -25,8 +25,12 @@ router.get('/users', async (req, res) => {
             }
 
             if (roles && roles.length > 0) {
+                // Map Supabase roles to dashboard roles (user → analyst)
+                const ROLE_MAP = { admin: 'admin', manager: 'manager', analyst: 'analyst', consultor: 'consultor', user: 'analyst' };
+                const normalizeRole = (r) => ROLE_MAP[r] || 'analyst';
+
                 const roleMap = {};
-                roles.forEach(r => { roleMap[r.user_id] = r.role; });
+                roles.forEach(r => { roleMap[r.user_id] = normalizeRole(r.role); });
 
                 // Fetch each user's auth details individually (avoids listUsers() GoTrue bug)
                 const sbUsers = [];
