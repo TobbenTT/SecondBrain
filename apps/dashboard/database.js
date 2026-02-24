@@ -412,6 +412,39 @@ function initTables() {
         // Migration: temas_detectados for reuniones
         db.run('ALTER TABLE reuniones ADD COLUMN temas_detectados TEXT DEFAULT "[]"', (_err) => {});
 
+        // ─── OKRs Table (Objectives and Key Results) ─────────────────────
+        db.run(`CREATE TABLE IF NOT EXISTS okrs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            type TEXT DEFAULT 'objective',
+            parent_id INTEGER,
+            owner TEXT,
+            target_value REAL,
+            current_value REAL DEFAULT 0,
+            unit TEXT,
+            status TEXT DEFAULT 'active',
+            period TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (parent_id) REFERENCES okrs(id) ON DELETE CASCADE
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_okrs_parent ON okrs(parent_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_okrs_owner ON okrs(owner)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_okrs_status ON okrs(status)');
+
+        // ─── OKR Links (link projects/ideas to OKRs) ────────────────────
+        db.run(`CREATE TABLE IF NOT EXISTS okr_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            okr_id INTEGER NOT NULL,
+            link_type TEXT NOT NULL,
+            link_id TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(okr_id, link_type, link_id),
+            FOREIGN KEY (okr_id) REFERENCES okrs(id) ON DELETE CASCADE
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_okr_links_okr ON okr_links(okr_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_okr_links_target ON okr_links(link_type, link_id)');
+
         log.info('Database tables and indexes initialized');
 
         // Seed areas after tables are created

@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initVoiceCommands();
     initSkills();
     initConsultorUI();
+    initInboxTriage();
+    initOKRs();
+    initNextActions();
 });
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
@@ -48,6 +51,8 @@ const SECTION_META = {
     analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' },
     agents: { title: 'Agentes', subtitle: 'Agentes especializados de negocio y ejecucion OpenClaw' },
     openclaw: { title: 'Monitor OpenClaw', subtitle: 'Pipeline multi-agente — PM → DEV → BUILDER → QA / Consulting → Reviewer' },
+    inbox: { title: 'Bandeja de Entrada', subtitle: 'Triage inteligente — Items pendientes de clasificacion y revision' },
+    okrs: { title: 'OKRs', subtitle: 'Objetivos y Key Results — Vincular proyectos a metas estrategicas' },
     'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
     'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
     'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' },
@@ -116,6 +121,9 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
     if (sectionId === 'graph-view') loadGraphView();
+    if (sectionId === 'inbox') loadInboxTriage();
+    if (sectionId === 'okrs') loadOKRs();
+    if (sectionId === 'gtd-board') loadNextActionsPanel();
 }
 
 function switchSection(sectionId) {
@@ -3124,13 +3132,14 @@ async function initWaitingFor() {
     const form = document.getElementById('waitingForm');
     if (form) form.addEventListener('submit', saveWaitingFor);
 
-    // Load users for delegation dropdown
+    // Load users for delegation dropdown (only ranked members)
     try {
         const res = await fetch('/api/users');
-        const users = await res.json();
+        const allUsers = await res.json();
+        const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('waitingDelegatedTo');
         if (sel) {
-            sel.innerHTML = users.map(u => `<option value="${u.username}">${u.username} (${u.role})</option>`).join('');
+            sel.innerHTML = rankedUsers.map(u => `<option value="${u.username}">${u.username} (${u.role})</option>`).join('');
         }
     } catch (err) { console.error('Error loading users:', err); }
 }
@@ -3240,15 +3249,17 @@ window.closeWaitingModal = closeWaitingModal;
 // ═══════════════════════════════════════════════════════════════════════════════
 async function initOverviewStats() {
     try {
-        const [codeRes, paraRes, overviewRes] = await Promise.all([
+        const [codeRes, paraRes, overviewRes, archRes] = await Promise.all([
             fetch('/api/stats/code'),
             fetch('/api/stats/para'),
-            fetch('/api/stats/overview')
+            fetch('/api/stats/overview'),
+            fetch('/api/archivos')
         ]);
 
         const code = await codeRes.json();
         const para = await paraRes.json();
         const overview = await overviewRes.json();
+        const archivos = await archRes.json();
 
         // CODE Pipeline counts
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -3260,7 +3271,7 @@ async function initOverviewStats() {
         // PARA Distribution counts
         set('paraProjects', para.project || 0);
         set('paraAreas', para.area || 0);
-        set('paraResources', para.resource || 0);
+        set('paraResources', (para.resource || 0) + (Array.isArray(archivos) ? archivos.length : 0));
         set('paraArchive', para.archive || 0);
 
         // Overview stats
@@ -4834,13 +4845,14 @@ async function initGtdFilterDropdowns() {
                 ctxSelect.appendChild(opt);
             });
         }
-        // Load users for assignee filter
+        // Load users for assignee filter (only ranked members)
         const usersRes = await fetch('/api/users');
         if (usersRes.ok) {
-            const users = await usersRes.json();
+            const allUsers = await usersRes.json();
+            const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
             const assignSelect = document.getElementById('filterAssignee');
-            if (assignSelect && users.length) {
-                users.forEach(u => {
+            if (assignSelect && rankedUsers.length) {
+                rankedUsers.forEach(u => {
                     const opt = document.createElement('option');
                     opt.value = u.username;
                     opt.textContent = `👤 ${u.username}`;
@@ -5124,7 +5136,9 @@ async function loadGtdBoard(groupBy = 'context') {
                 if (idea.estimated_time) badges.push(`<span class="gtd-mini-badge badge-time">⏱ ${escapeHtml(idea.estimated_time)}</span>`);
                 if (isAlta) badges.push(`<span class="gtd-mini-badge badge-alta">ALTA</span>`);
 
-                return `<div class="gtd-board-item ${extraClass}" onclick="viewSubtasks('${idea.parent_idea_id || idea.id}')">
+                return `<div class="gtd-board-item ${extraClass}" draggable="true" data-id="${idea.id}"
+                    ondragstart="onDragStart(event, '${idea.id}')" ondragend="onDragEnd(event)"
+                    onclick="viewSubtasks('${idea.parent_idea_id || idea.id}')">
                     <div class="gtd-item-row">
                         <input type="checkbox" class="gtd-item-checkbox" onclick="event.stopPropagation();completeIdea('${idea.id}')">
                         <span class="gtd-item-text">${isNext ? '🎯 ' : ''}${escapeHtml((idea.ai_summary || idea.text || '').substring(0, 100))}</span>
@@ -5135,7 +5149,9 @@ async function loadGtdBoard(groupBy = 'context') {
 
             const moreCount = items.length > 15 ? `<div class="gtd-item-badges" style="justify-content:center;padding:4px;"><span class="gtd-mini-badge">+${items.length - 15} mas</span></div>` : '';
 
-            return `<div class="gtd-board-column">
+            return `<div class="gtd-board-column"
+                ondragover="onDragOver(event)" ondragleave="onDragLeave(event)"
+                ondrop="onDrop(event, '${key === '_sin_asignar' ? '' : key}', '${groupField}')">
                 <div class="gtd-board-column-header">
                     <span>${label}</span>
                     <span class="gtd-board-count">${items.length}</span>
@@ -5255,9 +5271,35 @@ async function generateDailyReport() {
     } catch (err) {
         content.innerHTML = '<p style="color:#ef4444;">Error al generar el reporte diario.</p>';
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '🔄 Generar Reporte'; }
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 General'; }
     }
 }
+
+async function loadSelectedBriefing() {
+    const select = document.getElementById('briefingUserSelect');
+    const username = select?.value;
+    if (!username) return showToast('Selecciona un usuario primero', 'error');
+    await loadUserBriefing(username);
+}
+
+// Populate briefing user dropdown
+(async function populateBriefingUsers() {
+    try {
+        const res = await fetch('/api/users');
+        if (!res.ok) return;
+        const users = await res.json();
+        const ranked = users.filter(u => !['usuario', 'cliente'].includes(u.role));
+        const sel = document.getElementById('briefingUserSelect');
+        if (sel) {
+            ranked.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.username;
+                opt.textContent = `${u.username} (${u.role})`;
+                sel.appendChild(opt);
+            });
+        }
+    } catch (_) {}
+})();
 
 // Expose GTD functions globally
 window.completeIdea = completeIdea;
@@ -6658,6 +6700,12 @@ async function openReunionDetail(id) {
             ${compromisosHtml}
             ${entregablesHtml}
             ${r.proxima_reunion ? `<div style="margin-top:16px;padding:10px;background:var(--bg-secondary);border-radius:6px;"><strong>Proxima reunion:</strong> ${r.proxima_reunion}</div>` : ''}
+            <div style="margin-top:16px;">
+                <button class="btn btn-primary" onclick="generateTasksFromMeeting(${id})" id="btnGenTasks_${id}">
+                    📥 Generar Tareas al Inbox
+                </button>
+                <small style="color:var(--text-muted);margin-left:8px;">Crea tareas en el inbox desde compromisos, acuerdos y entregables</small>
+            </div>
             <div class="reunion-links-section" id="reunionLinksSection" data-reunion-id="${id}"></div>
         `;
 
@@ -7741,6 +7789,12 @@ const GRAPH_TYPES = {
     skill:   { color: '#f39c12', label: 'Skills', icon: '🔧' },
     user:    { color: '#1abc9c', label: 'Usuarios', icon: '👤' }
 };
+const USER_ROLE_COLORS = {
+    admin:     '#e74c3c',
+    manager:   '#f39c12',
+    analyst:   '#3498db',
+    consultor: '#2ecc71'
+};
 
 let _graphSim = null;
 let _graphData = null;
@@ -7769,15 +7823,22 @@ async function loadGraphView() {
         ).join('');
     }
 
-    // Render legend
+    // Render legend (entity types + user roles)
     const legendEl = document.getElementById('graphLegend');
     if (legendEl) {
-        legendEl.innerHTML = Object.entries(GRAPH_TYPES).map(([, cfg]) =>
+        const typeLegend = Object.entries(GRAPH_TYPES).filter(([k]) => k !== 'user').map(([, cfg]) =>
             `<div class="graph-legend-item">
                 <div class="graph-legend-dot" style="background:${cfg.color}"></div>
                 <span>${cfg.label}</span>
             </div>`
         ).join('');
+        const roleLegend = Object.entries(USER_ROLE_COLORS).map(([role, color]) =>
+            `<div class="graph-legend-item">
+                <div class="graph-legend-dot" style="background:${color}"></div>
+                <span>${role.charAt(0).toUpperCase() + role.slice(1)}</span>
+            </div>`
+        ).join('');
+        legendEl.innerHTML = typeLegend + roleLegend;
     }
 
     try {
@@ -7846,11 +7907,17 @@ function _renderGraph(width, height) {
             .on('drag', _dragging)
             .on('end', _dragEnd));
 
+    // Color resolver: users get role-based colors, others use type color
+    function nodeColor(d) {
+        if (d.type === 'user' && d.data?.role) return USER_ROLE_COLORS[d.data.role] || GRAPH_TYPES.user.color;
+        return GRAPH_TYPES[d.type]?.color || '#888';
+    }
+
     // Circle for each node
     node.append('circle')
         .attr('r', d => nodeRadius(d))
-        .attr('fill', d => GRAPH_TYPES[d.type]?.color || '#888')
-        .attr('stroke', d => GRAPH_TYPES[d.type]?.color || '#888')
+        .attr('fill', d => nodeColor(d))
+        .attr('stroke', d => nodeColor(d))
         .attr('stroke-opacity', 0.4)
         .attr('stroke-width', d => nodeRadius(d) * 0.4);
 
@@ -7872,8 +7939,8 @@ function _renderGraph(width, height) {
             .style('left', (event.clientX + 12) + 'px')
             .style('top', (event.clientY - 10) + 'px')
             .html(`
-                <div style="font-weight:700;color:${typeCfg.color || '#fff'};margin-bottom:4px">${typeCfg.icon || ''} ${escapeHtml(d.label || '')}</div>
-                <div style="color:var(--text-muted);font-size:0.75rem">${typeCfg.label || d.type} · ${conns} conexion${conns !== 1 ? 'es' : ''}</div>
+                <div style="font-weight:700;color:${d.type === 'user' && d.data?.role ? (USER_ROLE_COLORS[d.data.role] || typeCfg.color) : (typeCfg.color || '#fff')};margin-bottom:4px">${typeCfg.icon || ''} ${escapeHtml(d.label || '')}</div>
+                <div style="color:var(--text-muted);font-size:0.75rem">${d.type === 'user' && d.data?.role ? d.data.role.charAt(0).toUpperCase() + d.data.role.slice(1) : (typeCfg.label || d.type)} · ${conns} conexion${conns !== 1 ? 'es' : ''}</div>
             `);
 
         // Highlight connected nodes and edges
@@ -8000,6 +8067,571 @@ function searchGraphNode(query) {
             .scale(1.5)
             .translate(-firstMatch.x, -firstMatch.y);
         svg.transition().duration(600).call(_graphZoom.transform, transform);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INBOX TRIAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initInboxTriage() {
+    // Update badge on load
+    updateInboxBadge();
+}
+
+async function updateInboxBadge() {
+    try {
+        const res = await fetch('/api/inbox/pending');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('inboxBadge');
+        if (badge) {
+            const count = data.needs_review?.length || 0;
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline-flex' : 'none';
+        }
+    } catch (_) {}
+}
+
+async function loadInboxTriage() {
+    try {
+        const [inboxRes, usersRes] = await Promise.all([
+            fetch('/api/inbox/pending'),
+            fetch('/api/users')
+        ]);
+        const data = await inboxRes.json();
+        const allUsers = usersRes.ok ? await usersRes.json() : [];
+        const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
+
+        // Stats
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('inboxStatTotal', data.total || 0);
+        set('inboxStatReview', data.needs_review?.length || 0);
+        set('inboxStatAuto', data.auto_routed?.length || 0);
+        set('inboxReviewCount', data.needs_review?.length || 0);
+        set('inboxAutoCount', data.auto_routed?.length || 0);
+
+        // Render needs_review
+        const reviewList = document.getElementById('inboxReviewList');
+        if (reviewList) {
+            if (!data.needs_review?.length) {
+                reviewList.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No hay items pendientes de revision.</p>';
+            } else {
+                reviewList.innerHTML = data.needs_review.map(item => renderInboxItem(item, rankedUsers, true)).join('');
+            }
+        }
+
+        // Render auto-routed
+        const autoList = document.getElementById('inboxAutoList');
+        if (autoList) {
+            if (!data.auto_routed?.length) {
+                autoList.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No hay items auto-clasificados.</p>';
+            } else {
+                autoList.innerHTML = data.auto_routed.map(item => renderInboxItem(item, rankedUsers, false)).join('');
+            }
+        }
+    } catch (err) {
+        console.error('Inbox triage error:', err);
+    }
+}
+
+function renderInboxItem(item, users, showActions) {
+    const conf = item.ai_confidence ? `${Math.round(item.ai_confidence * 100)}%` : 'N/A';
+    const confColor = item.ai_confidence >= 0.6 ? '#22c55e' : item.ai_confidence >= 0.3 ? '#f59e0b' : '#ef4444';
+    const typeLabel = item.ai_type || 'Sin clasificar';
+    const catLabel = item.ai_category || '';
+    const date = new Date(item.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const sourceLabel = item.source ? `<span class="inbox-source">${escapeHtml(item.source)}</span>` : '';
+
+    const userOpts = users.map(u => `<option value="${u.username}"${item.assigned_to === u.username ? ' selected' : ''}>${u.username}</option>`).join('');
+    const typeOpts = ['Tarea', 'Proyecto', 'Idea', 'Referencia', 'Admin', 'Reunion']
+        .map(t => `<option value="${t}"${typeLabel === t ? ' selected' : ''}>${t}</option>`).join('');
+
+    const actions = showActions ? `
+        <div class="inbox-actions">
+            <select class="inbox-select" id="inboxType_${item.id}" title="Tipo">${typeOpts}</select>
+            <select class="inbox-select" id="inboxAssign_${item.id}" title="Asignar a">
+                <option value="">Sin asignar</option>${userOpts}
+            </select>
+            <select class="inbox-select" id="inboxPriority_${item.id}" title="Prioridad">
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="baja">Baja</option>
+            </select>
+            <button class="btn btn-sm" onclick="approveInboxItem(${item.id})" title="Aprobar y mover a Organizado">✅ Aprobar</button>
+        </div>` : '';
+
+    return `
+        <div class="inbox-item" data-id="${item.id}">
+            <div class="inbox-item-header">
+                <span class="inbox-confidence" style="color:${confColor};font-weight:700;">${conf}</span>
+                <span class="inbox-type-badge">${escapeHtml(typeLabel)}</span>
+                ${catLabel ? `<span class="inbox-cat-badge">${escapeHtml(catLabel)}</span>` : ''}
+                ${sourceLabel}
+                <span style="color:var(--text-muted);font-size:0.78rem;margin-left:auto;">${date}</span>
+            </div>
+            <div class="inbox-item-text">${escapeHtml(item.text || item.ai_summary || '(sin texto)')}</div>
+            ${item.ai_summary && item.text !== item.ai_summary ? `<div class="inbox-summary">${escapeHtml(item.ai_summary)}</div>` : ''}
+            ${actions}
+        </div>`;
+}
+
+async function approveInboxItem(id) {
+    const typeEl = document.getElementById(`inboxType_${id}`);
+    const assignEl = document.getElementById(`inboxAssign_${id}`);
+    const prioEl = document.getElementById(`inboxPriority_${id}`);
+
+    try {
+        const res = await fetch(`/api/inbox/${id}/approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ai_type: typeEl?.value || null,
+                assigned_to: assignEl?.value || null,
+                priority: prioEl?.value || 'media',
+                is_project: typeEl?.value === 'Proyecto'
+            })
+        });
+        if (res.ok) {
+            showToast('Item aprobado y movido a Organizado', 'success');
+            const el = document.querySelector(`.inbox-item[data-id="${id}"]`);
+            if (el) el.remove();
+            updateInboxBadge();
+            // Update counts
+            const reviewCount = document.getElementById('inboxReviewCount');
+            if (reviewCount) reviewCount.textContent = Math.max(0, parseInt(reviewCount.textContent) - 1);
+        } else {
+            showToast('Error al aprobar', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexion', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OKRs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initOKRs() {}
+
+async function loadOKRs() {
+    const container = document.getElementById('okrsList');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/okrs');
+        if (!res.ok) throw new Error('Failed');
+        const objectives = await res.json();
+
+        if (!objectives.length) {
+            container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No hay objetivos definidos. Crea el primero con "+ Nuevo Objetivo".</p>';
+            return;
+        }
+
+        container.innerHTML = objectives.map(obj => {
+            const krs = obj.key_results || [];
+            const progress = krs.length
+                ? Math.round(krs.reduce((sum, kr) => sum + (kr.target_value ? (kr.current_value / kr.target_value) * 100 : 0), 0) / krs.length)
+                : 0;
+            const progressColor = progress >= 70 ? '#22c55e' : progress >= 40 ? '#f59e0b' : '#ef4444';
+
+            const krsHtml = krs.map(kr => {
+                const krProg = kr.target_value ? Math.round((kr.current_value / kr.target_value) * 100) : 0;
+                return `
+                    <div class="okr-kr-item">
+                        <div class="okr-kr-header">
+                            <span class="okr-kr-title">${escapeHtml(kr.title)}</span>
+                            <span class="okr-kr-progress">${kr.current_value || 0}/${kr.target_value || '?'} ${escapeHtml(kr.unit || '')}</span>
+                        </div>
+                        <div class="okr-progress-bar">
+                            <div class="okr-progress-fill" style="width:${Math.min(100, krProg)}%;background:${krProg >= 70 ? '#22c55e' : krProg >= 40 ? '#f59e0b' : '#ef4444'};"></div>
+                        </div>
+                        <div class="okr-kr-actions">
+                            <button class="btn-icon" onclick="updateKRProgress(${kr.id})" title="Actualizar progreso">📊</button>
+                            <button class="btn-icon" onclick="deleteOKR(${kr.id})" title="Eliminar">🗑️</button>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            return `
+                <div class="okr-objective" data-okr-id="${obj.id}">
+                    <div class="okr-obj-header">
+                        <div>
+                            <h3 class="okr-obj-title">${escapeHtml(obj.title)}</h3>
+                            ${obj.description ? `<p class="okr-obj-desc">${escapeHtml(obj.description)}</p>` : ''}
+                            ${obj.owner ? `<span class="okr-owner">👤 ${escapeHtml(obj.owner)}</span>` : ''}
+                            ${obj.period ? `<span class="okr-period">📅 ${escapeHtml(obj.period)}</span>` : ''}
+                        </div>
+                        <div class="okr-obj-progress" style="color:${progressColor};font-weight:700;">${progress}%</div>
+                    </div>
+                    <div class="okr-progress-bar okr-obj-bar">
+                        <div class="okr-progress-fill" style="width:${Math.min(100, progress)}%;background:${progressColor};"></div>
+                    </div>
+                    <div class="okr-krs">${krsHtml || '<p style="color:var(--text-muted);font-size:0.85rem;padding:8px 0;">Sin Key Results. Agrega uno.</p>'}</div>
+                    <div class="okr-obj-actions">
+                        <button class="btn btn-sm" onclick="addKeyResult(${obj.id})" style="font-size:0.78rem;padding:6px 12px;">+ Key Result</button>
+                        <button class="btn btn-sm" onclick="linkOKR(${obj.id})" style="font-size:0.78rem;padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);box-shadow:none;">🔗 Vincular</button>
+                        <button class="btn-icon" onclick="deleteOKR(${obj.id})" title="Eliminar objetivo">🗑️</button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        container.innerHTML = '<p style="color:var(--danger);padding:16px;">Error al cargar OKRs</p>';
+    }
+}
+
+async function openCreateOKR() {
+    const result = await showCustomModal({
+        title: 'Nuevo Objetivo (OKR)',
+        html: true,
+        isConfirm: true,
+        message: `
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div><label style="font-weight:600;">Titulo del Objetivo</label>
+                <input id="okrTitle" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="Ej: Aumentar presencia digital"></div>
+                <div><label style="font-weight:600;">Descripcion</label>
+                <textarea id="okrDesc" style="width:100%;padding:8px;min-height:60px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="Detalle del objetivo..."></textarea></div>
+                <div style="display:flex;gap:12px;">
+                    <div style="flex:1;"><label style="font-weight:600;">Responsable</label>
+                    <input id="okrOwner" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="username"></div>
+                    <div style="flex:1;"><label style="font-weight:600;">Periodo</label>
+                    <input id="okrPeriod" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="Q1 2026"></div>
+                </div>
+            </div>`
+    });
+
+    if (result === true) {
+        const title = document.getElementById('okrTitle')?.value?.trim();
+        if (!title) return showToast('Titulo requerido', 'error');
+        try {
+            const res = await fetch('/api/okrs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    description: document.getElementById('okrDesc')?.value?.trim() || '',
+                    owner: document.getElementById('okrOwner')?.value?.trim() || '',
+                    period: document.getElementById('okrPeriod')?.value?.trim() || ''
+                })
+            });
+            if (res.ok) { showToast('Objetivo creado', 'success'); loadOKRs(); }
+            else showToast('Error al crear', 'error');
+        } catch (_) { showToast('Error de conexion', 'error'); }
+    }
+}
+
+async function addKeyResult(objectiveId) {
+    const result = await showCustomModal({
+        title: 'Nuevo Key Result',
+        html: true,
+        isConfirm: true,
+        message: `
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div><label style="font-weight:600;">Key Result</label>
+                <input id="krTitle" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="Ej: Publicar 12 posts en LinkedIn"></div>
+                <div style="display:flex;gap:12px;">
+                    <div style="flex:1;"><label style="font-weight:600;">Meta</label>
+                    <input id="krTarget" type="number" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="12"></div>
+                    <div style="flex:1;"><label style="font-weight:600;">Unidad</label>
+                    <input id="krUnit" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="posts"></div>
+                </div>
+            </div>`
+    });
+
+    if (result === true) {
+        const title = document.getElementById('krTitle')?.value?.trim();
+        if (!title) return showToast('Titulo requerido', 'error');
+        try {
+            const res = await fetch('/api/okrs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    type: 'key_result',
+                    parent_id: objectiveId,
+                    target_value: parseFloat(document.getElementById('krTarget')?.value) || null,
+                    unit: document.getElementById('krUnit')?.value?.trim() || ''
+                })
+            });
+            if (res.ok) { showToast('Key Result creado', 'success'); loadOKRs(); }
+            else showToast('Error al crear', 'error');
+        } catch (_) { showToast('Error de conexion', 'error'); }
+    }
+}
+
+async function updateKRProgress(krId) {
+    const result = await showCustomModal({
+        title: 'Actualizar Progreso',
+        inputPlaceholder: 'Nuevo valor actual...',
+        isConfirm: true
+    });
+    if (result !== null && result !== false) {
+        try {
+            const res = await fetch(`/api/okrs/${krId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_value: parseFloat(result) || 0 })
+            });
+            if (res.ok) { showToast('Progreso actualizado', 'success'); loadOKRs(); }
+        } catch (_) { showToast('Error', 'error'); }
+    }
+}
+
+async function deleteOKR(id) {
+    const confirmed = await showCustomModal({ title: 'Eliminar?', message: 'Esta accion no se puede deshacer.', isConfirm: true });
+    if (confirmed) {
+        try {
+            await fetch(`/api/okrs/${id}`, { method: 'DELETE' });
+            showToast('Eliminado', 'success');
+            loadOKRs();
+        } catch (_) { showToast('Error', 'error'); }
+    }
+}
+
+async function linkOKR(okrId) {
+    const result = await showCustomModal({
+        title: 'Vincular a Proyecto/Area',
+        html: true,
+        isConfirm: true,
+        message: `
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div><label style="font-weight:600;">Tipo</label>
+                <select id="linkType" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                    <option value="project">Proyecto</option>
+                    <option value="area">Area</option>
+                </select></div>
+                <div><label style="font-weight:600;">ID</label>
+                <input id="linkId" type="text" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);" placeholder="ID del proyecto o area"></div>
+            </div>`
+    });
+    if (result === true) {
+        try {
+            await fetch(`/api/okrs/${okrId}/links`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    link_type: document.getElementById('linkType')?.value,
+                    link_id: document.getElementById('linkId')?.value
+                })
+            });
+            showToast('Vinculado', 'success');
+            loadOKRs();
+        } catch (_) { showToast('Error', 'error'); }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEXT ACTIONS (enhanced panel in GTD Board)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initNextActions() {}
+
+async function loadNextActionsPanel() {
+    try {
+        const res = await fetch('/api/next-actions');
+        if (!res.ok) return;
+        const actions = await res.json();
+
+        // Inject a "Next Actions Summary" strip at top of GTD board
+        const toolbar = document.querySelector('.gtd-board-toolbar');
+        if (!toolbar) return;
+
+        let strip = document.getElementById('nextActionsSummary');
+        if (!strip) {
+            strip = document.createElement('div');
+            strip.id = 'nextActionsSummary';
+            strip.className = 'next-actions-strip';
+            toolbar.parentNode.insertBefore(strip, toolbar.nextSibling);
+        }
+
+        if (!actions.length) {
+            strip.innerHTML = '<p style="color:var(--text-muted);padding:12px;">No hay proximas acciones marcadas.</p>';
+            return;
+        }
+
+        strip.innerHTML = `
+            <h3 style="margin:0 0 12px 0;font-size:0.95rem;">⚡ Proximas Acciones (${actions.length})</h3>
+            <div class="next-actions-grid">
+                ${actions.map(a => {
+                    const pri = a.priority === 'alta' ? '🔴' : a.priority === 'media' ? '🟡' : '🟢';
+                    const proj = a.project_name ? `<span class="na-project">← ${escapeHtml(a.project_name)}</span>` : '';
+                    const person = a.assigned_to ? `<span class="na-person">👤 ${escapeHtml(a.assigned_to)}</span>` : '';
+                    const deadline = a.fecha_limite ? `<span class="na-deadline">📅 ${a.fecha_limite}</span>` : '';
+                    return `
+                        <div class="next-action-card" draggable="true" data-id="${a.id}"
+                             ondragstart="onDragStart(event, ${a.id})"
+                             ondragend="onDragEnd(event)">
+                            <div class="na-header">${pri} ${escapeHtml(a.text || '(sin texto)')}</div>
+                            <div class="na-meta">${proj} ${person} ${deadline}</div>
+                            <button class="na-complete-btn" onclick="completeNextAction(${a.id})">✅ Completar</button>
+                        </div>`;
+                }).join('')}
+            </div>`;
+    } catch (err) {
+        console.error('Next actions error:', err);
+    }
+}
+
+async function completeNextAction(id) {
+    try {
+        const res = await fetch(`/api/next-actions/${id}/complete`, { method: 'PUT' });
+        if (res.ok) {
+            showToast('Accion completada — siguiente accion promovida', 'success');
+            loadNextActionsPanel();
+            loadGtdBoard(document.querySelector('.skill-filter-chip.active')?.textContent?.includes('Contexto') ? 'context' : 'context');
+        } else {
+            showToast('Error al completar', 'error');
+        }
+    } catch (_) { showToast('Error de conexion', 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEETING → TASKS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function generateTasksFromMeeting(reunionId) {
+    const btn = document.getElementById(`btnGenTasks_${reunionId}`);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+
+    try {
+        const res = await fetch(`/api/reuniones/${reunionId}/generate-tasks`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`${data.created} tareas creadas en el Inbox`, 'success');
+            if (btn) btn.textContent = `✅ ${data.created} tareas creadas`;
+            updateInboxBadge();
+        } else {
+            showToast(data.error || 'Error al generar', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '📥 Generar Tareas al Inbox'; }
+        }
+    } catch (err) {
+        showToast('Error de conexion', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '📥 Generar Tareas al Inbox'; }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KANBAN DRAG & DROP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _draggedId = null;
+
+function onDragStart(event, id) {
+    _draggedId = id;
+    event.dataTransfer.effectAllowed = 'move';
+    event.target.classList.add('dragging');
+}
+
+function onDragEnd(event) {
+    _draggedId = null;
+    event.target.classList.remove('dragging');
+}
+
+function onDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    event.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+}
+
+async function onDrop(event, newValue, field) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    if (!_draggedId) return;
+
+    try {
+        const body = {};
+        body[field] = newValue;
+        const res = await fetch(`/api/ideas/${_draggedId}/gtd`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            showToast('Tarea movida', 'success');
+            const activeView = document.querySelector('.skill-filter-chip.active');
+            const viewType = activeView?.id?.replace('gtdView', '').toLowerCase() || 'context';
+            loadGtdBoard(viewType === 'compromiso' ? 'compromiso' : viewType);
+        }
+    } catch (_) { showToast('Error al mover', 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REUSABLE MICROPHONE BUTTON
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function attachMicButton(targetInput, buttonContainer) {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mic-inline-btn';
+    btn.title = 'Hablar para escribir';
+    btn.innerHTML = '🎤';
+    let active = false;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = 'es-ES';
+    rec.interimResults = false;
+
+    rec.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        if (targetInput.tagName === 'INPUT' || targetInput.tagName === 'TEXTAREA') {
+            targetInput.value += (targetInput.value ? ' ' : '') + text;
+        }
+        targetInput.focus();
+    };
+    rec.onstart = () => { active = true; btn.classList.add('recording'); };
+    rec.onend = () => { active = false; btn.classList.remove('recording'); };
+    rec.onerror = () => { active = false; btn.classList.remove('recording'); };
+
+    btn.addEventListener('click', () => {
+        if (active) rec.stop(); else rec.start();
+    });
+
+    (buttonContainer || targetInput.parentNode).appendChild(btn);
+}
+
+// Attach mic buttons to project description and waiting-for description
+function initMicButtons() {
+    const projDesc = document.getElementById('projDesc');
+    if (projDesc) attachMicButton(projDesc);
+
+    const waitingDesc = document.getElementById('waitingDescription');
+    if (waitingDesc) attachMicButton(waitingDesc);
+}
+
+// Call after DOM is ready
+document.addEventListener('DOMContentLoaded', () => { setTimeout(initMicButtons, 500); });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DAILY BRIEFING PER USER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function loadUserBriefing(username) {
+    try {
+        const res = await fetch(`/api/gtd/briefing/${username}`);
+        if (!res.ok) throw new Error('Failed');
+        const data = await res.json();
+
+        const content = document.getElementById('dailyReportContent');
+        if (content) {
+            content.innerHTML = `<div class="markdown-content">${data.briefing.replace(/\n/g, '<br>').replace(/### (.*)/g, '<h3>$1</h3>').replace(/## (.*)/g, '<h2>$1</h2>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>')}</div>`;
+        }
+        const stats = document.getElementById('dailyReportStats');
+        if (stats && data.stats) {
+            stats.innerHTML = `
+                <div class="gtd-stat-chip">📋 ${data.stats.total} tareas</div>
+                <div class="gtd-stat-chip">⚡ ${data.stats.next_actions} proximas</div>
+                <div class="gtd-stat-chip">⚠️ ${data.stats.overdue} vencidas</div>
+                <div class="gtd-stat-chip">⏳ ${data.stats.waiting} esperando</div>`;
+        }
+    } catch (err) {
+        showToast('Error al cargar briefing', 'error');
     }
 }
 

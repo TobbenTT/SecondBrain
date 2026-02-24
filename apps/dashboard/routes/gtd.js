@@ -260,4 +260,284 @@ router.put('/checklist/:username/:ideaId/toggle', requireSelfOrAdmin, async (req
     }
 });
 
+// ─── Inbox Triage (/api/inbox/pending) ──────────────────────────────────────
+
+router.get('/inbox/pending', async (req, res) => {
+    try {
+        const items = await all(
+            `SELECT i.id, i.text, i.ai_type, i.ai_category, i.ai_summary, i.ai_confidence,
+                    i.code_stage, i.assigned_to, i.priority, i.is_project,
+                    i.needs_review, i.created_at, i.created_by,
+                    il.id as log_id, il.source, il.ai_classification, il.routed_to, il.reviewed
+             FROM ideas i
+             LEFT JOIN inbox_log il ON il.original_idea_id = i.id
+             WHERE i.code_stage = 'captured' AND (i.completada IS NULL OR i.completada = 0)
+             ORDER BY i.needs_review DESC, i.ai_confidence ASC, i.created_at DESC`
+        );
+        const needsReview = items.filter(i => i.needs_review == 1 || (i.ai_confidence !== null && i.ai_confidence < 0.6));
+        const autoRouted = items.filter(i => !i.needs_review && (i.ai_confidence === null || i.ai_confidence >= 0.6));
+        res.json({ needs_review: needsReview, auto_routed: autoRouted, total: items.length });
+    } catch (err) {
+        log.error('Inbox pending error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch inbox' });
+    }
+});
+
+// Approve inbox item → move to organized
+router.put('/inbox/:id/approve', async (req, res) => {
+    const { ai_type, assigned_to, priority, is_project } = req.body;
+    try {
+        const updates = ["code_stage = 'organized'", "needs_review = 0"];
+        const params = [];
+        if (ai_type) { updates.push('ai_type = ?'); params.push(ai_type); }
+        if (assigned_to) { updates.push('assigned_to = ?'); params.push(assigned_to); }
+        if (priority) { updates.push('priority = ?'); params.push(priority); }
+        if (is_project !== undefined) { updates.push('is_project = ?'); params.push(is_project ? 1 : 0); }
+        params.push(req.params.id);
+        await run(`UPDATE ideas SET ${updates.join(', ')} WHERE id = ?`, params);
+        // Mark inbox_log reviewed
+        await run('UPDATE inbox_log SET reviewed = 1 WHERE original_idea_id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Inbox approve error', { error: err.message });
+        res.status(500).json({ error: 'Failed to approve' });
+    }
+});
+
+// ─── Next Actions (cross-project) ──────────────────────────────────────────
+
+router.get('/next-actions', async (req, res) => {
+    try {
+        const actions = await all(
+            `SELECT i.id, i.text, i.ai_type, i.ai_category, i.assigned_to, i.priority,
+                    i.contexto, i.energia, i.tipo_compromiso, i.fecha_limite,
+                    i.code_stage, i.parent_idea_id, i.is_project,
+                    p.text as project_name, a.name as area_name
+             FROM ideas i
+             LEFT JOIN ideas p ON i.parent_idea_id = p.id
+             LEFT JOIN areas a ON i.related_area_id = a.id
+             WHERE i.proxima_accion = 1
+               AND (i.completada IS NULL OR i.completada = 0)
+             ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 WHEN 'baja' THEN 3 ELSE 4 END,
+                      i.created_at DESC`
+        );
+        res.json(actions);
+    } catch (err) {
+        log.error('Next actions error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch next actions' });
+    }
+});
+
+// Complete a next action → auto-promote next sibling
+router.put('/next-actions/:id/complete', async (req, res) => {
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Not found' });
+
+        // Mark completed
+        await run(
+            `UPDATE ideas SET completada = 1, proxima_accion = 0, fecha_finalizacion = ? WHERE id = ?`,
+            [new Date().toISOString(), req.params.id]
+        );
+
+        // Auto-promote: find next sibling in same project
+        if (idea.parent_idea_id) {
+            const nextSibling = await get(
+                `SELECT id FROM ideas
+                 WHERE parent_idea_id = ? AND id != ? AND (completada IS NULL OR completada = 0)
+                 ORDER BY id ASC LIMIT 1`,
+                [idea.parent_idea_id, req.params.id]
+            );
+            if (nextSibling) {
+                await run('UPDATE ideas SET proxima_accion = 1 WHERE id = ?', [nextSibling.id]);
+            }
+            // Check if all subtasks complete → complete parent
+            const remaining = await get(
+                'SELECT count(*) as c FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0)',
+                [idea.parent_idea_id]
+            );
+            if (remaining.c === 0) {
+                await run(
+                    `UPDATE ideas SET completada = 1, fecha_finalizacion = ? WHERE id = ?`,
+                    [new Date().toISOString(), idea.parent_idea_id]
+                );
+            }
+        }
+
+        res.json({ success: true, promoted: true });
+    } catch (err) {
+        log.error('Complete next action error', { error: err.message });
+        res.status(500).json({ error: 'Failed to complete' });
+    }
+});
+
+// ─── OKRs CRUD (/api/okrs/*) ───────────────────────────────────────────────
+
+router.get('/okrs', async (req, res) => {
+    try {
+        const objectives = await all(
+            `SELECT o.*, u.role as owner_role,
+                    (SELECT count(*) FROM okr_links WHERE okr_id = o.id) as link_count
+             FROM okrs o
+             LEFT JOIN users u ON o.owner = u.username
+             WHERE o.type = 'objective' AND o.status != 'archived'
+             ORDER BY o.created_at DESC`
+        );
+        for (const obj of objectives) {
+            obj.key_results = await all(
+                `SELECT kr.*,
+                        (SELECT count(*) FROM okr_links WHERE okr_id = kr.id) as link_count
+                 FROM okrs kr WHERE kr.parent_id = ? ORDER BY kr.id`,
+                [obj.id]
+            );
+        }
+        res.json(objectives);
+    } catch (err) {
+        log.error('OKR fetch error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch OKRs' });
+    }
+});
+
+router.post('/okrs', async (req, res) => {
+    const { title, description, type, parent_id, owner, target_value, unit, period } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title required' });
+    try {
+        const result = await run(
+            `INSERT INTO okrs (title, description, type, parent_id, owner, target_value, unit, period)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [title, description || '', type || 'objective', parent_id || null, owner || null,
+             target_value || null, unit || '', period || '']
+        );
+        const okr = await get('SELECT * FROM okrs WHERE id = ?', [result.lastID]);
+        res.json(okr);
+    } catch (err) {
+        log.error('OKR create error', { error: err.message });
+        res.status(500).json({ error: 'Failed to create OKR' });
+    }
+});
+
+router.put('/okrs/:id', async (req, res) => {
+    const { title, description, current_value, status, owner, target_value, unit, period } = req.body;
+    try {
+        const updates = []; const params = [];
+        if (title !== undefined) { updates.push('title = ?'); params.push(title); }
+        if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+        if (current_value !== undefined) { updates.push('current_value = ?'); params.push(current_value); }
+        if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+        if (owner !== undefined) { updates.push('owner = ?'); params.push(owner); }
+        if (target_value !== undefined) { updates.push('target_value = ?'); params.push(target_value); }
+        if (unit !== undefined) { updates.push('unit = ?'); params.push(unit); }
+        if (period !== undefined) { updates.push('period = ?'); params.push(period); }
+        if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+        params.push(req.params.id);
+        await run(`UPDATE okrs SET ${updates.join(', ')} WHERE id = ?`, params);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('OKR update error', { error: err.message });
+        res.status(500).json({ error: 'Failed to update OKR' });
+    }
+});
+
+router.delete('/okrs/:id', async (req, res) => {
+    try {
+        await run('DELETE FROM okrs WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('OKR delete error', { error: err.message });
+        res.status(500).json({ error: 'Failed to delete OKR' });
+    }
+});
+
+// OKR Links
+router.get('/okrs/:id/links', async (req, res) => {
+    try {
+        const links = await all(
+            `SELECT ol.*,
+                    CASE ol.link_type
+                        WHEN 'project' THEN (SELECT name FROM projects WHERE id = ol.link_id)
+                        WHEN 'idea' THEN (SELECT text FROM ideas WHERE id = ol.link_id)
+                        WHEN 'area' THEN (SELECT name FROM areas WHERE id = ol.link_id)
+                    END as link_name
+             FROM okr_links ol WHERE ol.okr_id = ? ORDER BY ol.link_type`,
+            [req.params.id]
+        );
+        res.json(links);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch links' });
+    }
+});
+
+router.post('/okrs/:id/links', async (req, res) => {
+    const { link_type, link_id } = req.body;
+    if (!link_type || !link_id) return res.status(400).json({ error: 'link_type and link_id required' });
+    try {
+        await run('INSERT OR IGNORE INTO okr_links (okr_id, link_type, link_id) VALUES (?, ?, ?)',
+            [req.params.id, link_type, link_id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to create link' });
+    }
+});
+
+router.delete('/okrs/links/:linkId', async (req, res) => {
+    try {
+        await run('DELETE FROM okr_links WHERE id = ?', [req.params.linkId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete link' });
+    }
+});
+
+// ─── Daily Briefing per user (/api/gtd/briefing/:username) ──────────────────
+
+router.get('/gtd/briefing/:username', async (req, res) => {
+    const { username } = req.params;
+    try {
+        const tasks = await all(
+            `SELECT i.id, i.text, i.priority, i.contexto, i.proxima_accion, i.code_stage,
+                    i.fecha_limite, i.parent_idea_id, p.text as project_name
+             FROM ideas i
+             LEFT JOIN ideas p ON i.parent_idea_id = p.id
+             WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = 0)
+             ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END`,
+            [username]
+        );
+        const waiting = await all(
+            `SELECT description, due_date FROM waiting_for
+             WHERE delegated_to = ? AND status = 'waiting'`,
+            [username]
+        );
+        const nextActions = tasks.filter(t => t.proxima_accion == 1);
+        const overdue = tasks.filter(t => t.fecha_limite && new Date(t.fecha_limite) < new Date());
+
+        // Build briefing text
+        let briefing = `📋 **Briefing de ${username}** — ${new Date().toLocaleDateString('es-ES')}\n\n`;
+        briefing += `**${tasks.length}** tareas activas | **${nextActions.length}** próximas acciones | **${overdue.length}** vencidas\n\n`;
+
+        if (nextActions.length) {
+            briefing += `### 🎯 Próximas Acciones\n`;
+            nextActions.forEach(t => {
+                const proj = t.project_name ? ` ← _${t.project_name}_` : '';
+                const pri = t.priority === 'alta' ? '🔴' : t.priority === 'media' ? '🟡' : '🟢';
+                briefing += `- ${pri} ${t.text}${proj}\n`;
+            });
+            briefing += '\n';
+        }
+        if (overdue.length) {
+            briefing += `### ⚠️ Vencidas\n`;
+            overdue.forEach(t => briefing += `- ${t.text} (límite: ${t.fecha_limite})\n`);
+            briefing += '\n';
+        }
+        if (waiting.length) {
+            briefing += `### ⏳ Esperando de ti\n`;
+            waiting.forEach(w => briefing += `- ${w.description}${w.due_date ? ` (${w.due_date})` : ''}\n`);
+        }
+
+        res.json({ username, briefing, stats: { total: tasks.length, next_actions: nextActions.length, overdue: overdue.length, waiting: waiting.length } });
+    } catch (err) {
+        log.error('Briefing error', { error: err.message });
+        res.status(500).json({ error: 'Failed to generate briefing' });
+    }
+});
+
 module.exports = router;

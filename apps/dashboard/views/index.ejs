@@ -72,6 +72,11 @@
             </div>
             <div class="nav-section">
                 <span class="nav-label">CODE</span>
+                <a href="#inbox" class="nav-link" data-section="inbox">
+                    <span class="nav-icon">📥</span>
+                    Inbox
+                    <span class="inbox-badge" id="inboxBadge" style="display:none;"></span>
+                </a>
                 <a href="#ideas" class="nav-link" data-section="ideas">
                     <span class="nav-icon">💡</span>
                     Captura
@@ -128,6 +133,10 @@
                 <a href="#gtd-report" class="nav-link" data-section="gtd-report">
                     <span class="nav-icon">📋</span>
                     Reporte Diario
+                </a>
+                <a href="#okrs" class="nav-link" data-section="okrs">
+                    <span class="nav-icon">🎯</span>
+                    OKRs
                 </a>
             </div>
             <% if (user && user.role === 'admin') { %>
@@ -1979,6 +1988,66 @@
         </div>
 
         <!-- ══════════════════════════════════════════════════════
+             SECTION: INBOX TRIAGE
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-inbox">
+            <!-- Inbox Stats -->
+            <div class="home-stats-strip" id="inboxStatsStrip">
+                <div class="hss-item">
+                    <span class="hss-num" id="inboxStatTotal">--</span>
+                    <span class="hss-label">En Bandeja</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="inboxStatReview">--</span>
+                    <span class="hss-label">Requiere Revision</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="inboxStatAuto">--</span>
+                    <span class="hss-label">Auto-clasificado</span>
+                </div>
+            </div>
+
+            <!-- Needs Review Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🔍 Requiere Revision</h2>
+                    <span class="ideas-count" id="inboxReviewCount">0</span>
+                </div>
+                <div class="panel-body" id="inboxReviewList">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+
+            <!-- Auto-routed Panel -->
+            <div class="panel" style="margin-top:16px;">
+                <div class="panel-header">
+                    <h2 class="panel-title">✅ Auto-clasificado (confianza >= 60%)</h2>
+                    <span class="ideas-count" id="inboxAutoCount">0</span>
+                </div>
+                <div class="panel-body" id="inboxAutoList" style="max-height:400px;overflow-y:auto;">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: OKRs — Objectives & Key Results
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-okrs">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🎯 Objetivos y Key Results</h2>
+                    <button class="btn btn-sm" onclick="openCreateOKR()">+ Nuevo Objetivo</button>
+                </div>
+                <div class="panel-body" id="okrsList">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
              SECTION: GTD BOARD — Proximas Acciones por Contexto
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-gtd-board">
@@ -2023,12 +2092,18 @@
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">📋 Reporte Diario</h2>
-                    <button class="btn btn-sm btn-primary" onclick="generateDailyReport()" id="btnDailyReport">🔄 Generar Reporte</button>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select id="briefingUserSelect" style="padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:0.82rem;">
+                            <option value="">General</option>
+                        </select>
+                        <button class="btn btn-sm" onclick="generateDailyReport()" id="btnDailyReport">🔄 General</button>
+                        <button class="btn btn-sm" onclick="loadSelectedBriefing()" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);">👤 Briefing Personal</button>
+                    </div>
                 </div>
                 <div class="panel-body">
                     <div id="dailyReportStats" class="gtd-report-stats"></div>
                     <div id="dailyReportContent" class="markdown-body" style="padding:16px;">
-                        <p style="color:var(--text-muted);">Haz click en "Generar Reporte" para crear el reporte del dia.</p>
+                        <p style="color:var(--text-muted);">Selecciona un usuario y haz click en "Briefing Personal" o genera el reporte general.</p>
                     </div>
                 </div>
             </div>

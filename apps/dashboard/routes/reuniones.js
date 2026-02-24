@@ -443,4 +443,82 @@ router.delete('/reuniones/:id', async (req, res) => {
     }
 });
 
+// ─── Generate Tasks from Meeting Commitments ────────────────────────────────
+router.post('/:id/generate-tasks', async (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    try {
+        const reunion = await get('SELECT * FROM reuniones WHERE id = ?', [req.params.id]);
+        if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
+
+        const compromisos = safeJsonParse(reunion.compromisos, []);
+        const acuerdos = safeJsonParse(reunion.acuerdos, []);
+        const entregables = safeJsonParse(reunion.entregables, []);
+
+        const items = [];
+
+        // Create ideas from compromisos
+        for (const c of compromisos) {
+            const text = typeof c === 'string' ? c : (c.texto || c.description || c.compromiso || JSON.stringify(c));
+            const responsible = typeof c === 'object' ? (c.responsable || c.assigned_to || null) : null;
+            if (!text || text.length < 3) continue;
+
+            const result = await run(
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, assigned_to, priority, created_by, needs_review)
+                 VALUES (?, 'captured', 'Tarea', 'Compromiso de Reunión', ?, 'media', ?, 1)`,
+                [text.trim(), responsible, user.username]
+            );
+            await run(
+                `INSERT INTO inbox_log (source, input_text, ai_classification, routed_to, needs_review, original_idea_id)
+                 VALUES ('reunion', ?, 'Tarea', ?, 1, ?)`,
+                [text.trim(), responsible, result.lastID]
+            );
+            items.push({ id: result.lastID, text: text.trim(), type: 'compromiso' });
+        }
+
+        // Create ideas from acuerdos
+        for (const a of acuerdos) {
+            const text = typeof a === 'string' ? a : (a.texto || a.description || a.acuerdo || JSON.stringify(a));
+            if (!text || text.length < 3) continue;
+
+            const result = await run(
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review)
+                 VALUES (?, 'captured', 'Tarea', 'Acuerdo de Reunión', ?, 1)`,
+                [text.trim(), user.username]
+            );
+            await run(
+                `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
+                 VALUES ('reunion', ?, 'Tarea', 1, ?)`,
+                [text.trim(), result.lastID]
+            );
+            items.push({ id: result.lastID, text: text.trim(), type: 'acuerdo' });
+        }
+
+        // Create ideas from entregables
+        for (const e of entregables) {
+            const text = typeof e === 'string' ? e : (e.texto || e.description || e.entregable || JSON.stringify(e));
+            if (!text || text.length < 3) continue;
+
+            const result = await run(
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review)
+                 VALUES (?, 'captured', 'Tarea', 'Entregable de Reunión', ?, 1)`,
+                [text.trim(), user.username]
+            );
+            await run(
+                `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
+                 VALUES ('reunion', ?, 'Tarea', 1, ?)`,
+                [text.trim(), result.lastID]
+            );
+            items.push({ id: result.lastID, text: text.trim(), type: 'entregable' });
+        }
+
+        log.info('Tasks generated from meeting', { reunion_id: req.params.id, count: items.length });
+        res.json({ success: true, created: items.length, items });
+    } catch (err) {
+        log.error('Generate tasks error', { error: err.message });
+        res.status(500).json({ error: 'Failed to generate tasks' });
+    }
+});
+
 module.exports = router;

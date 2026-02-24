@@ -1410,16 +1410,19 @@ router.get('/graph', async (req, res) => {
             all('SELECT id, username, role, department FROM users')
         ]);
 
+        // Filter out 'usuario' and 'cliente' roles — only ranked team members
+        const rankedUsers = users.filter(u => !['usuario', 'cliente'].includes(u.role));
+
         // Build user lookup by name (case-insensitive)
         const userByName = {};
-        users.forEach(u => { userByName[u.username.toLowerCase()] = u; });
+        rankedUsers.forEach(u => { userByName[u.username.toLowerCase()] = u; });
 
         // Build nodes
         projects.forEach(p => nodes.push({ id: `project-${p.id}`, label: p.name, type: 'project', data: p }));
         areas.forEach(a => nodes.push({ id: `area-${a.id}`, label: a.name, type: 'area', data: a }));
         ideas.forEach(i => nodes.push({ id: `idea-${i.id}`, label: (i.ai_summary || i.text || '').substring(0, 40), type: 'idea', data: i }));
         reuniones.forEach(r => nodes.push({ id: `reunion-${r.id}`, label: r.titulo || 'Sin título', type: 'reunion', data: r }));
-        users.forEach(u => nodes.push({ id: `user-${u.id}`, label: u.username, type: 'user', data: u }));
+        rankedUsers.forEach(u => nodes.push({ id: `user-${u.id}`, label: u.username, type: 'user', data: u }));
 
         // ── Edges: idea → project/area/user/parent ──
         ideas.filter(i => i.project_id).forEach(i =>
