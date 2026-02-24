@@ -8289,11 +8289,11 @@ select option {
     line-height: 1;
 }
 
-/* Quote in comment item */
+/* Quote in comment item — clickable, navigates to content */
 .comment-quote {
     font-style: italic;
     font-size: 0.8rem;
-    padding: 5px 10px;
+    padding: 6px 10px;
     margin-bottom: 6px;
     border-left: 3px solid #f59e0b;
     background: rgba(245, 158, 11, 0.07);
@@ -8302,7 +8302,21 @@ select option {
     max-height: 48px;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background 0.15s, border-color 0.15s;
 }
+.comment-quote:hover {
+    background: rgba(245, 158, 11, 0.15);
+    border-left-color: #6366f1;
+    color: var(--text-primary);
+}
+.comment-section-link {
+    cursor: pointer;
+    font-size: 0.75rem;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    margin-left: 2px;
+}
+.comment-section-link:hover { opacity: 1; }
 
 /* Skill documents */
 .skill-docs-list {

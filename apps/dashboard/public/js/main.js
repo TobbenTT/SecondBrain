@@ -5887,11 +5887,105 @@ function _scrollToInlineComment(commentId) {
     }, 200);
 }
 
+// Navigate from comment → highlighted text in content tab
+function _goToHighlightedText(text) {
+    switchSkillTab('content');
+    setTimeout(() => {
+        const contentEl = document.getElementById('skillModalContent');
+        if (!contentEl) return;
+
+        // Look for a <mark> highlight first
+        const marks = contentEl.querySelectorAll('mark.inline-comment-highlight');
+        for (const mark of marks) {
+            if (mark.textContent.includes(text.substring(0, 40))) {
+                mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                mark.style.outline = '2px solid #6366f1';
+                mark.style.background = 'rgba(99, 102, 241, 0.3)';
+                setTimeout(() => { mark.style.outline = ''; mark.style.background = ''; }, 2500);
+                return;
+            }
+        }
+
+        // Fallback: search raw text in the <pre> element
+        const pre = contentEl.querySelector('pre');
+        if (!pre) return;
+        const fullText = pre.textContent;
+        const idx = fullText.indexOf(text.substring(0, 60));
+        if (idx === -1) return;
+
+        // Create a temporary highlight via Range
+        const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+        let charCount = 0;
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const nodeLen = node.textContent.length;
+            if (charCount + nodeLen > idx) {
+                const range = document.createRange();
+                const startOffset = idx - charCount;
+                range.setStart(node, Math.min(startOffset, nodeLen));
+                range.setEnd(node, Math.min(startOffset + Math.min(text.length, 80), nodeLen));
+
+                const tempMark = document.createElement('span');
+                tempMark.style.cssText = 'background:rgba(99,102,241,0.35);border-radius:2px;outline:2px solid #6366f1;';
+                range.surroundContents(tempMark);
+                tempMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => { tempMark.replaceWith(...tempMark.childNodes); }, 2500);
+                return;
+            }
+            charCount += nodeLen;
+        }
+    }, 150);
+}
+
+// Navigate from comment → section heading in content tab
+function _goToSection(sectionName) {
+    switchSkillTab('content');
+    setTimeout(() => {
+        const contentEl = document.getElementById('skillModalContent');
+        if (!contentEl) return;
+        const pre = contentEl.querySelector('pre');
+        if (!pre) return;
+
+        // Find the heading text in the pre content
+        const lines = pre.textContent.split('\n');
+        const targetLine = lines.findIndex(l => l.replace(/^#+\s+/, '').trim() === sectionName);
+        if (targetLine === -1) return;
+
+        // Use TreeWalker to find and highlight
+        const searchText = lines[targetLine].trim();
+        const fullText = pre.textContent;
+        const idx = fullText.indexOf(searchText);
+        if (idx === -1) return;
+
+        const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+        let charCount = 0;
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const nodeLen = node.textContent.length;
+            if (charCount + nodeLen > idx) {
+                const range = document.createRange();
+                const startOffset = idx - charCount;
+                range.setStart(node, Math.min(startOffset, nodeLen));
+                range.setEnd(node, Math.min(startOffset + searchText.length, nodeLen));
+                const tempMark = document.createElement('span');
+                tempMark.style.cssText = 'background:rgba(99,102,241,0.35);border-radius:2px;outline:2px solid #6366f1;';
+                range.surroundContents(tempMark);
+                tempMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => { tempMark.replaceWith(...tempMark.childNodes); }, 2500);
+                return;
+            }
+            charCount += nodeLen;
+        }
+    }, 150);
+}
+
 // Expose to window
 window._expandInlineForm = _expandInlineForm;
 window._submitInlineComment = _submitInlineComment;
 window._removeInlinePopover = _removeInlinePopover;
 window._scrollToInlineComment = _scrollToInlineComment;
+window._goToHighlightedText = _goToHighlightedText;
+window._goToSection = _goToSection;
 
 // ─── Output Review Actions ──────────────────────────────────────────────────
 
@@ -5975,14 +6069,15 @@ function renderCommentsList(container, comments, targetType, targetId) {
         const safeTargetId = escapeHtml(String(targetId));
         const deleteBtn = canDelete ? `<button class="btn-icon-danger" data-comment-id="${c.id}" data-target-type="${escapeHtml(targetType)}" data-target-id="${safeTargetId}" onclick="event.stopPropagation(); deleteComment(this.dataset.commentId, this.dataset.targetType, this.dataset.targetId)" title="Eliminar">🗑️</button>` : '';
         const sectionBadge = c.section ? `<span class="comment-section-badge">${escapeHtml(c.section)}</span>` : '';
-        const quoteBadge = c.highlighted_text ? `<div class="comment-quote">"${escapeHtml(c.highlighted_text.length > 120 ? c.highlighted_text.substring(0, 120) + '...' : c.highlighted_text)}"</div>` : '';
+        const quoteBadge = c.highlighted_text ? `<div class="comment-quote" onclick="_goToHighlightedText('${escapeHtml(c.highlighted_text.replace(/'/g, "\\'").replace(/\n/g, ' '))}')" title="Click para ver en el contenido" style="cursor:pointer;">"${escapeHtml(c.highlighted_text.length > 120 ? c.highlighted_text.substring(0, 120) + '...' : c.highlighted_text)}"</div>` : '';
+        const sectionLink = c.section ? `<span class="comment-section-link" onclick="_goToSection('${escapeHtml(c.section.replace(/'/g, "\\'"))}')" title="Ir a seccion">📍</span>` : '';
         const avatarHtml = _avatarHtml(c.avatar, c.username, 28);
         return `<div class="comment-item" data-comment-id="${c.id}">
             <div class="comment-header">
                 <span class="comment-avatar">${avatarHtml}</span>
                 <strong>${escapeHtml(c.username)}</strong>
                 <span class="comment-role">${escapeHtml(c.role || '')}</span>
-                ${sectionBadge}
+                ${sectionBadge}${sectionLink}
                 <span class="comment-date">${date}</span>
                 ${deleteBtn}
             </div>
