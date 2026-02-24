@@ -4042,59 +4042,274 @@ select option {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PARA DISTRIBUTION
+   OVERVIEW — REDESIGNED LAYOUT (ov-)
    ═══════════════════════════════════════════════════════════════════════════ */
-.para-distribution {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+
+/* Pipeline hero panel */
+.ov-pipeline-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.ov-pipeline-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #f59e0b, #8b5cf6, #10b981);
+}
+.ov-pipeline-header {
+    display: flex;
+    align-items: baseline;
     gap: 12px;
+    margin-bottom: 28px;
+}
+.ov-pipeline-header h2 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0;
+}
+.ov-pipeline-header span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 500;
 }
 
-.para-card {
+/* Pipeline track with connecting line */
+.ov-pipeline-track {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    position: relative;
+    padding: 0 20px;
+}
+.ov-pipeline-line {
+    position: absolute;
+    top: 30px;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(59,130,246,0.3), rgba(245,158,11,0.3), rgba(139,92,246,0.3), rgba(16,185,129,0.3));
+    z-index: 0;
+}
+.ov-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 20px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    z-index: 1;
     cursor: pointer;
-    transition: var(--transition);
-    text-align: center;
+    transition: transform 0.2s ease;
+    min-width: 90px;
 }
-
-.para-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-hover);
-}
-
-.para-icon {
-    font-size: 1.8rem;
-}
-
-.para-info {
+.ov-stage:hover { transform: translateY(-3px); }
+.ov-stage-ring {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
     display: flex;
-    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+    transition: all 0.3s ease;
 }
-
-.para-count {
+.ov-stage:hover .ov-stage-ring { transform: scale(1.1); }
+.ov-stage-ring.captured { border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.08); }
+.ov-stage-ring.organized { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); }
+.ov-stage-ring.distilled { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.08); }
+.ov-stage-ring.expressed { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); }
+.ov-stage-count {
     font-size: 1.6rem;
     font-weight: 800;
     color: var(--text-primary);
+    line-height: 1;
 }
-
-.para-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.para-desc {
+.ov-stage-label {
     font-size: 0.7rem;
     color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+}
+
+/* Metrics + Actions row */
+.ov-mid-row {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+.ov-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.ov-metric {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 22px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.ov-metric:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+.ov-metric-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+.ov-icon-blue { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); }
+.ov-icon-green { background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.2); }
+.ov-icon-purple { background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.2); }
+.ov-icon-amber { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); }
+.ov-metric-data { display: flex; flex-direction: column; }
+.ov-metric-num {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+.ov-metric-label {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+/* Quick Actions */
+.ov-actions {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ov-actions-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin: 0 0 4px 0;
+}
+.ov-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+}
+.ov-action-btn:hover {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.05);
+    transform: translateX(3px);
+}
+.ov-action-icon { font-size: 1.2rem; flex-shrink: 0; }
+.ov-action-text { display: flex; flex-direction: column; }
+.ov-action-text strong { font-size: 0.82rem; color: var(--text-primary); }
+.ov-action-text span { font-size: 0.7rem; color: var(--text-muted); }
+
+/* Bottom row: Inbox + PARA */
+.ov-bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+}
+.ov-inbox-panel { margin-bottom: 0; }
+
+/* PARA panel */
+.ov-para-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+}
+.ov-para-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+}
+.ov-para-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.ov-para-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 18px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: center;
+}
+.ov-para-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.ov-para-icon { font-size: 1.5rem; }
+.ov-para-count { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.ov-para-label { font-size: 0.78rem; font-weight: 600; color: var(--text-primary); }
+.ov-para-desc { font-size: 0.65rem; color: var(--text-muted); }
+
+/* PARA card color accents */
+.ov-para-projects { border-top: 2px solid rgba(59,130,246,0.4); }
+.ov-para-areas { border-top: 2px solid rgba(39,174,96,0.4); }
+.ov-para-resources { border-top: 2px solid rgba(155,89,182,0.4); }
+.ov-para-archive { border-top: 2px solid rgba(107,114,128,0.4); }
+.ov-para-projects:hover { border-top-color: #3b82f6; }
+.ov-para-areas:hover { border-top-color: #27ae60; }
+.ov-para-resources:hover { border-top-color: #9b59b6; }
+.ov-para-archive:hover { border-top-color: #6b7280; }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .ov-mid-row { grid-template-columns: 1fr; }
+    .ov-bottom-row { grid-template-columns: 1fr; }
+    .ov-pipeline-track { padding: 0; gap: 8px; }
+    .ov-stage-ring { width: 48px; height: 48px; font-size: 1.2rem; }
+    .ov-pipeline-line { top: 24px; left: 10%; right: 10%; }
+}
+@media (max-width: 600px) {
+    .ov-metrics-grid { grid-template-columns: 1fr; }
+    .ov-para-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

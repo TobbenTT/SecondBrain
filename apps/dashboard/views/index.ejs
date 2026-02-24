@@ -408,149 +408,130 @@
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-overview">
 
-            <!-- CODE Pipeline -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">📊 Pipeline CODE — Flujo de Trabajo</h2>
+            <!-- CODE Pipeline — Hero -->
+            <div class="ov-pipeline-panel">
+                <div class="ov-pipeline-header">
+                    <h2>Pipeline CODE</h2>
+                    <span>Flujo de Trabajo</span>
                 </div>
-                <div class="panel-body">
-                    <div class="code-pipeline">
-                        <div class="pipeline-stage" data-stage="captured">
-                            <div class="pipeline-icon">📥</div>
-                            <div class="pipeline-count" id="codeCaptured">0</div>
-                            <div class="pipeline-label">Capturadas</div>
-                        </div>
-                        <div class="pipeline-arrow">→</div>
-                        <div class="pipeline-stage" data-stage="organized">
-                            <div class="pipeline-icon">📂</div>
-                            <div class="pipeline-count" id="codeOrganized">0</div>
-                            <div class="pipeline-label">Organizadas</div>
-                        </div>
-                        <div class="pipeline-arrow">→</div>
-                        <div class="pipeline-stage" data-stage="distilled">
-                            <div class="pipeline-icon">💎</div>
-                            <div class="pipeline-count" id="codeDistilled">0</div>
-                            <div class="pipeline-label">Destiladas</div>
-                        </div>
-                        <div class="pipeline-arrow">→</div>
-                        <div class="pipeline-stage" data-stage="expressed">
-                            <div class="pipeline-icon">🚀</div>
-                            <div class="pipeline-count" id="codeExpressed">0</div>
-                            <div class="pipeline-label">Expresadas</div>
-                        </div>
+                <div class="ov-pipeline-track">
+                    <div class="ov-pipeline-line"></div>
+                    <div class="ov-stage" onclick="switchSection('ideas')">
+                        <div class="ov-stage-ring captured"><span>📥</span></div>
+                        <div class="ov-stage-count" id="codeCaptured">0</div>
+                        <div class="ov-stage-label">Capturadas</div>
+                    </div>
+                    <div class="ov-stage" onclick="switchSection('ideas')">
+                        <div class="ov-stage-ring organized"><span>📂</span></div>
+                        <div class="ov-stage-count" id="codeOrganized">0</div>
+                        <div class="ov-stage-label">Organizadas</div>
+                    </div>
+                    <div class="ov-stage" onclick="switchSection('ideas')">
+                        <div class="ov-stage-ring distilled"><span>💎</span></div>
+                        <div class="ov-stage-count" id="codeDistilled">0</div>
+                        <div class="ov-stage-label">Destiladas</div>
+                    </div>
+                    <div class="ov-stage" onclick="switchSection('ideas')">
+                        <div class="ov-stage-ring expressed"><span>🚀</span></div>
+                        <div class="ov-stage-count" id="codeExpressed">0</div>
+                        <div class="ov-stage-label">Expresadas</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Stats Row -->
-            <div class="stats-row">
-                <div class="stat-card">
-                    <div class="stat-icon projects-icon">🚀</div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="statProjects">—</span>
-                        <span class="stat-label">Proyectos</span>
+            <!-- Metrics + Actions -->
+            <div class="ov-mid-row">
+                <div class="ov-metrics-grid">
+                    <div class="ov-metric" onclick="switchSection('projects')">
+                        <div class="ov-metric-icon ov-icon-blue">🚀</div>
+                        <div class="ov-metric-data">
+                            <span class="ov-metric-num" id="statProjects">--</span>
+                            <span class="ov-metric-label">Proyectos</span>
+                        </div>
+                    </div>
+                    <div class="ov-metric" onclick="switchSection('areas')">
+                        <div class="ov-metric-icon ov-icon-green">📋</div>
+                        <div class="ov-metric-data">
+                            <span class="ov-metric-num" id="statAreas">--</span>
+                            <span class="ov-metric-label">Areas</span>
+                        </div>
+                    </div>
+                    <div class="ov-metric" onclick="switchSection('context')">
+                        <div class="ov-metric-icon ov-icon-purple">🧠</div>
+                        <div class="ov-metric-data">
+                            <span class="ov-metric-num" id="statContext">--</span>
+                            <span class="ov-metric-label">Memoria</span>
+                        </div>
+                    </div>
+                    <div class="ov-metric" onclick="switchSection('waiting')">
+                        <div class="ov-metric-icon ov-icon-amber">⏳</div>
+                        <div class="ov-metric-data">
+                            <span class="ov-metric-num" id="statWaiting">--</span>
+                            <span class="ov-metric-label">A la Espera</span>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon docs-icon">📋</div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="statAreas">—</span>
-                        <span class="stat-label">Áreas</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon methods-icon">🧠</div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="statContext">—</span>
-                        <span class="stat-label">Memoria</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon status-icon">⏳</div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="statWaiting">—</span>
-                        <span class="stat-label">A la Espera</span>
-                    </div>
-                </div>
-                <div class="stat-card action-card" id="btnDeepResearch" title="Analizar un tema complejo">
-                    <div class="stat-icon research-icon">🕵️</div>
-                    <div class="stat-info">
-                        <span class="stat-label">Deep Research</span>
-                        <span class="stat-desc">Investigar</span>
-                    </div>
-                </div>
-                <div class="stat-card action-card" id="btnWeeklyReview" title="Generar plan semanal">
-                    <div class="stat-icon review-icon">📅</div>
-                    <div class="stat-info">
-                        <span class="stat-label">Weekly Review</span>
-                        <span class="stat-desc">Planificar</span>
-                    </div>
-                </div>
-                <div class="stat-card action-card" id="btnDigest" title="Generar resumen diario del equipo">
-                    <div class="stat-icon digest-icon">📬</div>
-                    <div class="stat-info">
-                        <span class="stat-label">Digest</span>
-                        <span class="stat-desc">Tap on Shoulder</span>
-                    </div>
+                <div class="ov-actions">
+                    <h4 class="ov-actions-title">Acciones Rapidas</h4>
+                    <button class="ov-action-btn" id="btnDeepResearch" title="Analizar un tema complejo">
+                        <span class="ov-action-icon">🕵️</span>
+                        <div class="ov-action-text"><strong>Deep Research</strong><span>Investigar un tema a fondo</span></div>
+                    </button>
+                    <button class="ov-action-btn" id="btnWeeklyReview" title="Generar plan semanal">
+                        <span class="ov-action-icon">📅</span>
+                        <div class="ov-action-text"><strong>Weekly Review</strong><span>Planificar la semana</span></div>
+                    </button>
+                    <button class="ov-action-btn" id="btnDigest" title="Generar resumen diario del equipo">
+                        <span class="ov-action-icon">📬</span>
+                        <div class="ov-action-text"><strong>Digest</strong><span>Resumen del equipo</span></div>
+                    </button>
                 </div>
             </div>
 
-            <!-- Inbox Log (Receipt — Audit Trail) -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">📬 Inbox Log — Audit Trail</h2>
-                    <span class="inbox-log-count" id="inboxLogCount">0 entradas</span>
-                </div>
-                <div class="panel-body">
-                    <div class="inbox-log-list" id="inboxLogList">
-                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+            <!-- Inbox + PARA side by side -->
+            <div class="ov-bottom-row">
+                <div class="panel ov-inbox-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📬 Inbox Log</h2>
+                        <span class="inbox-log-count" id="inboxLogCount">0 entradas</span>
                     </div>
-                    <div class="pagination-controls" id="inboxPagination">
-                        <button class="pagination-btn" id="inboxPrevPage" disabled>← Anterior</button>
-                        <span class="pagination-info" id="inboxPageInfo">Pagina 1</span>
-                        <button class="pagination-btn" id="inboxNextPage">Siguiente →</button>
+                    <div class="panel-body">
+                        <div class="inbox-log-list" id="inboxLogList">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                        <div class="pagination-controls" id="inboxPagination">
+                            <button class="pagination-btn" id="inboxPrevPage" disabled>&larr; Anterior</button>
+                            <span class="pagination-info" id="inboxPageInfo">Pagina 1</span>
+                            <button class="pagination-btn" id="inboxNextPage">Siguiente &rarr;</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- PARA Distribution -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">📁 Distribución PARA</h2>
-                </div>
-                <div class="panel-body">
-                    <div class="para-distribution">
-                        <div class="para-card" onclick="switchSection('projects')">
-                            <div class="para-icon">🚀</div>
-                            <div class="para-info">
-                                <span class="para-count" id="paraProjects">0</span>
-                                <span class="para-label">Proyectos</span>
-                            </div>
-                            <span class="para-desc">Con deadline</span>
+                <div class="ov-para-panel">
+                    <h4 class="ov-para-title">Distribucion PARA</h4>
+                    <div class="ov-para-grid">
+                        <div class="ov-para-card ov-para-projects" onclick="switchSection('projects')">
+                            <span class="ov-para-icon">🚀</span>
+                            <span class="ov-para-count" id="paraProjects">0</span>
+                            <span class="ov-para-label">Proyectos</span>
+                            <span class="ov-para-desc">Con deadline</span>
                         </div>
-                        <div class="para-card" onclick="switchSection('areas')">
-                            <div class="para-icon">📋</div>
-                            <div class="para-info">
-                                <span class="para-count" id="paraAreas">0</span>
-                                <span class="para-label">Áreas</span>
-                            </div>
-                            <span class="para-desc">Responsabilidades</span>
+                        <div class="ov-para-card ov-para-areas" onclick="switchSection('areas')">
+                            <span class="ov-para-icon">📋</span>
+                            <span class="ov-para-count" id="paraAreas">0</span>
+                            <span class="ov-para-label">Areas</span>
+                            <span class="ov-para-desc">Responsabilidades</span>
                         </div>
-                        <div class="para-card" onclick="switchSection('archivos')">
-                            <div class="para-icon">📚</div>
-                            <div class="para-info">
-                                <span class="para-count" id="paraResources">0</span>
-                                <span class="para-label">Recursos</span>
-                            </div>
-                            <span class="para-desc">Referencia</span>
+                        <div class="ov-para-card ov-para-resources" onclick="switchSection('archivos')">
+                            <span class="ov-para-icon">📚</span>
+                            <span class="ov-para-count" id="paraResources">0</span>
+                            <span class="ov-para-label">Recursos</span>
+                            <span class="ov-para-desc">Referencia</span>
                         </div>
-                        <div class="para-card">
-                            <div class="para-icon">🗄️</div>
-                            <div class="para-info">
-                                <span class="para-count" id="paraArchive">0</span>
-                                <span class="para-label">Archivo</span>
-                            </div>
-                            <span class="para-desc">Inactivo</span>
+                        <div class="ov-para-card ov-para-archive">
+                            <span class="ov-para-icon">🗄️</span>
+                            <span class="ov-para-count" id="paraArchive">0</span>
+                            <span class="ov-para-label">Archivo</span>
+                            <span class="ov-para-desc">Inactivo</span>
                         </div>
                     </div>
                 </div>
