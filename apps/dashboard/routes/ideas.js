@@ -316,7 +316,7 @@ router.post('/:id/fix', ideaOwnerOrAdmin, async (req, res) => {
 // ─── Edit idea (text, assigned_to, priority, tipo_compromiso) ────────────────
 
 router.put('/:id', blockConsultor, async (req, res) => {
-    const { text, assigned_to, priority, tipo_compromiso, contexto, energia, notas, objetivo } = req.body;
+    const { text, assigned_to, priority, tipo_compromiso, contexto, energia, notas, objetivo, code_stage, completada } = req.body;
     try {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
@@ -332,6 +332,15 @@ router.put('/:id', blockConsultor, async (req, res) => {
         if (energia !== undefined) { updates.push('energia = ?'); params.push(energia || null); }
         if (notas !== undefined) { updates.push('notas = ?'); params.push(notas || null); }
         if (objetivo !== undefined) { updates.push('objetivo = ?'); params.push(objetivo || null); }
+        if (code_stage !== undefined) {
+            const validStages = ['captured', 'organized', 'distilled', 'expressed', 'executed'];
+            if (validStages.includes(code_stage)) { updates.push('code_stage = ?'); params.push(code_stage); }
+        }
+        if (completada !== undefined) {
+            updates.push('completada = ?'); params.push(completada ? 1 : 0);
+            if (completada) { updates.push('fecha_finalizacion = ?'); params.push(new Date().toISOString()); }
+            else { updates.push('fecha_finalizacion = ?'); params.push(null); }
+        }
 
         if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
@@ -495,6 +504,18 @@ router.post('/:id/decompose', blockConsultor, async (req, res) => {
     } catch (err) {
         log.error('Decompose error', { error: err.message, ideaId: req.params.id });
         res.status(500).json({ error: 'Decomposition failed' });
+    }
+});
+
+// ─── Get single idea by ID (MUST be after all /:id/sub-routes) ──────────────
+router.get('/:id', async (req, res) => {
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+        res.json(idea);
+    } catch (err) {
+        log.error('Idea fetch error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch idea' });
     }
 });
 

@@ -1685,37 +1685,68 @@ window.deleteIdea = deleteIdea;
 
 // ─── Edit Idea Modal ─────────────────────────────────────────────────────────
 
+let _editIdeaModalOpen = false;
 async function openEditIdeaModal(ideaId) {
+    if (_editIdeaModalOpen) return;
+    _editIdeaModalOpen = true;
     try {
-        const res = await fetch(`/api/ideas`);
-        const allIdeas = await res.json();
-        const idea = (allIdeas.ideas || allIdeas).find(i => String(i.id) === String(ideaId));
-        if (!idea) { showToast('Idea no encontrada', 'error'); return; }
+        // Fetch idea + users in parallel (single idea by ID = fast)
+        const [ideaRes, usersRes] = await Promise.all([
+            fetch(`/api/ideas/${ideaId}`),
+            fetch('/api/users').catch(() => ({ ok: false }))
+        ]);
+        if (!ideaRes.ok) { showToast('Idea no encontrada', 'error'); return; }
+        const idea = await ideaRes.json();
 
-        // Fetch team users for assignment dropdown
         let teamUsers = [];
-        try {
-            const uRes = await fetch('/api/users');
-            const users = await uRes.json();
+        if (usersRes.ok) {
+            const users = await usersRes.json();
             teamUsers = users.filter(u => !['usuario', 'cliente'].includes(u.role));
-        } catch (_e) { /* ignore */ }
+        }
+
+        const stage = idea.code_stage || 'captured';
+        const isCompleted = idea.completada == 1;
+        const stageOpts = [
+            { val: 'captured', label: '📥 Capturada', color: '#6366f1' },
+            { val: 'organized', label: '📋 Organizada', color: '#3b82f6' },
+            { val: 'distilled', label: '💎 Destilada', color: '#8b5cf6' },
+            { val: 'expressed', label: '🚀 Expresada', color: '#f59e0b' },
+            { val: 'executed', label: '⚡ Ejecutada', color: '#10b981' }
+        ];
+        const selectStyle = 'width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);';
 
         const formHtml = `
             <div class="edit-idea-form" style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Estado</label>
+                        <select id="_editIdeaStage" style="${selectStyle}">
+                            ${stageOpts.map(s => `<option value="${s.val}" ${stage === s.val ? 'selected' : ''}>${s.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);">Completada</label>
+                        <select id="_editIdeaCompletada" style="${selectStyle}">
+                            <option value="0" ${!isCompleted ? 'selected' : ''}>❌ No completada</option>
+                            <option value="1" ${isCompleted ? 'selected' : ''}>✅ Completada</option>
+                        </select>
+                    </div>
+                </div>
+
                 <label style="font-size:0.8rem;color:var(--text-muted);">Texto / Descripcion</label>
                 <textarea id="_editIdeaText" style="min-height:80px;padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:0.9rem;resize:vertical;">${escapeHtml(idea.text || '')}</textarea>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <div>
                         <label style="font-size:0.8rem;color:var(--text-muted);">Responsable</label>
-                        <select id="_editIdeaAssigned" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                        <select id="_editIdeaAssigned" style="${selectStyle}">
                             <option value="">— Sin asignar —</option>
                             ${teamUsers.map(u => `<option value="${u.username}" ${idea.assigned_to === u.username ? 'selected' : ''}>${u.username}</option>`).join('')}
                         </select>
                     </div>
                     <div>
                         <label style="font-size:0.8rem;color:var(--text-muted);">Prioridad</label>
-                        <select id="_editIdeaPriority" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                        <select id="_editIdeaPriority" style="${selectStyle}">
                             <option value="">— Sin prioridad —</option>
                             <option value="alta" ${idea.priority === 'alta' ? 'selected' : ''}>Alta</option>
                             <option value="media" ${idea.priority === 'media' ? 'selected' : ''}>Media</option>
@@ -1727,7 +1758,7 @@ async function openEditIdeaModal(ideaId) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <div>
                         <label style="font-size:0.8rem;color:var(--text-muted);">Energia</label>
-                        <select id="_editIdeaEnergia" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                        <select id="_editIdeaEnergia" style="${selectStyle}">
                             <option value="">—</option>
                             <option value="baja" ${idea.energia === 'baja' ? 'selected' : ''}>Baja</option>
                             <option value="media" ${idea.energia === 'media' ? 'selected' : ''}>Media</option>
@@ -1736,7 +1767,7 @@ async function openEditIdeaModal(ideaId) {
                     </div>
                     <div>
                         <label style="font-size:0.8rem;color:var(--text-muted);">Compromiso</label>
-                        <select id="_editIdeaCompromiso" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                        <select id="_editIdeaCompromiso" style="${selectStyle}">
                             <option value="">—</option>
                             <option value="comprometida" ${idea.tipo_compromiso === 'comprometida' ? 'selected' : ''}>Comprometida</option>
                             <option value="esta_semana" ${idea.tipo_compromiso === 'esta_semana' ? 'selected' : ''}>Esta semana</option>
@@ -1761,8 +1792,9 @@ async function openEditIdeaModal(ideaId) {
             isConfirm: true
         });
 
-        if (!confirmed) return;
+        if (!confirmed) { _editIdeaModalOpen = false; return; }
 
+        const newCompletada = document.getElementById('_editIdeaCompletada')?.value === '1';
         const body = {
             text: document.getElementById('_editIdeaText')?.value || idea.text,
             assigned_to: document.getElementById('_editIdeaAssigned')?.value || '',
@@ -1770,7 +1802,9 @@ async function openEditIdeaModal(ideaId) {
             energia: document.getElementById('_editIdeaEnergia')?.value || '',
             tipo_compromiso: document.getElementById('_editIdeaCompromiso')?.value || '',
             objetivo: document.getElementById('_editIdeaObjetivo')?.value || '',
-            notas: document.getElementById('_editIdeaNotas')?.value || ''
+            notas: document.getElementById('_editIdeaNotas')?.value || '',
+            code_stage: document.getElementById('_editIdeaStage')?.value || stage,
+            completada: newCompletada
         };
 
         const putRes = await fetch(`/api/ideas/${ideaId}`, {
@@ -1789,6 +1823,8 @@ async function openEditIdeaModal(ideaId) {
     } catch (err) {
         console.error('Edit idea error:', err);
         showToast('Error al editar idea', 'error');
+    } finally {
+        _editIdeaModalOpen = false;
     }
 }
 window.openEditIdeaModal = openEditIdeaModal;
@@ -2612,6 +2648,16 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         if (html) { msgEl.innerHTML = message; } else { msgEl.textContent = message; }
         if (input) input.value = '';
 
+        // Mark modal as locked (prevent click-outside close) when it has a form/confirm
+        modal.dataset.locked = (isConfirm || html) ? '1' : '';
+
+        // Widen modal for form content
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.maxWidth = html ? '480px' : '400px';
+            modalContent.style.textAlign = html ? 'left' : 'center';
+        }
+
         // Setup Input
         if (inputPlaceholder !== null && inputContainer) {
             inputContainer.style.display = 'block';
@@ -2629,6 +2675,8 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         // Handlers
         const close = (val) => {
             modal.style.display = 'none';
+            modal.dataset.locked = '';
+            if (modalContent) { modalContent.style.maxWidth = '400px'; modalContent.style.textAlign = 'center'; }
             cleanup();
             resolve(val);
         };
@@ -2641,7 +2689,7 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         const onCancel = () => close(false);
 
         const onKey = (e) => {
-            if (e.key === 'Enter') onConfirm();
+            if (e.key === 'Enter' && !html) onConfirm(); // Don't close on Enter when editing forms
             if (e.key === 'Escape') onCancel();
         };
 
@@ -2917,7 +2965,8 @@ window.addEventListener('click', (event) => {
     const skillModal = document.getElementById('skillModal');
     const customModal = document.getElementById('customModal');
     if (event.target == skillModal && skillModal) skillModal.style.display = 'none';
-    if (event.target == customModal && customModal) customModal.style.display = 'none';
+    // Don't close customModal on overlay click when it has a form/confirm (locked)
+    if (event.target == customModal && customModal && !customModal.dataset.locked) customModal.style.display = 'none';
 });
 
 window.processIdea = processIdea;
