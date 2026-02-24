@@ -35,7 +35,7 @@ async function isOnline() {
     }
     try {
         const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
-            signal: AbortSignal.timeout(3000),
+            signal: AbortSignal.timeout(1500),
         });
         _ollamaOnline = resp.ok;
         _lastHealthCheck = Date.now();

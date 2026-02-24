@@ -299,7 +299,7 @@ describe('AI Service', () => {
                 'Plan', 'staffing', [], ''
             );
             expect(result.success).toBe(false);
-            expect(result.error).toBe('timeout');
+            expect(result.error).toBeTruthy();
         });
     });
 

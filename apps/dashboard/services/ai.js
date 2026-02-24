@@ -70,22 +70,22 @@ function _formatUserList(users) {
     return text;
 }
 
-// Gemini client (fallback when Ollama is unavailable)
+// Gemini client (PRIMARY AI provider)
 let genAI = null;
 let model = null;
 try {
     if (API_KEY) {
         genAI = new GoogleGenerativeAI(API_KEY);
         model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-        log.info('Gemini configured as fallback', { model: 'gemini-3-flash-preview' });
+        log.info('Gemini configured as PRIMARY', { model: 'gemini-3-flash-preview' });
     } else {
-        log.warn('GEMINI_API_KEY not set — Gemini fallback unavailable');
+        log.warn('GEMINI_API_KEY not set — will use Ollama only');
     }
 } catch (err) {
     log.warn('Gemini init failed', { error: err.message });
 }
 
-log.info('AI provider order: Ollama (primary) -> Gemini (fallback)', { ollamaModel: ollama.OLLAMA_MODEL });
+log.info('AI provider order: Gemini (primary) -> Ollama (last resort)', { ollamaModel: ollama.OLLAMA_MODEL });
 
 // ─── Agent-Category Mapping for Intelligent Suggestion ──────────────────────
 const AGENT_CATEGORY_MAP = {
@@ -152,7 +152,26 @@ Responde siempre en espanol. Usa formato Markdown para listas y tablas cuando se
 async function generateResponse(prompt, history = [], systemInstruction = null) {
     const sysText = systemInstruction || SYSTEM_INSTRUCTION;
 
-    // 1. Try Ollama (primary)
+    // 1. Try Gemini (primary)
+    try {
+        if (!model) throw new Error('Gemini not configured');
+        const chatSession = model.startChat({
+            history: history.map(h => ({
+                role: h.role === 'user' ? 'user' : 'model',
+                parts: [{ text: h.message }]
+            })),
+            generationConfig: { maxOutputTokens: 2000 },
+            systemInstruction: { role: "system", parts: [{ text: sysText }] }
+        });
+
+        const result = await chatSession.sendMessage(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (err) {
+        log.info('Gemini unavailable for chat, falling back to Ollama', { error: err.message });
+    }
+
+    // 2. Last resort: Ollama
     try {
         const messages = history.map(h => ({
             role: h.role === 'user' ? 'user' : 'assistant',
@@ -162,30 +181,12 @@ async function generateResponse(prompt, history = [], systemInstruction = null) 
 
         const ollamaResult = await ollama.chat(messages, sysText);
         if (ollamaResult) return ollamaResult;
-        log.info('Ollama unavailable for chat, falling back to Gemini');
     } catch (err) {
-        log.warn('Ollama chat attempt failed', { error: err.message });
+        log.warn('Ollama chat also failed', { error: err.message });
     }
 
-    // 2. Fallback to Gemini
-    try {
-        if (!model) throw new Error('Gemini not configured');
-        const chat = model.startChat({
-            history: history.map(h => ({
-                role: h.role === 'user' ? 'user' : 'model',
-                parts: [{ text: h.message }]
-            })),
-            generationConfig: { maxOutputTokens: 2000 },
-            systemInstruction: { role: "system", parts: [{ text: sysText }] }
-        });
-
-        const result = await chat.sendMessage(prompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        log.error('All AI providers failed for chat', { error: error.message });
-        return "Lo siento, encontre un error al procesar tu solicitud. Verifica que Ollama este corriendo o que la clave Gemini sea valida.";
-    }
+    log.error('All AI providers failed for chat');
+    return "Lo siento, encontre un error al procesar tu solicitud. Verifica la clave Gemini o que Ollama este corriendo.";
 }
 
 // ─── Process Idea: System Instruction (fixed rules, sent once via systemInstruction) ─
@@ -221,10 +222,9 @@ Si is_project: sub_tasks[{texto,assigned_to,contexto,energia,estimated_time,es_p
     if (cached) return cached;
 
     try {
-        // 1. Try Ollama with system instruction
-        let text = await ollama.generate(prompt, PROCESS_IDEA_SYSTEM);
-        if (!text) {
-            log.info('Ollama unavailable for processIdea, falling back to Gemini');
+        // 1. Try Gemini (primary)
+        let text = null;
+        try {
             if (!model) throw new Error('Gemini not configured');
             const result = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -232,7 +232,15 @@ Si is_project: sub_tasks[{texto,assigned_to,contexto,energia,estimated_time,es_p
             });
             const response = await result.response;
             text = response.text();
+        } catch (geminiErr) {
+            log.info('Gemini unavailable for processIdea, falling back to Ollama', { error: geminiErr.message });
         }
+
+        // 2. Last resort: Ollama
+        if (!text) {
+            text = await ollama.generate(prompt, PROCESS_IDEA_SYSTEM);
+        }
+        if (!text) throw new Error('All AI providers failed');
 
         // Robust JSON extraction — handle both single object and array
         let parsed;
@@ -349,13 +357,21 @@ CONTEXTO: ${context || 'ninguno'}`;
     if (cached) return cached;
 
     try {
-        let text_resp = await ollama.generate(prompt);
-        if (!text_resp) {
+        let text_resp = null;
+        // 1. Gemini (primary)
+        try {
             if (!model) throw new Error('Gemini not configured');
             const result = await model.generateContent(prompt);
             const response = await result.response;
             text_resp = response.text();
+        } catch (geminiErr) {
+            log.info('Gemini unavailable for distill, falling back to Ollama', { error: geminiErr.message });
         }
+        // 2. Ollama (last resort)
+        if (!text_resp) {
+            text_resp = await ollama.generate(prompt);
+        }
+        if (!text_resp) throw new Error('All AI providers failed');
 
         const jsonMatch = text_resp.match(/\{[\s\S]*\}/);
         if (jsonMatch) text_resp = jsonMatch[0];
@@ -386,13 +402,22 @@ EQUIPO: ${userList}`;
     if (cached) return cached;
 
     try {
-        let text = await ollama.generate(prompt);
-        if (!text) {
+        let text = null;
+        // 1. Gemini (primary)
+        try {
             if (!model) throw new Error('Gemini not configured');
             const result = await model.generateContent(prompt);
             const response = await result.response;
             text = response.text();
+        } catch (geminiErr) {
+            log.info('Gemini unavailable for autoAssign, falling back to Ollama', { error: geminiErr.message });
         }
+        // 2. Ollama (last resort)
+        if (!text) {
+            text = await ollama.generate(prompt);
+        }
+        if (!text) throw new Error('All AI providers failed');
+
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) text = jsonMatch[0];
         const parsed = JSON.parse(text);
@@ -436,12 +461,20 @@ async function generateDigest(ideas, waitingFor, context, areas) {
     `;
 
     try {
+        // 1. Gemini (primary)
+        if (model) {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+        }
+    } catch (geminiErr) {
+        log.info('Gemini unavailable for digest, falling back to Ollama', { error: geminiErr.message });
+    }
+    try {
+        // 2. Ollama (last resort)
         const ollamaResult = await ollama.generate(prompt);
         if (ollamaResult) return ollamaResult;
-        if (!model) throw new Error('Gemini not configured');
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        throw new Error('All AI providers failed');
     } catch (e) {
         log.error('Digest error', { error: e.message });
         return "Error al generar el digest. Intente mas tarde.";
@@ -489,25 +522,27 @@ Este output sera guardado como entregable del sistema SecondBrain.
 `;
 
     try {
-        // 1. Try Ollama (primary)
+        // 1. Gemini (primary)
+        if (genAI) {
+            const executionModel = genAI.getGenerativeModel({
+                model: "gemini-3-flash-preview",
+                generationConfig: { maxOutputTokens: 8000 }
+            });
+            const execChat = executionModel.startChat({
+                systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+            });
+            const result = await execChat.sendMessage(userPrompt);
+            const response = await result.response;
+            return { success: true, output: response.text() };
+        }
+    } catch (geminiErr) {
+        log.info('Gemini unavailable for executeWithAgent, falling back to Ollama', { error: geminiErr.message });
+    }
+    try {
+        // 2. Ollama (last resort)
         const ollamaResult = await ollama.generate(userPrompt, systemPrompt);
         if (ollamaResult) return { success: true, output: ollamaResult };
-        log.info('Ollama unavailable for executeWithAgent, falling back to Gemini');
-
-        // 2. Fallback to Gemini
-        if (!genAI) throw new Error('Gemini not configured');
-        const executionModel = genAI.getGenerativeModel({
-            model: "gemini-3-flash-preview",
-            generationConfig: { maxOutputTokens: 8000 }
-        });
-
-        const execChat = executionModel.startChat({
-            systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-        });
-
-        const result = await execChat.sendMessage(userPrompt);
-        const response = await result.response;
-        return { success: true, output: response.text() };
+        throw new Error('All AI providers failed');
     } catch (error) {
         log.error('Agent execution error', { error: error.message });
         return { success: false, error: error.message };
@@ -530,15 +565,23 @@ CONTEXTOS GTD: @computador @email @telefono @oficina @calle @casa @espera @compr
 JSON: {project_name, objetivo, sub_tasks:[{texto,assigned_to,contexto,energia(baja/media/alta),estimated_time,priority(alta/media/baja),es_proxima_accion}]}`;
 
     try {
-        let text = await ollama.generate(prompt);
-        if (!text) {
+        let text = null;
+        // 1. Gemini (primary)
+        try {
             if (!model) throw new Error('Gemini not configured');
             const result = await model.generateContent(prompt);
             const response = await result.response;
             text = response.text();
+        } catch (geminiErr) {
+            log.info('Gemini unavailable for decompose, falling back to Ollama', { error: geminiErr.message });
         }
-        text = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim();
+        // 2. Ollama (last resort)
+        if (!text) {
+            text = await ollama.generate(prompt);
+        }
+        if (!text) throw new Error('All AI providers failed');
 
+        text = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim();
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) text = jsonMatch[0];
         return JSON.parse(text);
@@ -583,12 +626,20 @@ async function generateDailyReport(data) {
     `;
 
     try {
+        // 1. Gemini (primary)
+        if (model) {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+        }
+    } catch (geminiErr) {
+        log.info('Gemini unavailable for daily report, falling back to Ollama', { error: geminiErr.message });
+    }
+    try {
+        // 2. Ollama (last resort)
         const ollamaResult = await ollama.generate(prompt);
         if (ollamaResult) return ollamaResult;
-        if (!model) throw new Error('Gemini not configured');
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        throw new Error('All AI providers failed');
     } catch (e) {
         log.error('Daily report error', { error: e.message });
         return "Error al generar el reporte diario.";

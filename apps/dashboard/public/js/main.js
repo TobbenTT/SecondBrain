@@ -3,37 +3,76 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // ─── Critical (UI shell) ────────────────────────────────────────────
     initNavigation();
     initMobileSidebar();
     initDate();
     initHomeGreeting();
-    initArchivos();
-    initPanelActions();
-    initIdeas();
-    initUpload();
-    initProjects();
-    initHomeData();
     initThemeToggle();
-    initAgents();
-    initChat();
-    initAreas();
-    initWaitingFor();
-    initOverviewStats();
-    initDigest();
-    loadInboxLog();
-    initReportability();
     initQuickCapture();
     initGlobalSearch();
     initNotifications();
-    initAnalytics();
-    initExportImport();
-    initVoiceCommands();
-    initSkills();
     initConsultorUI();
-    initInboxTriage();
-    initOKRs();
-    initNextActions();
+    initPanelActions();
+    initHomeData();
+
+    // ─── Deferred (load after first paint) ──────────────────────────────
+    requestAnimationFrame(() => {
+        initIdeas();
+        initUpload();
+        initProjects();
+        initChat();
+        initAreas();
+        initWaitingFor();
+        initDigest();
+        initExportImport();
+        initVoiceCommands();
+        initSkills();
+    });
+
+    // ─── Lazy (loaded on section switch — see _applySectionSwitch) ──────
+    // initArchivos → on 'archivos' section
+    // initOverviewStats → on 'overview' section
+    // initAnalytics → on 'analytics' section
+    // initAgents → on 'agents' section
+    // loadInboxLog → on 'ideas' section
+    // initReportability → on 'reportability' section
+    // initInboxTriage → on 'inbox' section
+    // initOKRs → on 'okrs' section
+    // initNextActions → on 'gtd-board' section
 });
+
+// ─── Global Users Cache (eliminates 11 duplicate /api/users fetches) ──────────
+const _usersCache = { data: null, ts: 0, promise: null };
+const USERS_CACHE_TTL = 30000; // 30s
+
+async function getCachedUsers() {
+    const now = Date.now();
+    if (_usersCache.data && now - _usersCache.ts < USERS_CACHE_TTL) {
+        return _usersCache.data;
+    }
+    // Deduplicate concurrent requests
+    if (_usersCache.promise) return _usersCache.promise;
+    _usersCache.promise = fetch('/api/users')
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.json(); })
+        .then(users => {
+            _usersCache.data = users;
+            _usersCache.ts = Date.now();
+            _usersCache.promise = null;
+            return users;
+        })
+        .catch(err => {
+            _usersCache.promise = null;
+            console.warn('Users fetch failed:', err);
+            return _usersCache.data || []; // return stale data if available
+        });
+    return _usersCache.promise;
+}
+
+function invalidateUsersCache() {
+    _usersCache.data = null;
+    _usersCache.ts = 0;
+}
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
 const SECTION_META = {
@@ -87,6 +126,8 @@ function initNavigation() {
     if (hash && SECTION_META[hash]) switchSection(hash);
 }
 
+const _lazyInited = {};
+
 function _applySectionSwitch(sectionId) {
     document.querySelectorAll('.nav-link[data-section]').forEach(l => l.classList.remove('active'));
     const activeLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
@@ -109,21 +150,22 @@ function _applySectionSwitch(sectionId) {
     }
 
     // Lazy-load section-specific data
-    if (sectionId === 'analytics') loadAnalytics();
+    if (sectionId === 'archivos') { if (!_lazyInited.archivos) { _lazyInited.archivos = true; initArchivos(); } }
+    if (sectionId === 'overview') { if (!_lazyInited.overview) { _lazyInited.overview = true; initOverviewStats(); } }
+    if (sectionId === 'analytics') { if (!_lazyInited.analytics) { _lazyInited.analytics = true; initAnalytics(); } loadAnalytics(); }
     if (sectionId === 'openclaw') loadOpenClawStatus();
-    if (sectionId === 'agents') loadAgentsSection();
-    if (sectionId === 'gtd-board') loadGtdBoard('context');
+    if (sectionId === 'agents') { if (!_lazyInited.agents) { _lazyInited.agents = true; initAgents(); } loadAgentsSection(); }
+    if (sectionId === 'gtd-board') { if (!_lazyInited.nextActions) { _lazyInited.nextActions = true; initNextActions(); } loadGtdBoard('context'); loadNextActionsPanel(); }
     if (sectionId === 'gtd-projects') loadGtdProjects();
-    if (sectionId === 'ideas') initGtdFilterDropdowns();
+    if (sectionId === 'ideas') { if (!_lazyInited.inboxLog) { _lazyInited.inboxLog = true; loadInboxLog(); } initGtdFilterDropdowns(); }
     if (sectionId === 'revision') { loadReviewQueue(); loadAuditTrail(); }
-    if (sectionId === 'reportability') initReportability();
+    if (sectionId === 'reportability') { if (!_lazyInited.reportability) { _lazyInited.reportability = true; initReportability(); } }
     if (sectionId === 'reuniones') loadReuniones();
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
     if (sectionId === 'graph-view') loadGraphView();
-    if (sectionId === 'inbox') loadInboxTriage();
-    if (sectionId === 'okrs') loadOKRs();
-    if (sectionId === 'gtd-board') loadNextActionsPanel();
+    if (sectionId === 'inbox') { if (!_lazyInited.inbox) { _lazyInited.inbox = true; initInboxTriage(); } loadInboxTriage(); }
+    if (sectionId === 'okrs') { if (!_lazyInited.okrs) { _lazyInited.okrs = true; initOKRs(); } loadOKRs(); }
 }
 
 function switchSection(sectionId) {
@@ -224,9 +266,7 @@ async function loadHomeTeam() {
     const grid = document.getElementById('homeTeamGrid');
     if (!grid) return;
     try {
-        const res = await fetch('/api/users');
-        if (!res.ok) return;
-        const allUsers = await res.json();
+        const allUsers = await getCachedUsers();
         const users = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         if (users.length === 0) {
             grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
@@ -1699,18 +1739,14 @@ async function openEditIdeaModal(ideaId) {
     _editIdeaModalOpen = true;
     try {
         // Fetch idea + users in parallel (single idea by ID = fast)
-        const [ideaRes, usersRes] = await Promise.all([
+        const [ideaRes, allUsers] = await Promise.all([
             fetch(`/api/ideas/${ideaId}`),
-            fetch('/api/users').catch(() => ({ ok: false }))
+            getCachedUsers()
         ]);
         if (!ideaRes.ok) { showToast('Idea no encontrada', 'error'); return; }
         const idea = await ideaRes.json();
 
-        let teamUsers = [];
-        if (usersRes.ok) {
-            const users = await usersRes.json();
-            teamUsers = users.filter(u => !['usuario', 'cliente'].includes(u.role));
-        }
+        const teamUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
 
         const stage = idea.code_stage || 'captured';
         const isCompleted = idea.completada == 1;
@@ -3134,8 +3170,7 @@ async function initWaitingFor() {
 
     // Load users for delegation dropdown (only ranked members)
     try {
-        const res = await fetch('/api/users');
-        const allUsers = await res.json();
+        const allUsers = await getCachedUsers();
         const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('waitingDelegatedTo');
         if (sel) {
@@ -3360,7 +3395,7 @@ function openFixModal(ideaId, aiType, aiCategory, paraType, assignedTo, priority
     if (priority) document.getElementById('fixPriority').value = priority;
 
     // Load users into the assigned_to dropdown
-    fetch('/api/users').then(r => { if (!r.ok) throw new Error('Failed'); return r.json(); }).then(users => {
+    getCachedUsers().then(users => {
         const sel = document.getElementById('fixAssignedTo');
         if (!sel) return;
         sel.innerHTML = '<option value="">— Sin cambio —</option>';
@@ -3552,8 +3587,7 @@ async function initReportability() {
 
     // Load users into selector (only ranked members — exclude usuario/cliente)
     try {
-        const res = await fetch('/api/users');
-        const allUsers = await res.json();
+        const allUsers = await getCachedUsers();
         const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('reportUserSelect');
         if (sel) {
@@ -4846,9 +4880,8 @@ async function initGtdFilterDropdowns() {
             });
         }
         // Load users for assignee filter (only ranked members)
-        const usersRes = await fetch('/api/users');
-        if (usersRes.ok) {
-            const allUsers = await usersRes.json();
+        {
+            const allUsers = await getCachedUsers();
             const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
             const assignSelect = document.getElementById('filterAssignee');
             if (assignSelect && rankedUsers.length) {
@@ -5285,9 +5318,7 @@ async function loadSelectedBriefing() {
 // Populate briefing user dropdown
 (async function populateBriefingUsers() {
     try {
-        const res = await fetch('/api/users');
-        if (!res.ok) return;
-        const users = await res.json();
+        const users = await getCachedUsers();
         const ranked = users.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('briefingUserSelect');
         if (sel) {
@@ -6640,12 +6671,11 @@ async function deleteReunion(id, titulo) {
 
 async function openReunionDetail(id) {
     try {
-        const [reunionRes, usersRes] = await Promise.all([
+        const [reunionRes, systemUsers] = await Promise.all([
             fetch(`/api/reuniones/${id}`),
-            fetch('/api/users')
+            getCachedUsers()
         ]);
         const r = await reunionRes.json();
-        const systemUsers = usersRes.ok ? await usersRes.json() : [];
 
         document.getElementById('reunionModalTitle').textContent = r.titulo;
 
@@ -7491,8 +7521,7 @@ async function loadAdminUsers() {
     if (!tbody) return;
 
     try {
-        const res = await fetch('/api/users');
-        _adminUsers = await res.json();
+        _adminUsers = await getCachedUsers();
 
         // Stats bar
         const statsBar = document.getElementById('auStatsBar');
@@ -7592,6 +7621,7 @@ async function changeUserRole(select) {
             body: JSON.stringify({ role: newRole, department: user.department, expertise: user.expertise })
         });
         if (res.ok) {
+            invalidateUsersCache();
             select.dataset.original = newRole;
             select.className = `au-role-select role-${newRole}`;
             user.role = newRole;
@@ -7752,6 +7782,7 @@ async function deleteAdminUser(id, username) {
         const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (res.ok) {
+            invalidateUsersCache();
             showToast('Usuario eliminado', 'info');
             loadAdminUsers();
         } else {
@@ -8095,12 +8126,11 @@ async function updateInboxBadge() {
 
 async function loadInboxTriage() {
     try {
-        const [inboxRes, usersRes] = await Promise.all([
+        const [inboxRes, allUsers] = await Promise.all([
             fetch('/api/inbox/pending'),
-            fetch('/api/users')
+            getCachedUsers()
         ]);
         const data = await inboxRes.json();
-        const allUsers = usersRes.ok ? await usersRes.json() : [];
         const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
 
         // Stats

@@ -7,6 +7,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+const compression = require('compression');
 const log = require('./helpers/logger');
 
 // Database
@@ -117,15 +118,29 @@ app.use('/api/ai/', aiLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/ideas/voice', uploadLimiter);
 
+// ─── Performance: Compression ───────────────────────────────────────────────
+app.use(compression({
+    level: 6,
+    threshold: 1024, // only compress responses > 1KB
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) return false;
+        return compression.filter(req, res);
+    }
+}));
+
 // ─── Core Middleware ─────────────────────────────────────────────────────────
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('view cache', NODE_ENV === 'production');
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/dinamicas', express.static(DINAMICAS_DIR));
-app.use('/voice-notes', express.static(VOICE_DIR));
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: NODE_ENV === 'production' ? '7d' : 0,
+    etag: true,
+    lastModified: true
+}));
+app.use('/dinamicas', express.static(DINAMICAS_DIR, { maxAge: '7d' }));
+app.use('/voice-notes', express.static(VOICE_DIR, { maxAge: '1d' }));
 
 // Session (hardened)
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -168,7 +183,7 @@ ollamaWarmup().catch(() => {});
 app.get('/api/ollama/status', async (req, res) => {
     try {
         const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
-            signal: AbortSignal.timeout(3000),
+            signal: AbortSignal.timeout(1500),
         });
         if (!resp.ok) return res.json({ online: false, model: OLLAMA_MODEL });
         const data = await resp.json();
