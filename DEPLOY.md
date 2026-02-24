@@ -126,41 +126,6 @@ TTS_ENABLED=false
 EOF
 ```
 
-### 3.3 Inteligencia de Correos (.env)
-```bash
-cat > Inteligencia-de-correos/.env << 'EOF'
-# Supabase
-DB_HOST=aws-1-eu-north-1.pooler.supabase.com
-DB_PORT=6543
-DB_USER=postgres.eypurbdkqfwnqiiucraq
-DB_PASSWORD=VSC2026.2026
-DB_NAME=postgres
-
-# AI (Gemini)
-AI_API_KEY=TU_GEMINI_API_KEY
-AI_MODEL=gemini-2.0-flash
-
-# Fireflies.ai
-FIREFLIES_API_KEY=TU_FIREFLIES_KEY
-
-# Email SMTP
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu-email@gmail.com
-SMTP_PASS=tu-app-password
-EMAIL_FROM=tu-email@gmail.com
-EMAIL_TO=destinatario@email.com
-
-# Server
-PORT=3003
-WEBHOOK_SECRET=tu_webhook_secret
-
-# Dashboard Bridge
-DASHBOARD_URL=http://dashboard:3000
-DASHBOARD_API_KEY=sb_12b5199409045112e93c13eef4c149a239841de0b9ed0baf
-EOF
-```
-
 ---
 
 ## Paso 4 — Levantar con Docker Compose
@@ -185,16 +150,12 @@ secondbrain-dashboard             Up (healthy)    0.0.0.0:3000->3000/tcp
 secondbrain-orchestrator          Up              0.0.0.0:3001->3001/tcp
 secondbrain-lililia               Up              0.0.0.0:3002->3002/tcp
 secondbrain-openclaw              Up
-secondbrain-inteligencia-correos  Up (healthy)    0.0.0.0:3003->3003/tcp
 ```
 
 ### Verificar salud
 ```bash
 # Dashboard
 curl http://localhost:3000/health
-
-# Inteligencia de correos
-curl http://localhost:3003/health
 
 # Ollama desde dentro del container
 docker exec secondbrain-dashboard wget -qO- http://host.docker.internal:11434/api/tags
@@ -259,20 +220,6 @@ curl https://TU_DOMINIO.com/health
 
 ---
 
-## Paso 6 — Configurar Fireflies.ai Webhook
-
-1. Ir a [Fireflies.ai Webhooks](https://app.fireflies.ai/integrations/custom/webhooks)
-2. Crear webhook con URL: `https://TU_DOMINIO.com:3003/webhook/fireflies`
-   - Si NO tienes subdominio para inteligencia-correos, necesitas exponer el puerto 3003:
-     ```bash
-     sudo ufw allow 3003/tcp
-     ```
-   - O crear un subdominio `correos.TU_DOMINIO.com` (descomenta el bloque en nginx.conf)
-3. Event: `Transcription completed`
-4. Secret: El valor de `WEBHOOK_SECRET` en tu `.env`
-
----
-
 ## Comandos utiles
 
 ### Logs
@@ -283,7 +230,6 @@ docker compose logs -f
 # Un servicio especifico
 docker compose logs -f dashboard
 docker compose logs -f openclaw
-docker compose logs -f inteligencia-correos
 
 # Ultimas 100 lineas
 docker compose logs --tail=100 dashboard
@@ -361,13 +307,6 @@ Internet
     +---> localhost:3000 --> [Dashboard]     --> Ollama (host:11434)
     +---> localhost:3001 --> [Orchestrator]
     +---> localhost:3002 --> [Lililia]
-
-[Fireflies.ai]
-    |
-    v
-localhost:3003 --> [Inteligencia-Correos] --> Dashboard API (webhook)
-                                          --> Supabase (PostgreSQL)
-                                          --> Email (SMTP)
 
 [Ollama] (host nativo, puerto 11434)
     ^

@@ -56,21 +56,6 @@ services:
       dashboard:
         condition: service_healthy
 
-  inteligencia-correos:
-    build: ./Inteligencia-de-correos
-    container_name: secondbrain-inteligencia-correos
-    restart: unless-stopped
-    ports:
-      - "3003:3003"
-    env_file:
-      - ./Inteligencia-de-correos/.env
-    environment:
-      - PORT=3003
-      - DASHBOARD_URL=http://dashboard:3000
-    depends_on:
-      dashboard:
-        condition: service_healthy
-
 volumes:
   sb-data:
   openclaw-projects:
