@@ -43,7 +43,7 @@ const SKILLS_DIR = path.join(__dirname, '..', '..', 'core', 'skills');
 const DINAMICAS_DIR = path.join(UPLOADS_DIR, 'dinamicas');
 const DATA_DIR = path.join(__dirname, 'data');
 const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
-const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
+
 
 // ─── Ensure directories & data files ─────────────────────────────────────────
 [UPLOADS_DIR, SKILLS_DIR, VOICE_DIR].forEach(dir => {
@@ -51,26 +51,7 @@ const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 });
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(TAGS_FILE)) fs.writeFileSync(TAGS_FILE, '{}', 'utf-8');
-if (!fs.existsSync(PROJECTS_FILE)) {
-    const defaultProjects = [
-        {
-            id: '1', name: 'Lililia', description: 'Plataforma de gestión y visualización con dashboard integrado.',
-            icon: '🌸', status: 'active', url: 'http://localhost:3002',
-            tech: ['Node.js', 'Express', 'EJS'], createdAt: new Date().toISOString()
-        },
-        {
-            id: '2', name: 'Orchestrator Beta', description: 'Plataforma de orquestación de agentes IA para preparación operativa.',
-            icon: '🤖', status: 'beta', url: 'http://localhost:3001',
-            tech: ['Next.js', 'TypeScript', 'Tailwind'], createdAt: new Date().toISOString()
-        },
-        {
-            id: '3', name: 'OpenClaw', description: 'Sistema multi-agente autónomo (PM→DEV→QA + Consulting→Reviewer) para SecondBrain.',
-            icon: '🦞', status: 'active', url: '',
-            tech: ['Python', 'SQLite', 'Gemini', 'Claude'], createdAt: new Date().toISOString()
-        }
-    ];
-    fs.writeFileSync(PROJECTS_FILE, JSON.stringify(defaultProjects, null, 2), 'utf-8');
-}
+// projects.json is no longer used — projects live in SQLite only
 
 // ─── Startup Validation ──────────────────────────────────────────────────────
 if (!process.env.GEMINI_API_KEY && process.env.NODE_ENV !== 'test') {

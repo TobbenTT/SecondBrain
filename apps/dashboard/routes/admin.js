@@ -132,25 +132,10 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
-const PROJECTS_FILE = path.join(__dirname, '..', 'data', 'projects.json');
+// projects.json migration removed — projects live in SQLite only
 
 router.get('/projects', async (req, res) => {
     try {
-        const count = await get('SELECT count(*) as c FROM projects');
-
-        if (count.c === 0 && fs.existsSync(PROJECTS_FILE)) {
-            log.info('Migrating projects.json to SQLite');
-            const jsonData = JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf-8'));
-
-            for (const p of jsonData) {
-                await run(`INSERT OR IGNORE INTO projects (id, name, description, url, icon, status, tech, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [p.id, p.name, p.description, p.url, p.icon, p.status, (p.tech || []).join(','), p.createdAt]
-                );
-            }
-            log.info('Projects migration completed');
-        }
-
         const projects = await all(`
             SELECT p.*, a.name as area_name
             FROM projects p
