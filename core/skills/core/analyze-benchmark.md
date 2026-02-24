@@ -329,3 +329,4 @@ To ensure fair comparison, KPIs must be normalized for:
 - Improvement area: Energy intensity (Q3, 0.45 vs Q1 <0.35 kWh/m3).
 - Potential savings from energy optimization: USD 380K/year.
 - Recommendation: Pump efficiency optimization and process control tuning.
+<!-- Test auto-push 20260224-080827 -->
