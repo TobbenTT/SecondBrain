@@ -5701,51 +5701,67 @@ function _handleContentMouseUp(e) {
 function _showInlinePopover(e) {
     _removeInlinePopover();
 
-    // Append INSIDE the modal so it shares its stacking context
+    // Append inside the .modal (z-index: 2000) so it's above the overlay
     const modalEl = document.getElementById('skillModal');
-    const modalContent = modalEl ? modalEl.querySelector('.modal-content') : null;
+    if (!modalEl) return;
+
+    const modalContent = modalEl.querySelector('.modal-content');
     if (!modalContent) return;
 
     const modalRect = modalContent.getBoundingClientRect();
     const popover = document.createElement('div');
     popover.className = 'inline-comment-popover';
 
-    const truncated = _inlineSelectedText.length > 80
-        ? _inlineSelectedText.substring(0, 80) + '...'
+    const truncated = _inlineSelectedText.length > 120
+        ? _inlineSelectedText.substring(0, 120) + '...'
         : _inlineSelectedText;
 
     popover.innerHTML = `
+        <div class="popover-header">
+            <span class="popover-icon">💬</span>
+            <span>Comentar seleccion</span>
+            <button class="popover-close" onclick="_removeInlinePopover()">&times;</button>
+        </div>
         <div class="popover-quote">"${escapeHtml(truncated)}"</div>
         <button class="inline-comment-btn" onclick="event.stopPropagation(); _expandInlineForm()">
-            💬 Comentar seleccion
+            Agregar comentario
         </button>
     `;
 
-    // Position absolute inside modal-content, anchored to right edge at selection height
-    const contentRect = modalContent.getBoundingClientRect();
-    const topOffset = e.clientY - contentRect.top + modalContent.scrollTop - 20;
+    // Fixed position anchored to the right edge of the modal
+    const topPos = Math.max(modalRect.top + 40, Math.min(e.clientY - 30, modalRect.bottom - 220));
 
-    popover.style.position = 'absolute';
-    popover.style.top = Math.max(10, topOffset) + 'px';
-    popover.style.right = '12px';
-    popover.style.left = 'auto';
+    // Check if there's space to the right
+    const spaceRight = window.innerWidth - modalRect.right;
+    if (spaceRight >= 320) {
+        // Float to the right of the modal (Jira style)
+        popover.style.left = (modalRect.right + 12) + 'px';
+    } else {
+        // Inside the modal at the right edge
+        popover.style.left = (modalRect.right - 310) + 'px';
+    }
+    popover.style.top = topPos + 'px';
 
-    modalContent.style.position = 'relative';
-    modalContent.appendChild(popover);
+    modalEl.appendChild(popover);
     _inlinePopover = popover;
 }
 
 function _expandInlineForm() {
     if (!_inlinePopover) return;
 
-    const truncated = _inlineSelectedText.length > 80
-        ? _inlineSelectedText.substring(0, 80) + '...'
+    const truncated = _inlineSelectedText.length > 120
+        ? _inlineSelectedText.substring(0, 120) + '...'
         : _inlineSelectedText;
 
     _inlinePopover.innerHTML = `
+        <div class="popover-header">
+            <span class="popover-icon">💬</span>
+            <span>Nuevo comentario</span>
+            <button class="popover-close" onclick="_removeInlinePopover()">&times;</button>
+        </div>
         <div class="popover-quote">"${escapeHtml(truncated)}"</div>
         <div class="inline-comment-form">
-            <textarea id="inlineCommentText" placeholder="Tu comentario sobre esta sección..." autofocus></textarea>
+            <textarea id="inlineCommentText" placeholder="Escribe tu comentario..." autofocus></textarea>
             <div class="actions">
                 <button class="btn-cancel" onclick="_removeInlinePopover()">Cancelar</button>
                 <button class="btn-send" onclick="_submitInlineComment()">Enviar</button>
@@ -5753,7 +5769,6 @@ function _expandInlineForm() {
         </div>
     `;
 
-    // Focus textarea
     setTimeout(() => {
         const ta = document.getElementById('inlineCommentText');
         if (ta) ta.focus();
