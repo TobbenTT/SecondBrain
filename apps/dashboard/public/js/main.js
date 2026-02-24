@@ -1094,7 +1094,6 @@ function renderArchivos(files) {
     const grid = document.getElementById('archivosGrid');
     if (!grid) return;
 
-    // Summary
     const summary = document.getElementById('archivosSummary');
     if (summary) {
         summary.innerHTML = `Mostrando <strong>${files.length}</strong> de ${allArchivos.length} documentos`;
@@ -1104,30 +1103,43 @@ function renderArchivos(files) {
         grid.innerHTML = `<div class="archivos-empty"><div class="empty-icon">📂</div><p>No se encontraron documentos</p></div>`;
         return;
     }
+
+    const typeConfig = {
+        markdown: { icon: '📝', label: 'Markdown', color: '#27ae60', abbr: 'MD' },
+        pdf:      { icon: '📕', label: 'PDF Document', color: '#e74c3c', abbr: 'PDF' },
+        app:      { icon: '🚀', label: 'Guia Interactiva', color: '#9b59b6', abbr: 'APP' },
+        other:    { icon: '📄', label: 'Documento', color: '#3498db', abbr: 'TXT' }
+    };
+
     grid.innerHTML = files.map(file => {
-        const icon = file.type === 'markdown' ? '📝' : file.type === 'pdf' ? '📕' : file.type === 'app' ? '🚀' : '📄';
-        const typeLabel = file.extension.replace('.', '').toUpperCase();
+        const cfg = typeConfig[file.type] || typeConfig.other;
         const typeClass = file.type === 'markdown' ? 'md' : file.type === 'pdf' ? 'pdf' : file.type === 'app' ? 'app' : 'other';
         const href = file.hasDynamic ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
-        const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="archivo-dynamic-badge">✨ Interactivo</span>` : '';
-        const downloadBtn = file.type === 'pdf' ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="archivo-download" title="Descargar" onclick="event.stopPropagation();">⬇</a>` : '';
-        const tagsHtml = (file.tags || []).length > 0 ? `<div class="archivo-tags">${file.tags.map(t => `<span class="archivo-tag">#${escapeHtml(t)}</span>`).join('')}</div>` : '';
-        const badgeClass = `badge-${typeClass}`;
+        const tagsHtml = (file.tags || []).length > 0
+            ? `<div class="arc-tags">${file.tags.map(t => `<span class="arc-tag">#${escapeHtml(t)}</span>`).join('')}</div>`
+            : '';
+        const downloadBtn = file.type === 'pdf'
+            ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Descargar PDF" onclick="event.stopPropagation();">Descargar</a>`
+            : '';
+        const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
 
         return `
-            <a href="${href}" class="archivo-card type-${typeClass}" title="${escapeHtml(file.name)}" ${file.hasDynamic ? 'target="_blank"' : ''}>
-                <div class="archivo-icon ${typeClass}">${icon}</div>
-                <div class="archivo-info">
-                    <h4>${escapeHtml(file.basename)} ${dynamicBadge}</h4>
-                    <div class="archivo-meta">
-                        <span class="archivo-type-badge ${badgeClass}">${typeLabel}</span>
-                        <span>${file.sizeFormatted}</span>
-                    </div>
+            <div class="arc-card arc-${typeClass}">
+                <div class="arc-header">
+                    <span class="arc-type-label">${cfg.abbr}</span>
+                    <span class="arc-size">${file.sizeFormatted}</span>
+                </div>
+                <div class="arc-body">
+                    <div class="arc-icon">${cfg.icon}</div>
+                    <h4 class="arc-title" title="${escapeHtml(file.name)}">${escapeHtml(file.basename)}</h4>
+                    <p class="arc-desc">${cfg.label} ${dynamicBadge}</p>
                     ${tagsHtml}
                 </div>
-                ${downloadBtn}
-                <span class="archivo-arrow">→</span>
-            </a>
+                <div class="arc-footer">
+                    <a href="${href}" class="arc-action arc-view" ${file.hasDynamic ? 'target="_blank"' : ''}>Abrir</a>
+                    ${downloadBtn}
+                </div>
+            </div>
         `;
     }).join('');
 }
@@ -4008,9 +4020,14 @@ async function loadAnalytics() {
             }
         };
 
-        // Destroy existing charts
+        // Destroy existing charts and reset canvases
         Object.values(analyticsCharts).forEach(c => c.destroy());
         analyticsCharts = {};
+        document.querySelectorAll('#section-analytics canvas').forEach(canvas => {
+            canvas.removeAttribute('width');
+            canvas.removeAttribute('height');
+            canvas.removeAttribute('style');
+        });
 
         // Ideas per day
         const ctx1 = document.getElementById('chartIdeasPerDay');
@@ -5018,6 +5035,20 @@ window.initGtdFilterDropdowns = initGtdFilterDropdowns;
 // ═══════════════════════════════════════════════════════════════════════════════
 // OPENCLAW MONITOR
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// Toggle explainer panel
+const ocToggle = document.getElementById('toggleOcExplainer');
+const ocBody = document.getElementById('ocExplainerBody');
+if (ocToggle && ocBody) {
+    const hidden = localStorage.getItem('ocExplainerHidden') === '1';
+    if (hidden) { ocBody.style.display = 'none'; ocToggle.textContent = 'Mostrar'; }
+    ocToggle.addEventListener('click', () => {
+        const isHidden = ocBody.style.display === 'none';
+        ocBody.style.display = isHidden ? '' : 'none';
+        ocToggle.textContent = isHidden ? 'Ocultar' : 'Mostrar';
+        localStorage.setItem('ocExplainerHidden', isHidden ? '0' : '1');
+    });
+}
 
 const OC_AGENT_META = {
     PM:         { icon: '📋', label: 'Project Manager', color: '#6366f1' },

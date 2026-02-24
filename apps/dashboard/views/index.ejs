@@ -1395,7 +1395,7 @@
                     <h2 class="panel-title">📈 Ideas por Dia (30 dias)</h2>
                 </div>
                 <div class="panel-body">
-                    <canvas id="chartIdeasPerDay" height="250"></canvas>
+                    <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartIdeasPerDay"></canvas></div>
                 </div>
             </div>
 
@@ -1406,7 +1406,7 @@
                         <h2 class="panel-title">📊 Tasa de Completado</h2>
                     </div>
                     <div class="panel-body">
-                        <canvas id="chartCompletionRate" height="250"></canvas>
+                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartCompletionRate"></canvas></div>
                     </div>
                 </div>
                 <div class="panel" style="flex:1;">
@@ -1414,7 +1414,7 @@
                         <h2 class="panel-title">🏢 Areas Mas Activas</h2>
                     </div>
                     <div class="panel-body">
-                        <canvas id="chartActiveAreas" height="250"></canvas>
+                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartActiveAreas"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -1426,7 +1426,7 @@
                         <h2 class="panel-title">📋 Ideas por Tipo</h2>
                     </div>
                     <div class="panel-body">
-                        <canvas id="chartByType" height="250"></canvas>
+                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartByType"></canvas></div>
                     </div>
                 </div>
                 <div class="panel" style="flex:1;">
@@ -1434,7 +1434,7 @@
                         <h2 class="panel-title">🎯 Por Prioridad</h2>
                     </div>
                     <div class="panel-body">
-                        <canvas id="chartByPriority" height="250"></canvas>
+                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartByPriority"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -1445,7 +1445,7 @@
                     <h2 class="panel-title">👥 Productividad por Consultor</h2>
                 </div>
                 <div class="panel-body">
-                    <canvas id="chartUserProductivity" height="200"></canvas>
+                    <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartUserProductivity"></canvas></div>
                 </div>
             </div>
         </section>
@@ -1485,6 +1485,49 @@
              SECTION: OPENCLAW MONITOR
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-openclaw">
+
+            <!-- Explanation Panel -->
+            <div class="panel oc-explainer">
+                <div class="panel-header">
+                    <h2 class="panel-title">Que es OpenClaw?</h2>
+                    <button class="panel-action" id="toggleOcExplainer">Ocultar</button>
+                </div>
+                <div class="panel-body oc-explainer-body" id="ocExplainerBody">
+                    <div class="oc-explainer-grid">
+                        <div class="oc-explainer-main">
+                            <p class="oc-explainer-desc">
+                                <strong>OpenClaw</strong> es el pipeline multi-agente de ejecucion de SecondBrain.
+                                Cuando una idea pasa a estado <em>"expresada"</em>, OpenClaw la toma y la ejecuta
+                                a traves de una cadena de agentes especializados que colaboran para convertirla
+                                en codigo funcional.
+                            </p>
+                            <div class="oc-explainer-flow">
+                                <span class="oc-flow-step"><strong>PM</strong> Planifica</span>
+                                <span class="oc-flow-arrow">&rarr;</span>
+                                <span class="oc-flow-step"><strong>DEV</strong> Desarrolla</span>
+                                <span class="oc-flow-arrow">&rarr;</span>
+                                <span class="oc-flow-step"><strong>BUILDER</strong> Construye</span>
+                                <span class="oc-flow-arrow">&rarr;</span>
+                                <span class="oc-flow-step"><strong>QA</strong> Verifica</span>
+                                <span class="oc-flow-arrow">&rarr;</span>
+                                <span class="oc-flow-step"><strong>REVIEWER</strong> Aprueba</span>
+                            </div>
+                        </div>
+                        <div class="oc-explainer-stages">
+                            <h4>Etapas del Pipeline</h4>
+                            <ul>
+                                <li><span class="oc-stage-dot pending"></span><strong>Pendiente</strong> &mdash; Idea recibida, esperando asignacion</li>
+                                <li><span class="oc-stage-dot queued"></span><strong>En Cola</strong> &mdash; Asignada a un agente, esperando turno</li>
+                                <li><span class="oc-stage-dot progress"></span><strong>En Progreso</strong> &mdash; Un agente esta trabajando activamente</li>
+                                <li><span class="oc-stage-dot developed"></span><strong>Desarrollado</strong> &mdash; Codigo escrito, listo para build</li>
+                                <li><span class="oc-stage-dot built"></span><strong>Construido</strong> &mdash; Build exitoso, listo para QA</li>
+                                <li><span class="oc-stage-dot reviewing"></span><strong>En Revision</strong> &mdash; QA/Reviewer verificando calidad</li>
+                                <li><span class="oc-stage-dot completed"></span><strong>Completado</strong> &mdash; Aprobado y listo para produccion</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Pipeline Status -->
             <div class="panel">
