@@ -22,40 +22,5 @@ services:
       start_period: 10s
       retries: 3
 
-  orchestrator:
-    build: ./apps/orchestrator
-    container_name: secondbrain-orchestrator
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
-    volumes:
-      - ./core/skills:/core/skills:ro
-
-  lililia:
-    build: ./apps/lililia
-    container_name: secondbrain-lililia
-    restart: unless-stopped
-    ports:
-      - "3002:3002"
-
-  openclaw:
-    build: ./openclaw
-    container_name: secondbrain-openclaw
-    restart: unless-stopped
-    env_file:
-      - ./openclaw/.env
-    environment:
-      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - sb-data:/app/../apps/dashboard/data
-      - ./core/skills:/core/skills
-      - openclaw-projects:/app/projects
-    depends_on:
-      dashboard:
-        condition: service_healthy
-
 volumes:
   sb-data:
-  openclaw-projects:
