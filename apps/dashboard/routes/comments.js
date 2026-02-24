@@ -13,8 +13,8 @@ router.get('/', async (req, res) => {
 
     try {
         const comments = await all(
-            `SELECT c.id, c.target_type, c.target_id, c.username, c.content, c.created_at,
-                    u.role, u.department
+            `SELECT c.id, c.target_type, c.target_id, c.username, c.content, c.section, c.created_at,
+                    u.role, u.department, u.avatar
              FROM comments c
              LEFT JOIN users u ON c.username = u.username
              WHERE c.target_type = ? AND c.target_id = ?
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
 // ─── Create comment ─────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-    const { target_type, target_id, content } = req.body;
+    const { target_type, target_id, content, section } = req.body;
     const user = req.session?.user;
 
     if (!user) return res.status(401).json({ error: 'Authentication required' });
@@ -45,8 +45,8 @@ router.post('/', async (req, res) => {
 
     try {
         const result = await run(
-            'INSERT INTO comments (target_type, target_id, username, content) VALUES (?, ?, ?, ?)',
-            [target_type, target_id, user.username, content.trim()]
+            'INSERT INTO comments (target_type, target_id, username, content, section) VALUES (?, ?, ?, ?, ?)',
+            [target_type, target_id, user.username, content.trim(), section || null]
         );
         const comment = await get('SELECT * FROM comments WHERE id = ?', [result.lastID]);
         res.json(comment);

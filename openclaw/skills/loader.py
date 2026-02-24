@@ -1,11 +1,14 @@
 """
 Skills Loader — Reads SOP markdown files from core/skills/ directory.
 These files serve as the knowledge base for consulting agents.
+
+Uses mtime-based caching: files are only re-read from disk when modified.
 """
 import os
 from pathlib import Path
 
 _skills_dir = None
+_content_cache = {}  # full_path -> (content, mtime)
 
 
 def _get_skills_dir():
@@ -35,7 +38,10 @@ def set_skills_dir(path):
 
 
 def load_skill(relative_path):
-    """Load a single skill file content.
+    """Load a single skill file content with mtime-based caching.
+
+    Returns cached content if file hasn't been modified since last read.
+    Automatically invalidates when skills are edited via dashboard.
 
     Args:
         relative_path: Path relative to skills dir, e.g. 'customizable/create-staffing-plan.md'
@@ -45,10 +51,18 @@ def load_skill(relative_path):
     """
     skills_dir = _get_skills_dir()
     full_path = os.path.join(skills_dir, relative_path)
-    if os.path.exists(full_path):
-        with open(full_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return None
+    if not os.path.exists(full_path):
+        return None
+
+    mtime = os.path.getmtime(full_path)
+    cached = _content_cache.get(full_path)
+    if cached and cached[1] == mtime:
+        return cached[0]
+
+    with open(full_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    _content_cache[full_path] = (content, mtime)
+    return content
 
 
 def load_skills(skill_paths):

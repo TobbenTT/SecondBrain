@@ -6,7 +6,7 @@ process.env.GEMINI_API_KEY = 'test-key';
 process.env.SESSION_SECRET = 'test-secret-for-integration';
 
 const { app } = require('../server');
-const { db, run, get } = require('../database');
+const { db, run, get, closeDb } = require('../database');
 const bcrypt = require('bcryptjs');
 
 let agent; // supertest agent with cookies
@@ -48,7 +48,7 @@ afterAll(async () => {
     await run("DELETE FROM users WHERE username = 'testuser'");
     await run("DELETE FROM areas WHERE name = 'Test Area'");
 
-    await new Promise((resolve) => db.close(resolve));
+    await closeDb();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

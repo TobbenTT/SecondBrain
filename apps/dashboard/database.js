@@ -136,8 +136,13 @@ function initTables() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // Migration: PARA columns for projects
-        const projectColumnsToAdd = ['related_area_id', 'horizon', 'deadline'];
+        // Migration: PARA columns + segmentation for projects
+        const projectColumnsToAdd = [
+            'related_area_id', 'horizon', 'deadline',
+            'project_type',   // 'interno' | 'cliente'
+            'client_name',    // client company name
+            'geography'       // free text: Chile, LATAM, Worldwide, etc.
+        ];
         projectColumnsToAdd.forEach(col => {
             db.run(`ALTER TABLE projects ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore error if column exists
@@ -167,8 +172,8 @@ function initTables() {
             if (!err) seedUsers();
         });
 
-        // Migration: Add department/expertise to users
-        ['department', 'expertise'].forEach(col => {
+        // Migration: Add department/expertise/avatar to users
+        ['department', 'expertise', 'avatar'].forEach(col => {
             db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore if exists
             });
@@ -264,8 +269,10 @@ function initTables() {
             target_id TEXT NOT NULL,
             username TEXT NOT NULL,
             content TEXT NOT NULL,
+            section TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+        db.run(`ALTER TABLE comments ADD COLUMN section TEXT`, (_err) => {});
 
         // Skill Documents Table (reference docs linked to skills)
         db.run(`CREATE TABLE IF NOT EXISTS skill_documents (
@@ -274,6 +281,45 @@ function initTables() {
             document_name TEXT NOT NULL,
             document_url TEXT,
             description TEXT,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migration: file_path column for skill document uploads
+        db.run(`ALTER TABLE skill_documents ADD COLUMN file_path TEXT`, (_err) => {});
+
+        // Reuniones Table (meetings intelligence — mirror of Supabase)
+        db.run(`CREATE TABLE IF NOT EXISTS reuniones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            external_id TEXT UNIQUE,
+            titulo TEXT NOT NULL,
+            fecha TEXT NOT NULL,
+            transcripcion_raw TEXT,
+            asistentes TEXT DEFAULT '[]',
+            acuerdos TEXT DEFAULT '[]',
+            puntos_clave TEXT DEFAULT '[]',
+            compromisos TEXT DEFAULT '[]',
+            entregables TEXT DEFAULT '[]',
+            proxima_reunion TEXT,
+            nivel_analisis TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Reuniones Notifications (per-user meeting attendance alerts)
+        db.run(`CREATE TABLE IF NOT EXISTS reuniones_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            reunion_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(username, reunion_id)
+        )`);
+
+        // Reuniones Email Recipients (admin-managed list of email addresses)
+        db.run(`CREATE TABLE IF NOT EXISTS reuniones_email_recipients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            nombre TEXT,
+            activo INTEGER DEFAULT 1,
             created_by TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
@@ -303,6 +349,66 @@ function initTables() {
         db.run('CREATE INDEX IF NOT EXISTS idx_comments_username ON comments(username)');
         db.run('CREATE INDEX IF NOT EXISTS idx_skill_docs_path ON skill_documents(skill_path)');
         db.run('CREATE INDEX IF NOT EXISTS idx_ideas_review ON ideas(review_status)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_fecha ON reuniones(fecha)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_external ON reuniones(external_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_notif_user ON reuniones_notifications(username)');
+
+        // ─── Feedback table ─────────────────────────────────────────────
+        db.run(`CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            category TEXT DEFAULT 'mejora',
+            priority TEXT DEFAULT 'media',
+            status TEXT DEFAULT 'abierto',
+            admin_response TEXT,
+            responded_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            resolved_at DATETIME
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(username)');
+
+        // ─── Feedback attachments ───────────────────────────────────────
+        db.run(`CREATE TABLE IF NOT EXISTS feedback_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feedback_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            mimetype TEXT,
+            size INTEGER,
+            uploaded_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (feedback_id) REFERENCES feedback(id) ON DELETE CASCADE
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_fb_attach_feedback ON feedback_attachments(feedback_id)');
+
+        // Gallery Photos (corporate intranet imagery)
+        db.run(`CREATE TABLE IF NOT EXISTS gallery_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT NOT NULL,
+            caption TEXT,
+            category TEXT DEFAULT 'general',
+            uploaded_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Reunion Links (many-to-many: reuniones ↔ projects/areas)
+        db.run(`CREATE TABLE IF NOT EXISTS reunion_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reunion_id INTEGER NOT NULL,
+            link_type TEXT NOT NULL,
+            link_id TEXT NOT NULL,
+            auto_detected INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(reunion_id, link_type, link_id)
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_reunion_links_reunion ON reunion_links(reunion_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_reunion_links_target ON reunion_links(link_type, link_id)');
+
+        // Migration: temas_detectados for reuniones
+        db.run('ALTER TABLE reuniones ADD COLUMN temas_detectados TEXT DEFAULT "[]"', (_err) => {});
 
         log.info('Database tables and indexes initialized');
 
@@ -452,7 +558,7 @@ function migrateContextToPara() {
 }
 
 // Run migration after a short delay to ensure tables exist
-setTimeout(migrateContextToPara, 2000);
+const _migrationTimer = setTimeout(migrateContextToPara, 2000);
 
 // Promisified Helper Functions
 function run(sql, params = []) {
@@ -482,4 +588,14 @@ function all(sql, params = []) {
     });
 }
 
-module.exports = { db, run, get, all };
+function closeDb() {
+    clearTimeout(_migrationTimer);
+    return new Promise((resolve, reject) => {
+        db.close((err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
+
+module.exports = { db, run, get, all, closeDb };

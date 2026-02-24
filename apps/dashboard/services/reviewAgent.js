@@ -1,10 +1,17 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const log = require('../helpers/logger');
+const ollama = require('./ollamaClient');
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(API_KEY);
 
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+// Gemini client (fallback)
+let model = null;
+try {
+    if (API_KEY) {
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+    }
+} catch (_) { /* Gemini unavailable */ }
 
 const REVIEW_SYSTEM_PROMPT = `
 Eres el JEFE DE GABINETE (Chief of Staff) de este Segundo Cerebro.
@@ -39,23 +46,34 @@ REGLAS:
 `;
 
 async function generateWeeklyReview(ideas) {
+    // Convert ideas array to string context
+    const ideasList = ideas.map(i => `- [${i.created_at}] ${i.text} (Estado: ${i.status})`).join('\n');
+
+    const prompt = `
+    Realiza una Revisión Semanal CONCISA (max 400 palabras) con estas notas:
+
+    ${ideasList}
+
+    Fecha actual: ${new Date().toLocaleDateString()}
+
+    Prioriza:
+    1. Logros clave.
+    2. Bloqueos.
+    3. Foco para la semana que viene.
+    `;
+
+    // 1. Try Ollama (primary)
     try {
-        // Convert ideas array to string context
-        const ideasList = ideas.map(i => `- [${i.created_at}] ${i.text} (Estado: ${i.status})`).join('\n');
+        const ollamaResult = await ollama.generate(prompt, REVIEW_SYSTEM_PROMPT);
+        if (ollamaResult) return ollamaResult;
+        log.info('Ollama unavailable for weekly review, falling back to Gemini');
+    } catch (err) {
+        log.warn('Ollama review attempt failed', { error: err.message });
+    }
 
-        const prompt = `
-        Realiza una Revisión Semanal CONCISA (max 400 palabras) con estas notas:
-        
-        ${ideasList}
-        
-        Fecha actual: ${new Date().toLocaleDateString()}
-        
-        Prioriza:
-        1. Logros clave.
-        2. Bloqueos.
-        3. Foco para la semana que viene.
-        `;
-
+    // 2. Fallback to Gemini
+    try {
+        if (!model) throw new Error('Gemini not configured');
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             systemInstruction: { role: "system", parts: [{ text: REVIEW_SYSTEM_PROMPT }] }
@@ -64,8 +82,8 @@ async function generateWeeklyReview(ideas) {
         const response = await result.response;
         return response.text();
     } catch (error) {
-        log.error('Weekly review error', { error: error.message });
-        return `## Error en la Revisión\nNo pude procesar las ideas: ${error.message}`;
+        log.error('All AI providers failed for weekly review', { error: error.message });
+        return `## Error en la Revisión\nNo se pudo procesar. Verifica que Ollama esté corriendo o la clave Gemini sea válida.`;
     }
 }
 

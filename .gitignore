@@ -59,6 +59,18 @@ _BACKUP_*/
 *.mp3
 *.wav
 
+# Uploaded skill documents (user uploads)
+knowledge/skill-docs/
+
+# Inteligencia-de-correos (repo independiente con su propio .git)
+Inteligencia-de-correos/
+
+# Documentos personales/temporales en raiz
+*.docx
+
+# ngrok
+ngrok-bin/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -86,3 +98,13 @@ openclaw/logs/
 
 # Claude Code
 .claude/
+
+# Cloudflare tunnel (local only)
+start-tunnel.bat
+
+# Transcripciones y notas personales
+Mejoras.txt
+Daily-Meeting-*.md
+
+# Temp/local files
+localhost

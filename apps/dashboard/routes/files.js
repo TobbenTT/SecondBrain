@@ -4,6 +4,8 @@ const fs = require('fs');
 const log = require('../helpers/logger');
 const { marked } = require('marked');
 const { safePath, formatFileSize, getFilesRecursively, findDynamicPage, loadTags, saveTags } = require('../helpers/utils');
+const { requireAdmin } = require('../middleware/authorize');
+const simpleGit = require('simple-git');
 
 const router = express.Router();
 
@@ -11,6 +13,8 @@ const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 const ARCHIVOS_DIR = UPLOADS_DIR;
 const DINAMICAS_DIR = path.join(UPLOADS_DIR, 'dinamicas');
 const SKILLS_DIR = path.join(__dirname, '..', '..', '..', 'core', 'skills');
+const REPO_ROOT = path.join(__dirname, '..', '..', '..');
+const git = simpleGit(REPO_ROOT);
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
 
@@ -181,9 +185,74 @@ router.get('/api/skills/content', async (req, res) => {
     }
 });
 
+// ─── Skill Edit API (Admin Only) ────────────────────────────────────────────
+
+router.put('/api/skills/content', requireAdmin, async (req, res) => {
+    try {
+        const { file, content } = req.body;
+
+        if (!file || typeof content !== 'string') {
+            return res.status(400).json({ error: 'file and content are required' });
+        }
+
+        const fullPath = path.resolve(SKILLS_DIR, file);
+        if (!fullPath.startsWith(path.resolve(SKILLS_DIR))) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        fs.writeFileSync(fullPath, content, 'utf-8');
+        log.info('Skill updated', { file, user: req.session.user.username });
+
+        const relativePath = path.relative(REPO_ROOT, fullPath).replace(/\\/g, '/');
+        const skillName = path.basename(file, '.md').replace(/-/g, ' ');
+
+        try {
+            await git.add(relativePath);
+            await git.commit(`Skill updated: ${skillName}`);
+            await git.push('origin', 'main');
+            log.info('Git push successful', { file: relativePath });
+            res.json({ success: true, message: 'Skill guardado y publicado en GitHub' });
+        } catch (gitErr) {
+            log.error('Git operation failed', { error: gitErr.message, file: relativePath });
+            res.json({
+                success: true,
+                warning: 'Skill guardado localmente, pero no se pudo publicar en GitHub: ' + gitErr.message
+            });
+        }
+
+    } catch (err) {
+        log.error('Skill update error', { error: err.message });
+        res.status(500).json({ error: 'Failed to update skill' });
+    }
+});
+
 // ─── Skill Documents API ────────────────────────────────────────────────────
 
-const { run, all } = require('../database');
+const { run, get, all } = require('../database');
+const multer = require('multer');
+
+const SKILL_DOCS_DIR = path.join(UPLOADS_DIR, 'skill-docs');
+if (!fs.existsSync(SKILL_DOCS_DIR)) fs.mkdirSync(SKILL_DOCS_DIR, { recursive: true });
+
+const skillDocUpload = multer({
+    storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, SKILL_DOCS_DIR),
+        filename: (_req, file, cb) => {
+            const original = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            cb(null, `${Date.now()}_${original}`);
+        }
+    }),
+    fileFilter: (_req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (['.md', '.pdf', '.txt', '.docx'].includes(ext)) cb(null, true);
+        else cb(new Error('Tipo de archivo no permitido. Solo: .md, .pdf, .txt, .docx'), false);
+    },
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 router.get('/api/skill-documents', async (req, res) => {
     const { skill } = req.query;
@@ -222,6 +291,81 @@ router.post('/api/skill-documents', async (req, res) => {
     } catch (err) {
         log.error('Skill document create error', { error: err.message });
         res.status(500).json({ error: 'Failed to create skill document' });
+    }
+});
+
+// ─── Upload file to skill ───────────────────────────────────────────────────
+
+router.post('/api/skill-documents/upload', (req, res, next) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    if (!['admin', 'manager'].includes(user.role)) {
+        return res.status(403).json({ error: 'Only admin or manager can upload documents' });
+    }
+    next();
+}, skillDocUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file provided' });
+        const { skill_path, description } = req.body;
+        if (!skill_path) return res.status(400).json({ error: 'skill_path required' });
+
+        const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+        const result = await run(
+            'INSERT INTO skill_documents (skill_path, document_name, file_path, description, created_by) VALUES (?, ?, ?, ?, ?)',
+            [skill_path, originalName, req.file.filename, description || null, req.session.user.username]
+        );
+
+        log.info('Skill document uploaded', { id: result.lastID, skill_path, file: req.file.filename, user: req.session.user.username });
+        res.json({ id: result.lastID, document_name: originalName, file_path: req.file.filename });
+    } catch (err) {
+        log.error('Skill document upload error', { error: err.message });
+        res.status(500).json({ error: 'Failed to upload document' });
+    }
+});
+
+// ─── Download skill document ────────────────────────────────────────────────
+
+router.get('/api/skill-documents/download/:id', async (req, res) => {
+    try {
+        const doc = await get('SELECT * FROM skill_documents WHERE id = ?', [req.params.id]);
+        if (!doc) return res.status(404).json({ error: 'Document not found' });
+        if (!doc.file_path) return res.status(404).json({ error: 'No file associated' });
+
+        const fullPath = path.join(SKILL_DOCS_DIR, doc.file_path);
+        if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'File not found on disk' });
+
+        res.download(fullPath, doc.document_name);
+    } catch (err) {
+        log.error('Skill document download error', { error: err.message });
+        res.status(500).json({ error: 'Failed to download document' });
+    }
+});
+
+// ─── Delete skill document ──────────────────────────────────────────────────
+
+router.delete('/api/skill-documents/:id', async (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    if (!['admin', 'manager'].includes(user.role)) {
+        return res.status(403).json({ error: 'Only admin or manager can delete documents' });
+    }
+
+    try {
+        const doc = await get('SELECT * FROM skill_documents WHERE id = ?', [req.params.id]);
+        if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+        // Delete file from disk if exists
+        if (doc.file_path) {
+            const fullPath = path.join(SKILL_DOCS_DIR, doc.file_path);
+            if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+        }
+
+        await run('DELETE FROM skill_documents WHERE id = ?', [req.params.id]);
+        log.info('Skill document deleted', { id: req.params.id, user: user.username });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Skill document delete error', { error: err.message });
+        res.status(500).json({ error: 'Failed to delete document' });
     }
 });
 

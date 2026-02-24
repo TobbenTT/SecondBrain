@@ -7,6 +7,10 @@ services:
       - "3000:3000"
     env_file:
       - ./apps/dashboard/.env
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - sb-data:/app/data
       - ./knowledge:/knowledge
@@ -40,10 +44,29 @@ services:
     restart: unless-stopped
     env_file:
       - ./openclaw/.env
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - sb-data:/app/../apps/dashboard/data
       - ./core/skills:/core/skills
       - openclaw-projects:/app/projects
+    depends_on:
+      dashboard:
+        condition: service_healthy
+
+  inteligencia-correos:
+    build: ./Inteligencia-de-correos
+    container_name: secondbrain-inteligencia-correos
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./Inteligencia-de-correos/.env
+    environment:
+      - PORT=3003
+      - DASHBOARD_URL=http://dashboard:3000
     depends_on:
       dashboard:
         condition: service_healthy

@@ -1,12 +1,91 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const log = require('../helpers/logger');
+const ollama = require('./ollamaClient');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+// ─── Token Optimization: Response Cache ─────────────────────────────────────
+const _responseCache = new Map();
+const RESPONSE_CACHE_TTL = 30 * 60 * 1000; // 30 min
+const MAX_CACHE_SIZE = 50;
+
+function _getCachedResponse(prompt) {
+    const hash = crypto.createHash('md5').update(prompt).digest('hex');
+    const cached = _responseCache.get(hash);
+    if (cached && Date.now() - cached.ts < RESPONSE_CACHE_TTL) {
+        log.info('Response cache HIT', { hash: hash.substring(0, 8) });
+        return cached.response;
+    }
+    return null;
+}
+
+function _setCachedResponse(prompt, response) {
+    const hash = crypto.createHash('md5').update(prompt).digest('hex');
+    if (_responseCache.size >= MAX_CACHE_SIZE) {
+        const oldest = [..._responseCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+        _responseCache.delete(oldest[0]);
+    }
+    _responseCache.set(hash, { response, ts: Date.now() });
+}
+
+// ─── Token Optimization: Skill Content Cache ────────────────────────────────
+const _skillCache = new Map();
+const SKILL_CACHE_TTL = 10 * 60 * 1000; // 10 min
+
+function loadSkillsCached(skillPaths, skillsDir) {
+    const key = skillPaths.sort().join('|');
+    const cached = _skillCache.get(key);
+    if (cached && Date.now() - cached.ts < SKILL_CACHE_TTL) {
+        log.info('Skill cache HIT', { skills: skillPaths.length });
+        return cached.contents;
+    }
+
+    const contents = [];
+    for (const skillPath of skillPaths) {
+        const fullPath = path.join(skillsDir, skillPath);
+        if (fs.existsSync(fullPath)) {
+            contents.push(fs.readFileSync(fullPath, 'utf-8'));
+        }
+    }
+    if (contents.length > 0) {
+        _skillCache.set(key, { contents, ts: Date.now() });
+    }
+    return contents;
+}
+
+// ─── Token Optimization: Context Cache ──────────────────────────────────────
+let _userListCache = { hash: '', text: '' };
+
+function _formatUserList(users) {
+    if (!users || users.length === 0) {
+        return 'david(admin,Direccion) gonzalo(manager,Operaciones) jose(analyst,Finanzas)';
+    }
+    const hash = users.map(u => u.username).join(',');
+    if (_userListCache.hash === hash) return _userListCache.text;
+    const text = users.map(u => `${u.username}(${u.role},${u.department || 'General'})`).join(' ');
+    _userListCache = { hash, text };
+    return text;
+}
+
+// Gemini client (fallback when Ollama is unavailable)
+let genAI = null;
+let model = null;
+try {
+    if (API_KEY) {
+        genAI = new GoogleGenerativeAI(API_KEY);
+        model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        log.info('Gemini configured as fallback', { model: 'gemini-3-flash-preview' });
+    } else {
+        log.warn('GEMINI_API_KEY not set — Gemini fallback unavailable');
+    }
+} catch (err) {
+    log.warn('Gemini init failed', { error: err.message });
+}
+
+log.info('AI provider order: Ollama (primary) -> Gemini (fallback)', { ollamaModel: ollama.OLLAMA_MODEL });
 
 // ─── Agent-Category Mapping for Intelligent Suggestion ──────────────────────
 const AGENT_CATEGORY_MAP = {
@@ -71,134 +150,89 @@ Responde siempre en espanol. Usa formato Markdown para listas y tablas cuando se
 
 // ─── Generate Chat Response ──────────────────────────────────────────────────
 async function generateResponse(prompt, history = [], systemInstruction = null) {
+    const sysText = systemInstruction || SYSTEM_INSTRUCTION;
+
+    // 1. Try Ollama (primary)
     try {
+        const messages = history.map(h => ({
+            role: h.role === 'user' ? 'user' : 'assistant',
+            content: h.message
+        }));
+        messages.push({ role: 'user', content: prompt });
+
+        const ollamaResult = await ollama.chat(messages, sysText);
+        if (ollamaResult) return ollamaResult;
+        log.info('Ollama unavailable for chat, falling back to Gemini');
+    } catch (err) {
+        log.warn('Ollama chat attempt failed', { error: err.message });
+    }
+
+    // 2. Fallback to Gemini
+    try {
+        if (!model) throw new Error('Gemini not configured');
         const chat = model.startChat({
             history: history.map(h => ({
                 role: h.role === 'user' ? 'user' : 'model',
                 parts: [{ text: h.message }]
             })),
-            generationConfig: {
-                maxOutputTokens: 2000,
-            },
-            systemInstruction: {
-                role: "system",
-                parts: [{ text: systemInstruction || SYSTEM_INSTRUCTION }]
-            }
+            generationConfig: { maxOutputTokens: 2000 },
+            systemInstruction: { role: "system", parts: [{ text: sysText }] }
         });
 
         const result = await chat.sendMessage(prompt);
         const response = await result.response;
         return response.text();
     } catch (error) {
-        log.error('Error generating AI response', { error: error.message });
-        return "Lo siento, encontre un error al procesar tu solicitud. Por favor, verifica tu conexion o intenta mas tarde.";
+        log.error('All AI providers failed for chat', { error: error.message });
+        return "Lo siento, encontre un error al procesar tu solicitud. Verifica que Ollama este corriendo o que la clave Gemini sea valida.";
     }
 }
 
-// ─── Process Idea (CODE: Capture → Organize) ────────────────────────────────
-// Supports: voice-first input, speaker identity, multi-idea splitting
-async function processIdea(ideaText, context = "", users = [], areas = [], speaker = null) {
-    const userList = users.length > 0
-        ? users.map(u => `- ${u.username} (${u.role}, Dept: ${u.department || 'General'}, Expertise: ${u.expertise || 'General'})`).join('\n')
-        : '- david (admin, Direccion)\n- gonzalo (manager, Operaciones)\n- jose (analyst, Finanzas)';
+// ─── Process Idea: System Instruction (fixed rules, sent once via systemInstruction) ─
+const PROCESS_IDEA_SYSTEM = `Eres un clasificador CODE/PARA/GTD para Value Strategy Consulting.
+REGLAS: Routing > clasificacion perfecta. Proxima accion fisica (GTD). Confianza 0-1 (si <0.6: needs_review=true).
+VOZ: Ignora muletillas. Extrae intencion real. Si hay MULTIPLES ideas independientes, separarlas como array JSON.
+AGENTES: staffing(dotacion,turnos), training(capacitacion), finance(presupuesto,OPEX), compliance(auditoria,contratos), null si no aplica.
+Responde SOLO JSON (sin markdown). 1 idea=objeto, multiples=array.`;
 
+// ─── Process Idea (CODE: Capture → Organize) ────────────────────────────────
+async function processIdea(ideaText, context = "", users = [], areas = [], speaker = null) {
+    const userList = _formatUserList(users);
     const areaList = areas.length > 0
         ? areas.map(a => a.name).join(', ')
         : 'Operaciones, HSE, Finanzas, Contratos, Ejecucion, Gestion de Activos, Capacitacion';
 
-    // Speaker identity context
     const speakerBlock = speaker
-        ? `\n    QUIEN HABLA (identidad del capturador):
-    - Usuario: ${speaker.username}
-    - Rol: ${speaker.role}
-    - Departamento: ${speaker.department || 'General'}
-    - Expertise: ${speaker.expertise || 'General'}
-    IMPORTANTE: Usa esta identidad para:
-    1. Dar peso a las areas de expertise del hablante al clasificar.
-    2. Si el hablante habla de "yo tengo que hacer X", asignale a el mismo (assigned_to = "${speaker.username}").
-    3. Si dice "dile a Gonzalo que..." o "Jose deberia...", es delegacion → assigned_to al mencionado, waiting_for al hablante.
-    4. Si no queda claro quien ejecuta, asigna basado en expertise del equipo.\n`
+        ? `\nHABLANTE: ${speaker.username}(${speaker.role},${speaker.department || 'General'}). "yo hago X"->assigned_to=${speaker.username}. "dile a X"->delegacion.`
         : '';
 
-    const prompt = `
-    PRINCIPIOS DE ROUTING (aplica siempre):
-    - Prefiere ROUTING sobre organizar: decide a donde va, no como clasificarlo perfectamente.
-    - Usa "proxima accion fisica" como unidad de ejecucion (estilo GTD).
-    - Mantien categorias PEQUENAS. Si dudas, usa la mas simple.
-    - Reporta tu nivel de CONFIANZA honestamente (0.0 a 1.0).
-    - Si la confianza es < 0.6, marca needs_review = true.
+    const prompt = `${speakerBlock}
+INPUT: "${ideaText}"
+CONTEXTO: ${context || 'ninguno'}
+EQUIPO: ${userList}
+AREAS: ${areaList}
 
-    MANEJO DE ENTRADA POR VOZ:
-    - El texto puede venir de una transcripcion de voz (speech-to-text).
-    - IGNORA muletillas, repeticiones, correcciones y relleno verbal ("eh", "bueno", "o sea", "como te digo").
-    - LIMPIA el texto mentalmente antes de clasificar: extrae la intencion real.
-    - Si el texto contiene MULTIPLES ideas/tareas independientes, DEBES separarlas.
-      Ejemplo: "hay que revisar el presupuesto y tambien dile a gonzalo que prepare el informe de seguridad"
-      = 2 ideas separadas.
+JSON campos: tipo(Tarea/Proyecto/Nota/Meta/Delegacion/Referencia), is_project, categoria, para_type(project/area/resource/archive), suggested_area, suggested_project, resumen(1-2 frases limpio), accion_inmediata(paso fisico), assigned_to, estimated_time, priority(alta/media/baja), confidence(0-1), needs_review, sugerencia_contexto, waiting_for(null o {delegated_to,description}), texto_limpio, suggested_agent(staffing/training/finance/compliance/null), suggested_skills(array paths o []).
+GTD: contexto(@computador/@email/@telefono/@oficina/@calle/@casa/@espera/@compras/@investigar/@reunion/@leer), energia(baja/media/alta), tipo_compromiso(comprometida/esta_semana/algun_dia/tal_vez), proxima_accion(bool), objetivo(1 frase), notas(o null).
+Si is_project: sub_tasks[{texto,assigned_to,contexto,energia,estimated_time,es_proxima_accion(solo 1 true)}]`;
 
-    DETECCION DE MULTIPLES IDEAS:
-    - Si el input contiene una sola idea/tarea/nota, responde con UN objeto JSON.
-    - Si el input contiene MULTIPLES ideas independientes, responde con un ARRAY JSON de objetos.
-    - Cada objeto tiene los mismos campos.
-    - Senales de multiples ideas: "y tambien", "otra cosa", "ademas", "por otro lado", coma separando temas distintos.
-    ${speakerBlock}
-    Analiza esta nueva idea/input y RUTEA usando CODE/PARA/GTD:
-    "${ideaText}"
-
-    Contexto del usuario:
-    ${context}
-
-    Equipo disponible:
-    ${userList}
-
-    Areas de responsabilidad activas: ${areaList}
-
-    Responde UNICAMENTE con JSON (sin markdown, sin backticks).
-    Si es UNA idea: un objeto JSON { ... }
-    Si son MULTIPLES ideas: un array JSON [ { ... }, { ... } ]
-
-    Campos por cada idea:
-    - tipo: (Tarea, Proyecto, Nota, Meta, Delegacion, Referencia)
-    - is_project: (true/false) true si esto es un PROYECTO que requiere multiples actividades
-    - categoria: La categoria mas relevante de las areas corporativas
-    - para_type: ("project" | "area" | "resource" | "archive")
-    - suggested_area: El nombre del area de responsabilidad mas relevante (de la lista de areas). Debe ser exactamente uno de la lista.
-    - suggested_project: null o nombre de proyecto si aplica
-    - resumen: Resumen breve y LIMPIO (1-2 frases, sin muletillas del audio original)
-    - accion_inmediata: El SIGUIENTE PASO FISICO y accionable. Debe ser algo que se pueda hacer en los proximos 2 minutos a 2 horas.
-    - assigned_to: El username del miembro mas adecuado (basado en expertise y departamento)
-    - estimated_time: Tiempo estimado realista (ej: "2 horas", "1 dia", "3 dias")
-    - priority: ("alta" | "media" | "baja")
-    - confidence: Numero entre 0.0 y 1.0. Que tan seguro estas de esta clasificacion.
-    - needs_review: (true/false) true si confidence < 0.6 o si el input es ambiguo
-    - sugerencia_contexto: (true/false) si esto deberia guardarse en la memoria permanente
-    - waiting_for: null o { delegated_to: "username", description: "que se espera" } si implica delegacion
-    - texto_limpio: El texto de esta idea limpio, sin muletillas ni ruido de voz. Si solo hay una idea, es el texto original limpio.
-    - suggested_agent: El agente de automatizacion mas adecuado para ejecutar esta idea. Opciones: "staffing" (dotacion, turnos, personal), "training" (capacitacion, formacion), "finance" (presupuestos, costos, OPEX), "compliance" (auditorias, cumplimiento, contratos), o null si ninguno aplica o es simplemente informativa/nota.
-    - suggested_skills: Array de nombres de archivos de skill que el agente deberia usar. Opciones: ["customizable/create-staffing-plan.md", "core/model-staffing-requirements.md", "customizable/create-training-plan.md", "core/model-opex-budget.md", "core/audit-compliance-readiness.md"]. Selecciona 1-2 skills mas relevantes, o [] si suggested_agent es null.
-
-    CAMPOS GTD (OBLIGATORIOS — analiza cada uno cuidadosamente):
-    - contexto: El contexto GTD donde se ejecuta esta accion. DEBE ser uno de: "@computador", "@email", "@telefono", "@oficina", "@calle", "@casa", "@espera", "@compras", "@investigar", "@reunion", "@leer". Elige el mas apropiado segun la naturaleza de la tarea.
-    - energia: Nivel de energia/concentracion requerido. DEBE ser: "baja", "media" o "alta".
-    - tipo_compromiso: Nivel de compromiso. DEBE ser: "comprometida" (hay deadline o compromiso firme), "esta_semana" (deberia hacerse esta semana), "algun_dia" (sin urgencia, cuando se pueda), "tal_vez" (idea que quizas nunca se haga).
-    - proxima_accion: (true/false) true si esta es la PROXIMA ACCION concreta de un proyecto o lista.
-    - objetivo: El objetivo del area al que contribuye esta accion (1 frase corta). Ej: "Mejorar la dotacion del proyecto ACME"
-    - notas: Cualquier nota adicional relevante o contexto util. null si no aplica.
-
-    SI is_project ES TRUE, agrega ademas:
-    - sub_tasks: Array de objetos, cada uno con:
-      - texto: Descripcion de la sub-tarea
-      - assigned_to: username responsable
-      - contexto: contexto GTD de la sub-tarea
-      - energia: energia requerida
-      - estimated_time: tiempo estimado
-      - es_proxima_accion: (true/false) solo UNA sub-tarea debe ser true (la primera en ejecutarse)
-    `;
+    // Check response cache
+    const cached = _getCachedResponse(prompt);
+    if (cached) return cached;
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
+        // 1. Try Ollama with system instruction
+        let text = await ollama.generate(prompt, PROCESS_IDEA_SYSTEM);
+        if (!text) {
+            log.info('Ollama unavailable for processIdea, falling back to Gemini');
+            if (!model) throw new Error('Gemini not configured');
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                systemInstruction: { role: "system", parts: [{ text: PROCESS_IDEA_SYSTEM }] }
+            });
+            const response = await result.response;
+            text = response.text();
+        }
 
         // Robust JSON extraction — handle both single object and array
         let parsed;
@@ -278,7 +312,9 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
         });
 
         // Return single object for backward compat if only 1 idea, array if multiple
-        return parsed.length === 1 ? parsed[0] : parsed;
+        const result = parsed.length === 1 ? parsed[0] : parsed;
+        _setCachedResponse(prompt, result);
+        return result;
     } catch (e) {
         log.error('AI process error', { error: e.message });
         fs.appendFileSync(path.join(__dirname, '..', 'ai_error.log'), `${new Date().toISOString()} - ${e.message}\n${e.stack}\n---\n`);
@@ -305,31 +341,28 @@ async function processIdea(ideaText, context = "", users = [], areas = [], speak
 
 // ─── Distill Content (CODE: Organize → Distill) ─────────────────────────────
 async function distillContent(text, context = "") {
-    const prompt = `
-    TAREA: Destilar el siguiente contenido a su esencia.
+    const prompt = `Destila a esencia. JSON: insight_principal(1 frase), accion_clave(1 frase), conexiones(array max 3), resumen_destilado(2-3 frases).
+CONTENIDO: "${text}"
+CONTEXTO: ${context || 'ninguno'}`;
 
-    CONTENIDO:
-    "${text}"
-
-    CONTEXTO RELACIONADO:
-    ${context || 'Sin contexto adicional'}
-
-    Responde UNICAMENTE con un objeto JSON (sin markdown, sin backticks):
-    - insight_principal: La idea o hallazgo mas importante (1 frase)
-    - accion_clave: La accion mas importante que se deriva (1 frase)
-    - conexiones: Array de strings con conexiones a otros temas/areas (max 3)
-    - resumen_destilado: Resumen ultra-conciso listo para uso rapido (2-3 frases max)
-    `;
+    const cached = _getCachedResponse(prompt);
+    if (cached) return cached;
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text_resp = response.text();
+        let text_resp = await ollama.generate(prompt);
+        if (!text_resp) {
+            if (!model) throw new Error('Gemini not configured');
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            text_resp = response.text();
+        }
 
         const jsonMatch = text_resp.match(/\{[\s\S]*\}/);
         if (jsonMatch) text_resp = jsonMatch[0];
 
-        return JSON.parse(text_resp);
+        const parsed = JSON.parse(text_resp);
+        _setCachedResponse(prompt, parsed);
+        return parsed;
     } catch (e) {
         log.error('Distill error', { error: e.message });
         return {
@@ -343,32 +376,28 @@ async function distillContent(text, context = "") {
 
 // ─── Auto-Assign Task to Personnel ───────────────────────────────────────────
 async function autoAssign(taskDescription, users = [], _areas = []) {
-    const userList = users.map(u =>
-        `${u.username}: rol=${u.role}, dept=${u.department || 'General'}, expertise=${u.expertise || 'General'}`
-    ).join('\n');
+    const userList = _formatUserList(users);
 
-    const prompt = `
-    Asigna esta tarea al miembro del equipo mas adecuado y estima el tiempo:
+    const prompt = `Asigna tarea al mejor del equipo. JSON: assigned_to, reason(1 frase), estimated_time, priority(alta/media/baja).
+TAREA: "${taskDescription}"
+EQUIPO: ${userList}`;
 
-    TAREA: "${taskDescription}"
-
-    EQUIPO:
-    ${userList}
-
-    Responde UNICAMENTE con JSON (sin markdown):
-    - assigned_to: username del mas adecuado
-    - reason: Por que esta persona (1 frase)
-    - estimated_time: Tiempo estimado (ej: "4 horas", "2 dias")
-    - priority: ("alta" | "media" | "baja")
-    `;
+    const cached = _getCachedResponse(prompt);
+    if (cached) return cached;
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
+        let text = await ollama.generate(prompt);
+        if (!text) {
+            if (!model) throw new Error('Gemini not configured');
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            text = response.text();
+        }
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) text = jsonMatch[0];
-        return JSON.parse(text);
+        const parsed = JSON.parse(text);
+        _setCachedResponse(prompt, parsed);
+        return parsed;
     } catch (e) {
         log.error('Auto-assign error', { error: e.message });
         return { assigned_to: null, reason: "Error en auto-asignacion", estimated_time: null, priority: "media" };
@@ -407,6 +436,9 @@ async function generateDigest(ideas, waitingFor, context, areas) {
     `;
 
     try {
+        const ollamaResult = await ollama.generate(prompt);
+        if (ollamaResult) return ollamaResult;
+        if (!model) throw new Error('Gemini not configured');
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text();
@@ -457,16 +489,23 @@ Este output sera guardado como entregable del sistema SecondBrain.
 `;
 
     try {
+        // 1. Try Ollama (primary)
+        const ollamaResult = await ollama.generate(userPrompt, systemPrompt);
+        if (ollamaResult) return { success: true, output: ollamaResult };
+        log.info('Ollama unavailable for executeWithAgent, falling back to Gemini');
+
+        // 2. Fallback to Gemini
+        if (!genAI) throw new Error('Gemini not configured');
         const executionModel = genAI.getGenerativeModel({
             model: "gemini-3-flash-preview",
             generationConfig: { maxOutputTokens: 8000 }
         });
 
-        const chat = executionModel.startChat({
+        const execChat = executionModel.startChat({
             systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
         });
 
-        const result = await chat.sendMessage(userPrompt);
+        const result = await execChat.sendMessage(userPrompt);
         const response = await result.response;
         return { success: true, output: response.text() };
     } catch (error) {
@@ -477,60 +516,27 @@ Este output sera guardado como entregable del sistema SecondBrain.
 
 // ─── Decompose Project into Sub-tasks (GTD) ─────────────────────────────────
 async function decomposeProject(projectText, context = "", users = [], areas = []) {
-    const userList = users.length > 0
-        ? users.map(u => `- ${u.username} (${u.role}, Dept: ${u.department || 'General'}, Expertise: ${u.expertise || 'General'})`).join('\n')
-        : '- david (admin, Direccion)\n- gonzalo (manager, Operaciones)\n- jose (analyst, Finanzas)';
-
+    const userList = _formatUserList(users);
     const areaList = areas.length > 0
         ? areas.map(a => a.name).join(', ')
         : 'Operaciones, HSE, Finanzas, Contratos, Ejecucion, Gestion de Activos, Capacitacion';
 
-    const prompt = `
-    Eres un experto en GTD (Getting Things Done). Se ha identificado que la siguiente idea es un PROYECTO.
-    Tu tarea es DESCOMPONERLO en sub-tareas accionables.
-
-    PROYECTO:
-    "${projectText}"
-
-    CONTEXTO:
-    ${context || 'Sin contexto adicional'}
-
-    EQUIPO DISPONIBLE:
-    ${userList}
-
-    AREAS: ${areaList}
-
-    CONTEXTOS GTD DISPONIBLES: @computador, @email, @telefono, @oficina, @calle, @casa, @espera, @compras, @investigar, @reunion, @leer
-
-    REGLAS:
-    1. Genera entre 3 y 8 sub-tareas CONCRETAS y ACCIONABLES.
-    2. Cada sub-tarea debe ser una accion fisica que una persona puede ejecutar.
-    3. EXACTAMENTE UNA sub-tarea debe ser la "proxima accion" (la primera en ejecutarse).
-    4. Asigna cada sub-tarea a la persona mas adecuada del equipo.
-    5. Estima tiempos realistas.
-
-    Responde UNICAMENTE con JSON (sin markdown, sin backticks):
-    {
-        "project_name": "Nombre corto del proyecto",
-        "objetivo": "Objetivo general del proyecto (1 frase)",
-        "sub_tasks": [
-            {
-                "texto": "Descripcion de la sub-tarea accionable",
-                "assigned_to": "username",
-                "contexto": "@contexto_gtd",
-                "energia": "baja|media|alta",
-                "estimated_time": "X horas|dias",
-                "priority": "alta|media|baja",
-                "es_proxima_accion": true/false
-            }
-        ]
-    }
-    `;
+    const prompt = `Descomponer PROYECTO en 3-8 sub-tareas GTD. Solo 1 es proxima_accion. Asigna al equipo.
+PROYECTO: "${projectText}"
+CONTEXTO: ${context || 'ninguno'}
+EQUIPO: ${userList}
+AREAS: ${areaList}
+CONTEXTOS GTD: @computador @email @telefono @oficina @calle @casa @espera @compras @investigar @reunion @leer
+JSON: {project_name, objetivo, sub_tasks:[{texto,assigned_to,contexto,energia(baja/media/alta),estimated_time,priority(alta/media/baja),es_proxima_accion}]}`;
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
+        let text = await ollama.generate(prompt);
+        if (!text) {
+            if (!model) throw new Error('Gemini not configured');
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            text = response.text();
+        }
         text = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim();
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -577,6 +583,9 @@ async function generateDailyReport(data) {
     `;
 
     try {
+        const ollamaResult = await ollama.generate(prompt);
+        if (ollamaResult) return ollamaResult;
+        if (!model) throw new Error('Gemini not configured');
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text();
@@ -586,4 +595,7 @@ async function generateDailyReport(data) {
     }
 }
 
-module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent, decomposeProject, generateDailyReport };
+// Test helper to clear response cache between tests
+function _clearResponseCache() { _responseCache.clear(); }
+
+module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent, decomposeProject, generateDailyReport, loadSkillsCached, _clearResponseCache };

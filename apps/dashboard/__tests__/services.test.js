@@ -30,6 +30,14 @@ jest.mock('../helpers/logger', () => ({
     debug: jest.fn(),
 }));
 
+// Mock Ollama client (returns null to trigger Gemini fallback)
+jest.mock('../services/ollamaClient', () => ({
+    generate: jest.fn().mockResolvedValue(null),
+    chat: jest.fn().mockResolvedValue(null),
+    OLLAMA_URL: 'http://localhost:11434',
+    OLLAMA_MODEL: 'llama3',
+}));
+
 // Mock fs for ai.js error logging
 jest.mock('fs', () => {
     const actual = jest.requireActual('fs');
@@ -38,8 +46,12 @@ jest.mock('fs', () => {
         appendFileSync: jest.fn(),
         existsSync: jest.fn().mockReturnValue(true),
         mkdirSync: jest.fn(),
+        readFileSync: jest.fn().mockReturnValue('# Mock skill content'),
     };
 });
+
+// Ensure GEMINI_API_KEY is set so model gets created
+process.env.GEMINI_API_KEY = 'test-key-for-mock';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI Service
@@ -50,6 +62,8 @@ const aiService = require('../services/ai');
 describe('AI Service', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        // Clear response cache between tests to avoid stale results
+        aiService._clearResponseCache?.();
     });
 
     describe('generateResponse', () => {

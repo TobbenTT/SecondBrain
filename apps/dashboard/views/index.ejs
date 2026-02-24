@@ -14,6 +14,7 @@
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 </head>
 
 <body>
@@ -40,6 +41,10 @@
                 <a href="#overview" class="nav-link" data-section="overview">
                     <span class="nav-icon">📊</span>
                     Overview
+                </a>
+                <a href="#reuniones" class="nav-link" data-section="reuniones">
+                    <span class="nav-icon">📅</span>
+                    Reuniones
                 </a>
             </div>
             <div class="nav-section">
@@ -94,12 +99,20 @@
                     <span class="nav-icon">📝</span>
                     Revision
                 </a>
+                <a href="#feedback" class="nav-link" data-section="feedback">
+                    <span class="nav-icon">💬</span>
+                    Feedback
+                </a>
             </div>
             <div class="nav-section">
                 <span class="nav-label">OPENCLAW</span>
+                <a href="#agents" class="nav-link" data-section="agents">
+                    <span class="nav-icon">🤖</span>
+                    Agentes
+                </a>
                 <a href="#openclaw" class="nav-link" data-section="openclaw">
                     <span class="nav-icon">🦞</span>
-                    Monitor Agentes
+                    Monitor Pipeline
                 </a>
             </div>
             <div class="nav-section">
@@ -117,12 +130,29 @@
                     Reporte Diario
                 </a>
             </div>
+            <% if (user && user.role === 'admin') { %>
+            <div class="nav-section">
+                <span class="nav-label">ADMIN</span>
+                <a href="#admin-users" class="nav-link" data-section="admin-users">
+                    <span class="nav-icon">👥</span>
+                    Usuarios
+                </a>
+                <a href="#graph-view" class="nav-link" data-section="graph-view">
+                    <span class="nav-icon">🕸️</span>
+                    Vista Gráfica
+                </a>
+            </div>
+            <% } %>
         </nav>
 
         <div class="sidebar-footer">
             <div class="sidebar-status">
                 <span class="status-dot"></span>
                 <span>Sistema Activo</span>
+            </div>
+            <div class="sidebar-status ollama-status" id="ollamaStatus" title="Estado del LLM local">
+                <span class="ollama-dot" id="ollamaDot"></span>
+                <span id="ollamaLabel">Ollama: ...</span>
             </div>
             <a href="/logout" class="logout-link" title="Cerrar sesión">🔒 Salir</a>
         </div>
@@ -173,16 +203,20 @@
                 </div>
                 <!-- User Profile Display -->
                 <% if (user) { %>
-                    <div class="user-profile">
-                        <div class="user-avatar">
-                            <%= user.username.charAt(0).toUpperCase() %>
+                    <div class="user-profile" onclick="openProfileModal()" style="cursor:pointer" title="Editar perfil">
+                        <div class="user-avatar" id="sidebarAvatar">
+                            <% if (user.avatar) { %>
+                                <img src="<%= user.avatar %>" alt="avatar">
+                            <% } else { %>
+                                <%= user.username.charAt(0).toUpperCase() %>
+                            <% } %>
                         </div>
                         <div class="user-info">
                             <span class="user-name"><%= user.username %></span>
                             <span class="user-role"><%= user.role %></span>
                         </div>
                     </div>
-                    <% } %>
+                <% } %>
                         <div class="header-date" id="headerDate"></div>
             </div>
         </header>
@@ -209,24 +243,76 @@
 
             <!-- Inline Stats -->
             <div class="home-stats-strip">
-                <div class="hss-item">
+                <div class="hss-item hss-clickable" onclick="switchSection('projects')">
                     <span class="hss-num" id="homeStatProjects">—</span>
                     <span class="hss-label">Proyectos</span>
                 </div>
                 <div class="hss-divider"></div>
-                <div class="hss-item">
+                <div class="hss-item hss-clickable" onclick="switchSection('files')">
                     <span class="hss-num" id="homeStatDocs">—</span>
                     <span class="hss-label">Documentos</span>
                 </div>
                 <div class="hss-divider"></div>
-                <div class="hss-item">
+                <div class="hss-item hss-clickable" onclick="switchSection('ideas')">
                     <span class="hss-num" id="homeStatIdeas">—</span>
                     <span class="hss-label">Ideas Capturadas</span>
                 </div>
                 <div class="hss-divider"></div>
-                <div class="hss-item">
+                <div class="hss-item hss-clickable" onclick="switchSection('areas')">
                     <span class="hss-num" id="homeStatAreas">—</span>
-                    <span class="hss-label">Areas Activas</span>
+                    <span class="hss-label">Áreas Activas</span>
+                </div>
+            </div>
+
+            <!-- Personal Dashboard -->
+            <div class="home-personal" id="homePersonal">
+                <div class="hp-grid">
+                    <!-- My Tasks -->
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Mis Tareas</h4>
+                            <div class="hp-task-summary" id="hpTaskSummary"></div>
+                        </div>
+                        <div class="hp-card-body" id="hpTaskList">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                        <div class="hp-card-footer">
+                            <a href="#ideas" onclick="switchSection('ideas')" class="hp-link">Ver todas →</a>
+                        </div>
+                    </div>
+                    <!-- My Delegations -->
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Delegaciones Pendientes</h4>
+                        </div>
+                        <div class="hp-card-body" id="hpDelegations">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                        <div class="hp-card-footer">
+                            <a href="#waiting" onclick="switchSection('waiting')" class="hp-link">Ver delegaciones →</a>
+                        </div>
+                    </div>
+                    <!-- Recent Reuniones -->
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Mis Reuniones Recientes</h4>
+                        </div>
+                        <div class="hp-card-body" id="hpReuniones">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                        <div class="hp-card-footer">
+                            <a href="#reuniones" onclick="switchSection('reuniones')" class="hp-link">Ver reuniones →</a>
+                        </div>
+                    </div>
+                    <!-- Activity Feed -->
+                    <div class="hp-card hp-card-wide">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Actividad Reciente</h4>
+                        </div>
+                        <div class="hp-card-body" id="hpActivity">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -244,12 +330,53 @@
                 </div>
             </div>
 
+            <!-- Nuestro Equipo -->
+            <div class="home-team-section">
+                <h3 class="home-section-title">Nuestro Equipo</h3>
+                <div class="home-team-grid" id="homeTeamGrid">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+
+            <!-- Galería -->
+            <div class="home-gallery-section" id="homeGallerySection">
+                <div class="home-gallery-header">
+                    <h3 class="home-section-title">Galeria</h3>
+                    <% if (user && (user.role === 'admin' || user.role === 'manager')) { %>
+                    <button class="btn btn-sm" onclick="openGalleryUpload()">+ Subir Foto</button>
+                    <% } %>
+                </div>
+                <div class="home-gallery-grid" id="homeGalleryGrid"></div>
+                <!-- Upload form (hidden) -->
+                <div id="galleryUploadForm" style="display:none;margin-top:12px;">
+                    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Foto</label>
+                            <input type="file" id="galleryFileInput" accept="image/*" class="search-input-sm" style="width:100%;">
+                        </div>
+                        <div style="flex:1;min-width:150px;">
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Descripcion</label>
+                            <input type="text" id="galleryCaptionInput" placeholder="Descripción de la foto..." class="search-input-sm" style="width:100%;">
+                        </div>
+                        <select id="galleryCategoryInput" class="gtd-filter-select">
+                            <option value="general">General</option>
+                            <option value="equipo">Equipo</option>
+                            <option value="evento">Evento</option>
+                            <option value="reunion">Reunion</option>
+                            <option value="oficina">Oficina</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="uploadGalleryPhoto()">Subir</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('galleryUploadForm').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Quick Capture Bar (sub-5-second voice capture from Home) -->
             <div class="quick-capture-bar" id="quickCaptureBar">
                 <div class="quick-capture-inner">
                     <span class="quick-capture-icon">🎤</span>
                     <input type="text" id="quickCaptureInput" class="quick-capture-input"
-                        placeholder="Captura rapida — escribe o habla..." autocomplete="off">
+                        placeholder="Captura rápida — escribe o habla..." autocomplete="off">
                     <button type="button" class="quick-capture-mic" id="quickCaptureMic" title="Hablar para capturar">
                         <span id="quickCaptureMicIcon">🎤</span>
                     </button>
@@ -266,6 +393,13 @@
                 <p class="home-quote-text">We turn challenges into opportunities for growth.</p>
                 <span class="home-quote-author">— Value Strategy Consulting</span>
             </div>
+
+            <% if (user && user.role === 'admin') { %>
+            <!-- Admin: Seed Data Button -->
+            <div style="text-align:center;margin-top:20px;">
+                <button class="btn btn-sm" id="btnSeedData" onclick="seedDemoData()" style="opacity:0.6;">🌱 Sembrar datos de ejemplo</button>
+            </div>
+            <% } %>
 
         </section>
 
@@ -439,25 +573,11 @@
                     <form class="add-project-form" id="addProjectForm">
                         <div class="apf-row">
                             <div class="apf-field">
-                                <label>Nombre *</label>
-                                <input type="text" id="projName" placeholder="Mi Proyecto" required>
-                            </div>
-                            <div class="apf-field">
-                                <label>URL *</label>
-                                <input type="url" id="projUrl" placeholder="http://localhost:3001 o https://..."
-                                    required>
-                            </div>
-                        </div>
-                        <div class="apf-row">
-                            <div class="apf-field apf-wide">
-                                <label>Descripción</label>
-                                <input type="text" id="projDesc" placeholder="Breve descripción del proyecto...">
-                            </div>
-                        </div>
-                        <div class="apf-row">
-                            <div class="apf-field">
-                                <label>Icono (emoji)</label>
-                                <input type="text" id="projIcon" placeholder="🚀" maxlength="4">
+                                <label>Tipo</label>
+                                <select id="projType">
+                                    <option value="interno">Interno</option>
+                                    <option value="cliente">Cliente</option>
+                                </select>
                             </div>
                             <div class="apf-field">
                                 <label>Estado</label>
@@ -471,6 +591,60 @@
                                     <option value="cancelled">● Cancelado</option>
                                 </select>
                             </div>
+                            <div class="apf-field">
+                                <label>Icono (emoji)</label>
+                                <input type="text" id="projIcon" placeholder="🚀" maxlength="4">
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Nombre *</label>
+                                <input type="text" id="projName" placeholder="Mi Proyecto" required>
+                            </div>
+                            <div class="apf-field">
+                                <label>URL</label>
+                                <input type="url" id="projUrl" placeholder="http://localhost:3001 o https://...">
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
+                                <label>Descripción</label>
+                                <input type="text" id="projDesc" placeholder="Breve descripción del proyecto...">
+                            </div>
+                        </div>
+                        <!-- Client-specific fields (hidden when tipo=interno) -->
+                        <div class="apf-row apf-client-fields" id="apfClientFields" style="display:none;">
+                            <div class="apf-field">
+                                <label>Cliente</label>
+                                <input type="text" id="projClientName" placeholder="Nombre del cliente...">
+                            </div>
+                            <div class="apf-field">
+                                <label>Geografía</label>
+                                <input type="text" id="projGeography" placeholder="Chile, LATAM, Worldwide...">
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field">
+                                <label>Área</label>
+                                <select id="projArea">
+                                    <option value="">— Sin área —</option>
+                                </select>
+                            </div>
+                            <div class="apf-field">
+                                <label>Horizonte</label>
+                                <select id="projHorizon">
+                                    <option value="">— Sin definir —</option>
+                                    <option value="corto">Corto plazo</option>
+                                    <option value="medio">Medio plazo</option>
+                                    <option value="largo">Largo plazo</option>
+                                </select>
+                            </div>
+                            <div class="apf-field">
+                                <label>Deadline</label>
+                                <input type="date" id="projDeadline">
+                            </div>
+                        </div>
+                        <div class="apf-row">
                             <div class="apf-field apf-wide">
                                 <label>Tecnologías (coma separadas)</label>
                                 <input type="text" id="projTech" placeholder="Node.js, React, Python...">
@@ -483,7 +657,14 @@
                 </div>
             </div>
 
-            <!-- Filters -->
+            <!-- Type filter -->
+            <div class="proj-type-filter" id="projTypeFilter">
+                <button class="skill-filter-chip active" data-ptypefilter="all">Todos</button>
+                <button class="skill-filter-chip" data-ptypefilter="interno">Internos</button>
+                <button class="skill-filter-chip" data-ptypefilter="cliente">Clientes</button>
+            </div>
+
+            <!-- Status Filters + Search -->
             <div class="projects-toolbar">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
@@ -501,7 +682,7 @@
                 </div>
             </div>
 
-            <div class="projects-grid" id="projectsGrid">
+            <div id="projectsGrid">
                 <div class="loading-sm">
                     <div class="spinner-sm"></div>
                 </div>
@@ -513,7 +694,8 @@
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-archivos">
 
-            <!-- Upload Panel -->
+            <% if (user && ['admin', 'manager'].includes(user.role)) { %>
+            <!-- Upload Panel (admin/manager only) -->
             <div class="panel upload-panel">
                 <div class="panel-header">
                     <h2 class="panel-title">📤 Subir Archivo</h2>
@@ -528,7 +710,7 @@
                                     <span class="dropzone-icon">📁</span>
                                     <p>Arrastra un archivo o <button type="button" class="dropzone-btn"
                                             id="uploadBrowse">explorar</button></p>
-                                    <span class="dropzone-formats">.md, .pdf, .txt, .docx — Máx 50MB</span>
+                                    <span class="dropzone-formats">.md, .pdf, .txt, .docx — Max 50MB</span>
                                 </div>
                                 <div class="dropzone-selected" id="dropzoneSelected" style="display:none;">
                                     <span class="selected-icon">📄</span>
@@ -550,6 +732,7 @@
                     </form>
                 </div>
             </div>
+            <% } %>
 
             <!-- Toolbar -->
             <div class="archivos-toolbar">
@@ -557,15 +740,19 @@
                     <span class="search-icon">🔍</span>
                     <input type="text" id="searchInput" placeholder="Buscar documentos...">
                 </div>
-                <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">Todos</button>
-                    <button class="filter-btn" data-filter="markdown">📝 Markdown</button>
-                    <button class="filter-btn" data-filter="pdf">📕 PDF</button>
+                <div class="archivos-filter-chips" id="archivosFilterChips">
+                    <button class="skill-filter-chip active" data-filter="all">Todos <span class="chip-count" id="archCountAll">0</span></button>
+                    <button class="skill-filter-chip" data-filter="markdown">📝 Markdown <span class="chip-count" id="archCountMd">0</span></button>
+                    <button class="skill-filter-chip" data-filter="pdf">📕 PDF <span class="chip-count" id="archCountPdf">0</span></button>
+                    <button class="skill-filter-chip" data-filter="app">🚀 Interactivas <span class="chip-count" id="archCountApp">0</span></button>
                 </div>
             </div>
 
             <!-- Tag Filter Bar -->
             <div class="tag-filter-bar" id="tagFilterBar"></div>
+
+            <!-- Stats summary -->
+            <div class="archivos-summary" id="archivosSummary"></div>
 
             <div class="archivos-grid" id="archivosGrid">
                 <div class="loading-sm">
@@ -675,62 +862,197 @@
         <section class="dashboard-section" id="section-methodologies">
             <div class="methodologies-grid">
 
+                <!-- CODE -->
+                <div class="methodology-card meth-code">
+                    <div class="methodology-header">
+                        <div class="methodology-icon code-icon">📥</div>
+                        <div>
+                            <h3>CODE</h3>
+                            <span class="methodology-tag">Tiago Forte — Building a Second Brain</span>
+                        </div>
+                    </div>
+                    <div class="methodology-body">
+                        <p class="meth-desc">Framework para procesar informacion y convertirla en conocimiento accionable. Cada idea pasa por 4 etapas hasta convertirse en un entregable concreto.</p>
+                        <div class="meth-steps">
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📥</span>
+                                <div>
+                                    <strong>Capture</strong>
+                                    <span>Recopilar ideas, notas y referencias de cualquier fuente.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📂</span>
+                                <div>
+                                    <strong>Organize</strong>
+                                    <span>Clasificar por proyecto, area o recurso usando PARA.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">💎</span>
+                                <div>
+                                    <strong>Distill</strong>
+                                    <span>Resumir y extraer lo esencial — solo lo que importa.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">🚀</span>
+                                <div>
+                                    <strong>Express</strong>
+                                    <span>Crear entregables: manuales, informes, propuestas.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="meth-apply"><strong>En VSC:</strong> Las ideas capturadas en el Hub avanzan por estas etapas con apoyo de IA hasta convertirse en documentos operativos.</p>
+                        <a href="#ideas" class="meth-link" onclick="navigateToSection('ideas')">Ver Ideas →</a>
+                    </div>
+                </div>
+
+                <!-- PARA Framework -->
+                <div class="methodology-card meth-para">
+                    <div class="methodology-header">
+                        <div class="methodology-icon para-icon">🗂️</div>
+                        <div>
+                            <h3>PARA</h3>
+                            <span class="methodology-tag">Tiago Forte — The PARA Method</span>
+                        </div>
+                    </div>
+                    <div class="methodology-body">
+                        <p class="meth-desc">Sistema de organizacion universal. Todo el conocimiento de la consultora se clasifica en 4 categorias segun su nivel de accionabilidad.</p>
+                        <div class="meth-steps">
+                            <div class="meth-step">
+                                <span class="meth-step-icon">🎯</span>
+                                <div>
+                                    <strong>Projects</strong>
+                                    <span>Esfuerzos con fecha limite y resultado concreto.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">🔄</span>
+                                <div>
+                                    <strong>Areas</strong>
+                                    <span>Responsabilidades continuas que requieren mantencion.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📚</span>
+                                <div>
+                                    <strong>Resources</strong>
+                                    <span>Temas de interes, referencias y materiales de consulta.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📦</span>
+                                <div>
+                                    <strong>Archive</strong>
+                                    <span>Elementos inactivos que se guardan para referencia futura.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="meth-apply"><strong>En VSC:</strong> Los 126 Skills son Resources, cada cliente es un Project, y las areas operativas (RRHH, Finanzas, etc.) son Areas de responsabilidad.</p>
+                        <a href="#projects" class="meth-link" onclick="navigateToSection('projects')">Ver Proyectos →</a>
+                    </div>
+                </div>
+
                 <!-- GTD -->
-                <div class="methodology-card">
+                <div class="methodology-card meth-gtd">
                     <div class="methodology-header">
                         <div class="methodology-icon gtd">🧠</div>
                         <div>
                             <h3>GTD</h3>
-                            <span class="methodology-tag">Getting Things Done</span>
+                            <span class="methodology-tag">David Allen — Getting Things Done</span>
                         </div>
                     </div>
                     <div class="methodology-body">
-                        <p>Captura, clarifica y organiza tu trabajo para liberar tu mente.</p>
-                        <div class="methodology-details">
-                            <div class="methodology-detail-item">
-                                <span class="methodology-detail-title">1. Capturar</span>
-                                <span class="methodology-detail-desc">Usa la sección de <b>Ideas</b> para anotar
-                                    todo.</span>
+                        <p class="meth-desc">Metodologia de productividad personal. La premisa: tu mente es para tener ideas, no para retenerlas. Externalizamos todo al sistema.</p>
+                        <div class="meth-steps">
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📥</span>
+                                <div>
+                                    <strong>Capturar</strong>
+                                    <span>Anotar todo lo que llega — sin filtrar ni juzgar.</span>
+                                </div>
                             </div>
-                            <div class="methodology-detail-item">
-                                <span class="methodology-detail-title">2. Clarificar</span>
-                                <span class="methodology-detail-desc">Usa al <b>Asistente IA</b> para procesar
-                                    notas.</span>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">❓</span>
+                                <div>
+                                    <strong>Clarificar</strong>
+                                    <span>¿Es accionable? ¿Cual es la proxima accion concreta?</span>
+                                </div>
                             </div>
-                            <div class="methodology-detail-item">
-                                <span class="methodology-detail-title">3. Organizar</span>
-                                <span class="methodology-detail-desc">Mueve las tareas a <b>Proyectos</b>
-                                    activos.</span>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📋</span>
+                                <div>
+                                    <strong>Organizar</strong>
+                                    <span>Asignar contexto: @oficina, @espera, @llamada, etc.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">👀</span>
+                                <div>
+                                    <strong>Reflexionar</strong>
+                                    <span>Revision semanal de listas, proyectos y compromisos.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">⚡</span>
+                                <div>
+                                    <strong>Ejecutar</strong>
+                                    <span>Elegir la siguiente accion segun contexto y energia.</span>
+                                </div>
                             </div>
                         </div>
+                        <p class="meth-apply"><strong>En VSC:</strong> El Tablero GTD organiza ideas por proxima accion, contexto y proyectos activos. La IA sugiere priorizacion.</p>
+                        <a href="#gtd-board" class="meth-link" onclick="navigateToSection('gtd-board')">Ver Tablero GTD →</a>
                     </div>
                 </div>
 
-                <!-- AGILE -->
-                <div class="methodology-card">
+                <!-- Multi-Agent IA -->
+                <div class="methodology-card meth-agents">
                     <div class="methodology-header">
-                        <div class="methodology-icon agile">⚡</div>
+                        <div class="methodology-icon agents-icon">🤖</div>
                         <div>
-                            <h3>AGILE</h3>
-                            <span class="methodology-tag">Desarrollo Ágil Iterativo</span>
+                            <h3>Multi-Agente IA</h3>
+                            <span class="methodology-tag">OpenClaw — Ejecucion Autonoma</span>
                         </div>
                     </div>
                     <div class="methodology-body">
-                        <p>Entrega valor rápido mediante iteraciones cortas.</p>
-                        <div class="methodology-details">
-                            <div class="methodology-detail-item">
-                                <span class="methodology-detail-title">Iteraciones</span>
-                                <span class="methodology-detail-desc">Trabaja en ciclos cortos (Sprints).</span>
+                        <p class="meth-desc">Sistema de agentes de IA especializados que ejecutan tareas operativas de forma autonoma, siguiendo los Skills como instrucciones.</p>
+                        <div class="meth-steps">
+                            <div class="meth-step">
+                                <span class="meth-step-icon">👥</span>
+                                <div>
+                                    <strong>Staffing</strong>
+                                    <span>Dotacion de personal, turnos y cargas de trabajo.</span>
+                                </div>
                             </div>
-                            <div class="methodology-detail-item">
-                                <span class="methodology-detail-title">Feedback</span>
-                                <span class="methodology-detail-desc">Revisa métricas en el <b>Overview</b> al
-                                    final.</span>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📚</span>
+                                <div>
+                                    <strong>Training</strong>
+                                    <span>Planes de capacitacion y evaluacion de competencias.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">💰</span>
+                                <div>
+                                    <strong>Finance</strong>
+                                    <span>Presupuesto, OPEX, analisis de costos y proyecciones.</span>
+                                </div>
+                            </div>
+                            <div class="meth-step">
+                                <span class="meth-step-icon">📋</span>
+                                <div>
+                                    <strong>Compliance</strong>
+                                    <span>Auditoria interna, contratos y cumplimiento normativo.</span>
+                                </div>
                             </div>
                         </div>
+                        <p class="meth-apply"><strong>Flujo:</strong> El usuario solicita una tarea → el agente lee el Skill correspondiente → genera un entregable → pasa a Revision humana.</p>
+                        <a href="#revision" class="meth-link" onclick="navigateToSection('revision')">Ver Revision →</a>
                     </div>
-
                 </div>
+
             </div>
         </section>
 
@@ -745,17 +1067,29 @@
                         <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input">
                     </div>
                 </div>
+                <div class="skills-filters" id="skillsFilters">
+                    <button class="skill-filter-chip active" data-group="all">Todas <span class="chip-count" id="countAll">0</span></button>
+                    <button class="skill-filter-chip" data-group="engineering">⚙️ Ingeniería & Activos <span class="chip-count" id="countEngineering">0</span></button>
+                    <button class="skill-filter-chip" data-group="commissioning">🏗️ Comisionamiento <span class="chip-count" id="countCommissioning">0</span></button>
+                    <button class="skill-filter-chip" data-group="compliance">📋 Cumplimiento <span class="chip-count" id="countCompliance">0</span></button>
+                    <button class="skill-filter-chip" data-group="workforce">👥 Fuerza Laboral <span class="chip-count" id="countWorkforce">0</span></button>
+                    <button class="skill-filter-chip" data-group="knowledge">📖 Conocimiento <span class="chip-count" id="countKnowledge">0</span></button>
+                    <button class="skill-filter-chip" data-group="gtd">🎯 GTD <span class="chip-count" id="countGtd">0</span></button>
+                    <button class="skill-filter-chip" data-group="communication">📝 Comunicación <span class="chip-count" id="countCommunication">0</span></button>
+                    <button class="skill-filter-chip" data-group="ai-dev">🤖 IA & Dev <span class="chip-count" id="countAiDev">0</span></button>
+                </div>
                 <div class="skills-grid" id="skillsGrid">
                     <!-- Skills will be injected here -->
                     <div class="loading-state">Cargando habilidades...</div>
                 </div>
+                <div class="skills-pagination" id="skillsPagination"></div>
             </div>
         </section>
 
         <!-- Skill Viewer Modal (with tabs) -->
         <div id="skillModal" class="modal">
             <div class="modal-content" style="max-width: 800px; height: 80vh; display: flex; flex-direction: column;">
-                <span class="close-modal">&times;</span>
+                <span class="close-modal" onclick="document.getElementById('skillModal').style.display='none'">&times;</span>
                 <h2 id="skillModalTitle" class="modal-title"></h2>
                 <input type="hidden" id="skillModalPath">
                 <!-- Tabs -->
@@ -770,12 +1104,35 @@
                 </div>
                 <div id="skillTabDocuments" style="flex: 1; overflow-y: auto; margin-top: 0.5rem; display: none;">
                     <div id="skillDocsList" class="skill-docs-list"></div>
+                    <% if (user && ['admin', 'manager'].includes(user.role)) { %>
+                    <div class="skill-doc-upload" id="skillDocUploadArea">
+                        <button class="btn btn-sm" id="btnToggleDocUpload" onclick="toggleSkillDocUpload()">+ Subir Documento</button>
+                        <div id="skillDocUploadForm" style="display:none;margin-top:10px;">
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <input type="file" id="skillDocFile" accept=".md,.pdf,.txt,.docx" class="skill-doc-file-input">
+                                <input type="text" id="skillDocDescription" placeholder="Descripción (opcional)" class="search-input-sm" style="width:100%;">
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <button class="btn btn-sm" onclick="uploadSkillDocument()">Subir</button>
+                                    <span id="skillDocUploadStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
                 </div>
                 <div id="skillTabComments" style="flex: 1; overflow-y: auto; margin-top: 0.5rem; display: none;">
                     <div id="skillCommentsList" class="comments-list"></div>
                     <div class="comment-form" id="skillCommentForm">
-                        <textarea id="skillCommentInput" rows="3" placeholder="Escribe tu comentario..."></textarea>
-                        <button class="btn btn-sm" onclick="submitSkillComment()">Enviar Comentario</button>
+                        <div class="comment-form-row">
+                            <label class="comment-form-label">Sección:</label>
+                            <select id="skillCommentSection" class="comment-form-select">
+                                <option value="">General (todo el skill)</option>
+                            </select>
+                        </div>
+                        <textarea id="skillCommentInput" rows="3" placeholder="Escribe tu comentario o sugerencia de modificación..."></textarea>
+                        <div class="comment-form-actions">
+                            <button class="btn btn-sm" onclick="submitSkillComment()">Enviar Comentario</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1094,6 +1451,37 @@
         </section>
 
         <!-- ══════════════════════════════════════════════════════
+             SECTION: AGENTES
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-agents">
+
+            <!-- Business Agents -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🧠 Agentes Especializados</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="agents-grid" id="businessAgentsGrid">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Execution Agents (OpenClaw) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🦞 Agentes de Ejecucion (OpenClaw)</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="agents-grid" id="executionAgentsGrid">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
              SECTION: OPENCLAW MONITOR
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-openclaw">
@@ -1200,8 +1588,8 @@
             <!-- Review Stats -->
             <div class="home-stats-strip" id="reviewStatsStrip">
                 <div class="hss-item">
-                    <span class="hss-num" id="revStatSkills">—</span>
-                    <span class="hss-label">Skills</span>
+                    <span class="hss-num" id="revStatOutputs">—</span>
+                    <span class="hss-label">Outputs</span>
                 </div>
                 <div class="hss-divider"></div>
                 <div class="hss-item">
@@ -1220,30 +1608,16 @@
                 </div>
             </div>
 
-            <!-- Skills Panel -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">📚 Skills (SOPs)</h2>
-                </div>
-                <div class="panel-body">
-                    <div class="review-list" id="reviewSkillsList">
-                        <div class="loading-sm"><div class="spinner-sm"></div></div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Outputs Panel -->
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">📄 Outputs de Agentes</h2>
-                    <div class="panel-controls">
-                        <select id="reviewOutputFilter" class="gtd-filter-select" onchange="filterReviewOutputs()">
-                            <option value="all">Todos</option>
-                            <option value="pending">Pendientes</option>
-                            <option value="approved">Aprobados</option>
-                            <option value="needs_changes">Requieren Cambios</option>
-                        </select>
-                    </div>
+                </div>
+                <div class="skills-filters" id="reviewOutputFilters">
+                    <button class="skill-filter-chip active" data-filter="all" onclick="filterReviewOutputs('all')">Todos <span class="chip-count" id="revChipAll">0</span></button>
+                    <button class="skill-filter-chip" data-filter="pending" onclick="filterReviewOutputs('pending')">Pendientes <span class="chip-count" id="revChipPending">0</span></button>
+                    <button class="skill-filter-chip" data-filter="approved" onclick="filterReviewOutputs('approved')">Aprobados <span class="chip-count" id="revChipApproved">0</span></button>
+                    <button class="skill-filter-chip" data-filter="needs_changes" onclick="filterReviewOutputs('needs_changes')">Requieren Cambios <span class="chip-count" id="revChipChanges">0</span></button>
                 </div>
                 <div class="panel-body">
                     <div class="review-list" id="reviewOutputsList">
@@ -1252,18 +1626,328 @@
                 </div>
             </div>
 
+            <!-- Skills Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📚 Skills (SOPs)</h2>
+                    <div class="panel-controls">
+                        <input type="text" id="reviewSkillSearch" placeholder="Buscar skill..." class="search-input-sm" oninput="filterReviewSkills()">
+                    </div>
+                </div>
+                <div class="skills-filters" id="reviewSkillFilters">
+                    <button class="skill-filter-chip active" data-category="all" onclick="filterReviewSkillCategory('all')">Todas <span class="chip-count" id="revSkillAll">0</span></button>
+                    <button class="skill-filter-chip" data-category="core" onclick="filterReviewSkillCategory('core')">🧠 Core <span class="chip-count" id="revSkillCore">0</span></button>
+                    <button class="skill-filter-chip" data-category="customizable" onclick="filterReviewSkillCategory('customizable')">🛠️ Customizable <span class="chip-count" id="revSkillCustom">0</span></button>
+                    <button class="skill-filter-chip" data-category="integration" onclick="filterReviewSkillCategory('integration')">🔗 Integration <span class="chip-count" id="revSkillInteg">0</span></button>
+                </div>
+                <div class="panel-body">
+                    <div class="review-list" id="reviewSkillsList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                    <div class="skills-pagination" id="reviewSkillsPagination"></div>
+                </div>
+            </div>
+
+            <!-- Audit Trail Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📋 Auditoria</h2>
+                    <div class="panel-controls">
+                        <button class="btn btn-sm" onclick="loadAuditTrail()">Refrescar</button>
+                    </div>
+                </div>
+                <div class="skills-filters" id="auditFilters">
+                    <button class="skill-filter-chip active" data-audit="all" onclick="filterAuditTrail('all')">Todo</button>
+                    <button class="skill-filter-chip" data-audit="review" onclick="filterAuditTrail('review')">Revisiones</button>
+                    <button class="skill-filter-chip" data-audit="comment" onclick="filterAuditTrail('comment')">Comentarios</button>
+                </div>
+                <div class="panel-body">
+                    <div class="review-list" id="auditTrailList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
         </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: FEEDBACK
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-feedback">
+            <div class="feedback-toolbar">
+                <div class="skills-filters" id="feedbackFilters">
+                    <button class="skill-filter-chip active" data-fbfilter="all" onclick="filterFeedback('all')">Todos <span class="chip-count" id="fbCountAll">0</span></button>
+                    <button class="skill-filter-chip" data-fbfilter="abierto" onclick="filterFeedback('abierto')">Abierto <span class="chip-count" id="fbCountOpen">0</span></button>
+                    <button class="skill-filter-chip" data-fbfilter="en_progreso" onclick="filterFeedback('en_progreso')">En Progreso <span class="chip-count" id="fbCountProgress">0</span></button>
+                    <button class="skill-filter-chip" data-fbfilter="resuelto" onclick="filterFeedback('resuelto')">Resuelto <span class="chip-count" id="fbCountResolved">0</span></button>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="openFeedbackModal()">+ Nuevo Feedback</button>
+            </div>
+
+            <div class="feedback-list" id="feedbackList">
+                <div class="loading-sm"><div class="spinner-sm"></div></div>
+            </div>
+        </section>
+
+        <!-- Feedback Modal -->
+        <div id="feedbackModal" class="modal">
+            <div class="modal-content" style="max-width:560px;">
+                <span class="close-modal" onclick="closeFeedbackModal()">&times;</span>
+                <h2 class="modal-title">Enviar Feedback</h2>
+                <form id="feedbackForm">
+                    <div class="form-group">
+                        <label>Titulo</label>
+                        <input type="text" id="fbTitle" required placeholder="Ej: Mejorar filtros de la sección X">
+                    </div>
+                    <div class="form-group">
+                        <label>Descripcion</label>
+                        <textarea id="fbContent" rows="4" required placeholder="Describe tu sugerencia, problema o idea de mejora..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Adjuntos <span style="color:var(--text-muted);font-weight:normal">(opcional, max 5 archivos — imagenes, PDF, DOCX)</span></label>
+                        <div class="fb-upload-zone" id="fbUploadZone">
+                            <input type="file" id="fbFiles" multiple accept="image/*,.pdf,.txt,.docx,.xlsx" style="display:none">
+                            <div class="fb-upload-prompt" id="fbUploadPrompt" onclick="document.getElementById('fbFiles').click()">
+                                📎 Arrastra archivos aqui o haz clic para seleccionar
+                            </div>
+                            <div class="fb-upload-previews" id="fbPreviews"></div>
+                        </div>
+                    </div>
+                    <div class="form-group form-row-2col">
+                        <div>
+                            <label>Categoria</label>
+                            <select id="fbCategory">
+                                <option value="mejora">Mejora</option>
+                                <option value="bug">Bug / Error</option>
+                                <option value="feature">Nueva Funcionalidad</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Prioridad</label>
+                            <select id="fbPriority">
+                                <option value="baja">Baja</option>
+                                <option value="media" selected>Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="btnSaveFeedback">Enviar Feedback</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Feedback Response Modal -->
+        <div id="feedbackRespondModal" class="modal">
+            <div class="modal-content" style="max-width:500px;">
+                <span class="close-modal" onclick="closeFeedbackRespondModal()">&times;</span>
+                <h2 class="modal-title">Responder Feedback</h2>
+                <input type="hidden" id="fbRespondId">
+                <div class="form-group">
+                    <label>Respuesta</label>
+                    <textarea id="fbResponseText" rows="4" required placeholder="Escribe tu respuesta..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="submitFeedbackResponse()">Enviar Respuesta</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Lightbox -->
+        <div id="fbLightbox" class="fb-lightbox" onclick="closeFbLightbox()" style="display:none">
+            <img id="fbLightboxImg" src="" alt="Preview">
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             PROFILE MODAL (self-edit)
+             ══════════════════════════════════════════════════════ -->
+        <div id="profileModal" class="modal">
+            <div class="modal-content profile-modal">
+                <span class="close-modal" onclick="closeProfileModal()">&times;</span>
+                <div class="modal-body">
+                    <!-- Avatar + Identity Header -->
+                    <div class="profile-header">
+                        <div class="profile-avatar-wrapper" onclick="document.getElementById('profileAvatarInput').click()">
+                            <div class="profile-avatar-preview" id="profileAvatarPreview"></div>
+                            <div class="profile-avatar-overlay">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                            </div>
+                            <input type="file" id="profileAvatarInput" accept="image/*" style="display:none">
+                        </div>
+                        <div class="profile-identity">
+                            <span class="profile-username" id="profileUsername"></span>
+                            <span class="profile-role-badge" id="profileRole"></span>
+                        </div>
+                    </div>
+
+                    <!-- Editable Fields -->
+                    <form id="profileForm" class="profile-form">
+                        <div class="profile-fields-grid">
+                            <div class="form-group">
+                                <label>Departamento</label>
+                                <input type="text" id="profileDepartment" placeholder="Ej: Operaciones">
+                            </div>
+                            <div class="form-group">
+                                <label>Expertise</label>
+                                <input type="text" id="profileExpertise" placeholder="Ej: Confiabilidad, Mantenimiento">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary profile-save-btn">Guardar Cambios</button>
+                    </form>
+
+                    <!-- Password Section -->
+                    <details class="profile-password-details">
+                        <summary>Cambiar Contraseña</summary>
+                        <div class="profile-password-fields">
+                            <div class="form-group">
+                                <label>Contraseña actual</label>
+                                <input type="password" id="profileCurrentPw" placeholder="••••••••">
+                            </div>
+                            <div class="form-group">
+                                <label>Nueva contraseña</label>
+                                <input type="password" id="profileNewPw" placeholder="Mínimo 4 caracteres">
+                            </div>
+                            <button type="button" class="btn btn-sm" onclick="changeOwnPassword()">Actualizar Contraseña</button>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: ADMIN USERS
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-admin-users">
+            <!-- Stats bar -->
+            <div class="au-stats-bar" id="auStatsBar"></div>
+
+            <!-- Controls -->
+            <div class="au-controls">
+                <div class="au-search-wrap">
+                    <svg class="au-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="auSearchInput" class="au-search" placeholder="Buscar usuario..." oninput="filterAdminUsers()">
+                </div>
+                <select id="auFilterRole" class="au-filter-select" onchange="filterAdminUsers()">
+                    <option value="">Todos los roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="consultor">Consultor</option>
+                </select>
+                <button class="au-add-btn" onclick="openUserEditModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    Nuevo Usuario
+                </button>
+            </div>
+
+            <!-- Users table -->
+            <div class="au-table-wrap">
+                <table class="au-table" id="adminUsersTable">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Departamento</th>
+                            <th>Expertise</th>
+                            <th>Creado</th>
+                            <th class="au-th-actions">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUsersTbody">
+                        <tr><td colspan="6" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: GRAPH VIEW — Vista Gráfica Estilo Obsidian
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-graph-view">
+            <div class="graph-toolbar">
+                <div class="graph-filters" id="graphFilters"></div>
+                <div class="graph-controls">
+                    <button class="graph-ctrl-btn" onclick="resetGraphZoom()" title="Centrar vista">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    </button>
+                    <input type="text" class="graph-search" id="graphSearch" placeholder="Buscar nodo..." oninput="searchGraphNode(this.value)">
+                </div>
+            </div>
+            <div class="graph-container" id="graphContainer">
+                <svg id="graphSvg"></svg>
+            </div>
+            <div class="graph-legend" id="graphLegend"></div>
+            <div class="graph-tooltip" id="graphTooltip"></div>
+        </section>
+
+        <!-- User Edit Modal (admin) -->
+        <div id="userEditModal" class="modal">
+            <div class="modal-content au-modal">
+                <div class="au-modal-header">
+                    <h2 id="userEditTitle">Nuevo Usuario</h2>
+                    <button class="au-modal-close" onclick="closeUserEditModal()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <input type="hidden" id="userEditId">
+                <div class="au-modal-avatar">
+                    <div class="au-avatar-wrap" onclick="document.getElementById('userEditAvatarInput').click()">
+                        <div id="userEditAvatarPreview"></div>
+                        <div class="au-avatar-overlay">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </div>
+                    </div>
+                    <input type="file" id="userEditAvatarInput" accept="image/*" style="display:none">
+                </div>
+                <form id="userEditForm" class="au-form">
+                    <div class="au-form-grid">
+                        <div class="form-group au-form-full">
+                            <label>Usuario</label>
+                            <input type="text" id="userEditUsername" required placeholder="username" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label id="userEditPwLabel">Contraseña</label>
+                            <input type="password" id="userEditPassword" placeholder="Mín 4 caracteres" autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label>Rol</label>
+                            <select id="userEditRole">
+                                <option value="analyst">Analyst</option>
+                                <option value="consultor">Consultor</option>
+                                <option value="manager">Manager</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Departamento</label>
+                            <input type="text" id="userEditDepartment" placeholder="Ej: Operaciones">
+                        </div>
+                        <div class="form-group">
+                            <label>Expertise</label>
+                            <input type="text" id="userEditExpertise" placeholder="Ej: HSE, Contratos">
+                        </div>
+                    </div>
+                    <button type="submit" class="au-save-btn" id="btnSaveUser">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        Guardar Cambios
+                    </button>
+                </form>
+            </div>
+        </div>
 
         <!-- ══════════════════════════════════════════════════════
              SECTION: GTD BOARD — Proximas Acciones por Contexto
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-gtd-board">
+            <!-- View Toggle -->
             <div class="gtd-board-toolbar">
-                <div class="gtd-view-toggle">
-                    <button class="btn btn-sm active" onclick="loadGtdBoard('context')" id="gtdViewContext">📍 Por Contexto</button>
-                    <button class="btn btn-sm" onclick="loadGtdBoard('energy')" id="gtdViewEnergy">⚡ Por Energia</button>
-                    <button class="btn btn-sm" onclick="loadGtdBoard('assignee')" id="gtdViewAssignee">👤 Por Persona</button>
-                    <button class="btn btn-sm" onclick="loadGtdBoard('compromiso')" id="gtdViewCompromiso">📌 Por Compromiso</button>
+                <div class="skills-filters">
+                    <button class="skill-filter-chip active" onclick="loadGtdBoard('context')" id="gtdViewContext">📍 Contexto</button>
+                    <button class="skill-filter-chip" onclick="loadGtdBoard('energy')" id="gtdViewEnergy">⚡ Energia</button>
+                    <button class="skill-filter-chip" onclick="loadGtdBoard('assignee')" id="gtdViewAssignee">👤 Persona</button>
+                    <button class="skill-filter-chip" onclick="loadGtdBoard('compromiso')" id="gtdViewCompromiso">📌 Compromiso</button>
                 </div>
             </div>
             <!-- Effectiveness Summary -->
@@ -1309,7 +1993,106 @@
             </div>
         </section>
 
+        <!-- ====================================================
+             SECTION: REUNIONES (Meetings Intelligence)
+             ==================================================== -->
+        <section class="dashboard-section" id="section-reuniones">
+
+            <!-- Stats Strip -->
+            <div class="home-stats-strip" id="reunionesStatsStrip">
+                <div class="hss-item">
+                    <span class="hss-num" id="reunStatTotal">--</span>
+                    <span class="hss-label">Total Reuniones</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="reunStatWeek">--</span>
+                    <span class="hss-label">Esta Semana</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="reunStatCompromisos">--</span>
+                    <span class="hss-label">Compromisos Totales</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="reunStatWithCompromisos">--</span>
+                    <span class="hss-label">Con Compromisos</span>
+                </div>
+            </div>
+
+            <!-- Email Recipients Management (Admin only) -->
+            <% if (user.role === 'admin') { %>
+            <div class="panel" id="emailRecipientsPanel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📧 Destinatarios de Reportes</h2>
+                    <button class="btn btn-sm btn-primary" onclick="openAddRecipientForm()">+ Agregar Email</button>
+                </div>
+                <div class="panel-body">
+                    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
+                        Emails a los que se envian automaticamente los reportes de reuniones procesadas por Fireflies.ai.
+                    </p>
+                    <!-- Add form (hidden by default) -->
+                    <div id="addRecipientForm" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
+                        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:200px;">
+                                <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Email</label>
+                                <input type="email" id="newRecipientEmail" placeholder="correo@ejemplo.com" class="search-input-sm" style="width:100%;">
+                            </div>
+                            <div style="flex:1;min-width:150px;">
+                                <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Nombre (opcional)</label>
+                                <input type="text" id="newRecipientName" placeholder="Nombre del destinatario" class="search-input-sm" style="width:100%;">
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="addEmailRecipient()">Guardar</button>
+                            <button class="btn btn-sm" onclick="document.getElementById('addRecipientForm').style.display='none'">Cancelar</button>
+                        </div>
+                    </div>
+                    <!-- Recipients list -->
+                    <div id="emailRecipientsList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+
+            <!-- Meetings List -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📅 Reuniones Analizadas</h2>
+                    <div class="panel-controls">
+                        <input type="text" id="reunionesSearch" placeholder="Buscar reuniones..." class="search-input-sm" oninput="filterReuniones()">
+                        <input type="date" id="reunionesFrom" class="gtd-filter-select" onchange="filterReuniones()" title="Desde">
+                        <input type="date" id="reunionesTo" class="gtd-filter-select" onchange="filterReuniones()" title="Hasta">
+                        <select id="reunionesParticipant" class="gtd-filter-select" onchange="filterReuniones()">
+                            <option value="">Todos los participantes</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="clearReunionesFilters()" title="Limpiar filtros">Limpiar</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div id="reunionesList">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                    <div class="pagination-controls" id="reunionesPagination" style="display:flex;justify-content:center;align-items:center;gap:12px;padding:12px 0;">
+                        <button class="btn btn-sm" id="reunionesPrevPage" disabled onclick="reunionesChangePage(-1)">Anterior</button>
+                        <span id="reunionesPageInfo" style="color:var(--text-muted);font-size:0.85rem;">Pagina 1</span>
+                        <button class="btn btn-sm" id="reunionesNextPage" onclick="reunionesChangePage(1)">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
     </main>
+
+    <!-- Reunion Detail Modal -->
+    <div id="reunionModal" class="modal">
+        <div class="modal-content" style="max-width:800px;max-height:85vh;display:flex;flex-direction:column;">
+            <span class="close-modal" onclick="document.getElementById('reunionModal').style.display='none'">&times;</span>
+            <h2 id="reunionModalTitle" class="modal-title">Detalle de Reunion</h2>
+            <div id="reunionModalContent" style="flex:1;overflow-y:auto;padding:1rem;"></div>
+        </div>
+    </div>
 
     <!-- Fix Idea Modal (Bouncer — human correction) -->
     <div id="fixModal" class="modal">
@@ -1461,7 +2244,7 @@
     </button>
 
     <script>
-        window.__USER__ = <%- JSON.stringify({ username: user?.username || null, role: user?.role || null }) %>;
+        window.__USER__ = <%- JSON.stringify({ username: user?.username || null, role: user?.role || null, department: user?.department || '', expertise: user?.expertise || '', avatar: user?.avatar || null }) %>;
     </script>
     <script src="/js/main.js?v=<%= Date.now() %>"></script>
     <script>

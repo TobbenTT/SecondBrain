@@ -112,8 +112,8 @@ router.post('/', blockConsultor, validateBody({ text: { required: true, type: 's
 
         const createdBy = req.session.user ? req.session.user.username : null;
 
-        await run('INSERT INTO ideas (text, code_stage, created_by) VALUES (?, ?, ?)', [text.trim(), 'captured', createdBy]);
-        let newIdea = await get('SELECT id, text FROM ideas ORDER BY id DESC LIMIT 1');
+        const result = await run('INSERT INTO ideas (text, code_stage, created_by) VALUES (?, ?, ?)', [text.trim(), 'captured', createdBy]);
+        let newIdea = await get('SELECT id, text FROM ideas WHERE id = ?', [result.lastID]);
 
         let analysis;
         if (previewData && previewData.items && previewData.items.length > 0) {
@@ -244,13 +244,7 @@ router.post('/:id/execute', blockConsultor, requireAuth, async (req, res) => {
         await run(`UPDATE ideas SET execution_status = 'running', suggested_agent = ?, suggested_skills = ?, executed_by = ? WHERE id = ?`,
             [agentKey, JSON.stringify(skillPaths), executedBy, ideaId]);
 
-        const skillContents = [];
-        for (const skillPath of skillPaths) {
-            const fullPath = path.join(SKILLS_DIR, skillPath);
-            if (fs.existsSync(fullPath)) {
-                skillContents.push(fs.readFileSync(fullPath, 'utf-8'));
-            }
-        }
+        const skillContents = aiService.loadSkillsCached(skillPaths, SKILLS_DIR);
 
         if (skillContents.length === 0) {
             await run(`UPDATE ideas SET execution_status = 'failed', execution_error = ? WHERE id = ?`, ['No skill files found', ideaId]);

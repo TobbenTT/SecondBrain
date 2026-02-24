@@ -6,7 +6,7 @@ revisa la calidad del documento generado con Claude, y:
   - Aprobado  -> execution_status='completed', code_stage='expressed'
   - Rechazado -> execution_status='queued_consulting' (vuelve a Consulting con feedback)
 """
-from compartido import log, logger, pensar_con_claude, pensar_con_gemini, pensar_con_local, enviar_whatsapp
+from compartido import log, logger, pensar, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
 from skills.loader import load_skill
@@ -29,10 +29,16 @@ def ciclo():
     tasks = queries.get_ideas_in_status(db, 'reviewing')
     reviewed = 0
 
+    MAX_DOC_CHARS = 8000  # ~2000 tokens — truncate large docs to save tokens
+
     for task in tasks:
         idea_id = task['id']
         text = task['text'] or ''
         doc_output = task['execution_output'] or ''
+
+        if len(doc_output) > MAX_DOC_CHARS:
+            logger.info("Truncating doc for review #%d: %d -> %d chars", idea_id, len(doc_output), MAX_DOC_CHARS)
+            doc_output = doc_output[:MAX_DOC_CHARS] + "\n\n[... TRUNCADO para review ...]"
 
         log(NOMBRE, f"Revisando #{idea_id}: {text[:50]}...", ">")
 
@@ -42,20 +48,9 @@ def ciclo():
                 f"SOLICITUD ORIGINAL: {text}\n\n"
                 f"DOCUMENTO GENERADO:\n{doc_output}"
             )
-            # Intentar Claude -> Gemini -> Local
-            full_prompt = f"{SISTEMA_REVIEWER}\n\n---\n\n{prompt}"
-            review = pensar_con_claude(prompt, sistema=SISTEMA_REVIEWER, max_tokens=2048)
-            motor_review = "Claude"
-
-            if not review:
-                log(NOMBRE, f"#{idea_id} — Claude no respondio, intentando Gemini...", "~")
-                review = pensar_con_gemini(full_prompt)
-                motor_review = "Gemini"
-
-            if not review:
-                log(NOMBRE, f"#{idea_id} — Gemini no respondio, intentando local...", "~")
-                review = pensar_con_local(full_prompt)
-                motor_review = "Local"
+            # Ollama primario -> Claude fallback -> Gemini fallback
+            review = pensar(prompt, sistema=SISTEMA_REVIEWER, max_tokens=2048, fallback="claude")
+            motor_review = "Ollama/Cloud"
 
             if not review:
                 log(NOMBRE, f"#{idea_id} — Ningun modelo respondio, marcando failed", "!")

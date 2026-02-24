@@ -59,7 +59,7 @@ async function processAndSaveIdea(ideaId, text, speakerUsername = null, preCompu
             }
 
             const confidence = typeof item.confidence === 'number' ? item.confidence : 0.5;
-            const needsReview = item.needs_review || confidence < 0.6 ? 1 : 0;
+            const needsReview = (item.needs_review || confidence < 0.6) ? 1 : 0;
             const isProject = item.is_project ? 1 : 0;
 
             await run(`UPDATE ideas SET

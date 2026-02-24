@@ -115,4 +115,35 @@ router.post('/:ideaId/needs-changes', async (req, res) => {
     }
 });
 
+// ─── Audit trail ─────────────────────────────────────────────────────────────
+router.get('/audit', async (req, res) => {
+    try {
+        // Review actions (approvals, rejections)
+        const reviewActions = await all(`
+            SELECT i.id, i.text, i.ai_summary, i.ai_type,
+                   i.review_status, i.reviewed_by, i.reviewed_at,
+                   i.executed_by, i.suggested_agent
+            FROM ideas i
+            WHERE i.reviewed_at IS NOT NULL
+            ORDER BY i.reviewed_at DESC
+            LIMIT 100
+        `);
+
+        // All comments with section info
+        const recentComments = await all(`
+            SELECT c.id, c.target_type, c.target_id, c.username, c.content, c.section, c.created_at,
+                   u.role
+            FROM comments c
+            LEFT JOIN users u ON c.username = u.username
+            ORDER BY c.created_at DESC
+            LIMIT 100
+        `);
+
+        res.json({ review_actions: reviewActions, comments: recentComments });
+    } catch (err) {
+        log.error('Audit trail error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch audit trail' });
+    }
+});
+
 module.exports = router;

@@ -22,9 +22,9 @@ router.post('/external/capture', validateBody({
 
     try {
         const speakerUsername = speaker || req.apiKey.username;
-        await run('INSERT INTO ideas (text, code_stage, created_by) VALUES (?, ?, ?)',
+        const result = await run('INSERT INTO ideas (text, code_stage, created_by) VALUES (?, ?, ?)',
             [text.trim(), 'captured', speakerUsername]);
-        const newIdea = await get('SELECT id, text FROM ideas ORDER BY id DESC LIMIT 1');
+        const newIdea = await get('SELECT id, text FROM ideas WHERE id = ?', [result.lastID]);
 
         const analysis = await processAndSaveIdea(newIdea.id, newIdea.text, speakerUsername);
 

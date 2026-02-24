@@ -11,7 +11,7 @@ Replica la logica de ai.js executeWithAgent() pero autonomamente.
 """
 import json
 
-from compartido import CONFIG, log, logger, pensar_con_gemini, pensar_con_local, enviar_whatsapp
+from compartido import CONFIG, log, logger, pensar, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
 from skills.loader import load_skill, load_skills
@@ -148,16 +148,9 @@ def ciclo():
     agent_config = AGENT_SKILLS_MAP.get(agent_key, {'name': f'Agente {agent_key}', 'skills': skill_paths})
     system_prompt, user_prompt = _build_prompt(agent_key, agent_config, skill_contents, idea_text, context)
 
-    # Generar documento con Gemini
-    full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
-    output = pensar_con_gemini(full_prompt)
-
-    # Fallback a Ollama
-    motor = CONFIG["gemini_model"]
-    if not output:
-        log(NOMBRE, "Gemini no respondio, intentando local...", "~")
-        output = pensar_con_local(full_prompt)
-        motor = CONFIG["local_model"]
+    # Ollama primario -> Gemini fallback
+    output = pensar(user_prompt, sistema=system_prompt, fallback="gemini")
+    motor = CONFIG["local_model"] + " / cloud"
 
     if output:
         header = f"**Agente:** {agent_config['name']}\n**Motor:** {motor}\n\n---\n\n"

@@ -51,7 +51,7 @@ CONFIG = {
     "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
     "gemini_model":      os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
     "claude_model":      os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6"),
-    "local_model":       os.getenv("LOCAL_MODEL", "llama3.2"),
+    "local_model":       os.getenv("LOCAL_MODEL", "llama3"),
     "ollama_url":        os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate"),
     "tts_enabled":       os.getenv("TTS_ENABLED", "false").lower() == "true",
     "intervalo_pm":       int(os.getenv("INTERVALO_PM", "30")),
@@ -85,6 +85,13 @@ try:
         logger.warning("ANTHROPIC_API_KEY no configurada — agentes QA y REVIEWER no funcionaran")
 except Exception as _e:
     logger.warning("Claude no disponible: %s", _e)
+
+
+# ── Token estimation ─────────────────────────────────────────────────────────
+
+def _estimate_tokens(text):
+    """Approximate token count (~4 chars per token)."""
+    return len(text or "") // 4
 
 
 # ── Motores de IA ────────────────────────────────────────────────────────────
@@ -145,6 +152,54 @@ def pensar_con_local(prompt):
     except Exception as e:
         logger.warning("Ollama: error inesperado — %s", e)
         return ""
+
+
+# ── Motor universal: Ollama primario, cloud fallback ────────────────────────
+
+def pensar(prompt, sistema="", max_tokens=4096, fallback="gemini"):
+    """Inferencia universal. Ollama primero, cloud como respaldo.
+
+    Args:
+        prompt:   Texto del prompt.
+        sistema:  System instruction (para Claude y Ollama /api/generate).
+        fallback: 'gemini' o 'claude' — cual cloud probar primero si Ollama falla.
+
+    Returns:
+        str con la respuesta, o '' si todo falla.
+    """
+    input_tokens = _estimate_tokens(prompt) + _estimate_tokens(sistema)
+    logger.info("AI request: ~%d input tokens (prompt=%d, system=%d)",
+                input_tokens, _estimate_tokens(prompt), _estimate_tokens(sistema))
+
+    # 1. Ollama (primario)
+    full_prompt = f"{sistema}\n\n{prompt}" if sistema else prompt
+    resultado = pensar_con_local(full_prompt)
+    if resultado:
+        output_tokens = _estimate_tokens(resultado)
+        logger.info("AI response (local): ~%d output tokens, ~%d total", output_tokens, input_tokens + output_tokens)
+        return resultado
+
+    logger.info("Ollama no respondio, intentando cloud (%s)...", fallback)
+
+    # 2. Cloud fallback
+    if fallback == "claude":
+        resultado = pensar_con_claude(prompt, sistema=sistema, max_tokens=max_tokens)
+        if resultado:
+            logger.info("AI response (claude): ~%d output tokens, ~%d total", _estimate_tokens(resultado), input_tokens + _estimate_tokens(resultado))
+            return resultado
+        resultado = pensar_con_gemini(full_prompt)
+        if resultado:
+            logger.info("AI response (gemini): ~%d output tokens, ~%d total", _estimate_tokens(resultado), input_tokens + _estimate_tokens(resultado))
+        return resultado
+    else:
+        resultado = pensar_con_gemini(full_prompt)
+        if resultado:
+            logger.info("AI response (gemini): ~%d output tokens, ~%d total", _estimate_tokens(resultado), input_tokens + _estimate_tokens(resultado))
+            return resultado
+        resultado = pensar_con_claude(prompt, sistema=sistema, max_tokens=max_tokens)
+        if resultado:
+            logger.info("AI response (claude): ~%d output tokens, ~%d total", _estimate_tokens(resultado), input_tokens + _estimate_tokens(resultado))
+        return resultado
 
 
 # ── Utilidades de consola ────────────────────────────────────────────────────

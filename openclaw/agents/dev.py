@@ -10,7 +10,7 @@ Adaptado de Sistema-OpenClaw/agents/customizable/execution/programador.py (v7.6)
 import re
 import time
 
-from compartido import CONFIG, log, logger, pensar_con_gemini, pensar_con_local, enviar_whatsapp
+from compartido import CONFIG, log, logger, pensar, pensar_con_local, enviar_whatsapp
 from db.connection import get_connection
 from db import queries
 from skills.loader import load_skill
@@ -68,26 +68,22 @@ def _programar_con_ia(requerimiento, error_previo="", es_correccion=False):
             f"TAREA:\n{requerimiento}"
         )
 
-    # Correcciones: directo a local (Gemini ya fallo antes)
+    # Correcciones: directo a local
     if es_correccion:
         log(NOMBRE, "Modo CORRECCION — modelo local", ">")
         respuesta = pensar_con_local(prompt)
         return (respuesta, True) if respuesta else ("", True)
 
-    # Intentos con Gemini
-    for intento in range(1, MAX_INTENTOS_GEMINI + 1):
-        log(NOMBRE, f"Gemini intento {intento}/{MAX_INTENTOS_GEMINI}...", "~")
-        respuesta = pensar_con_gemini(prompt)
-        if respuesta:
-            log(NOMBRE, f"Gemini OK en intento {intento}", "+")
-            return respuesta, False
-        if intento < MAX_INTENTOS_GEMINI:
-            time.sleep(ESPERA_ENTRE_INTENTOS)
+    # Ollama primario -> Gemini fallback
+    log(NOMBRE, "Generando codigo (Ollama -> Gemini)...", "~")
+    respuesta = pensar(prompt, fallback="gemini")
+    if respuesta:
+        # Detectar si fue local u online
+        es_offline = not CONFIG.get("gemini_api_key")  # aproximacion
+        log(NOMBRE, "Codigo generado OK", "+")
+        return respuesta, es_offline
 
-    # Fallback a Ollama
-    log(NOMBRE, f"Gemini fallo {MAX_INTENTOS_GEMINI} veces. Activando local...", "!")
-    respuesta = pensar_con_local(prompt)
-    return (respuesta, True) if respuesta else ("", True)
+    return ("", True)
 
 
 def _elegir_tarea(tasks):

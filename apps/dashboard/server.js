@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const session = require('express-session');
-const multer = require('multer');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
@@ -15,15 +14,9 @@ const { db, run, get, all } = require('./database');
 
 // Middleware
 const { apiKeyAuth, requireAuth } = require('./middleware/auth');
-const { denyRole } = require('./middleware/authorize');
-const blockConsultor = denyRole('consultor');
-
-// Helpers
-const { formatFileSize, loadTags, saveTags } = require('./helpers/utils');
-const { processAndSaveIdea } = require('./helpers/ideaProcessor');
 
 // Routes
-const authRoutes = require('./routes/auth');
+const { router: authRoutes } = require('./routes/auth');
 const ideasRoutes = require('./routes/ideas');
 const aiRoutes = require('./routes/ai');
 const filesRoutes = require('./routes/files');
@@ -34,8 +27,12 @@ const externalRoutes = require('./routes/external');
 const adminRoutes = require('./routes/admin');
 const commentsRoutes = require('./routes/comments');
 const reviewRoutes = require('./routes/review');
+const reunionesRoutes = require('./routes/reuniones');
+const feedbackRoutes = require('./routes/feedback');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.argv.includes('-p') ? parseInt(process.argv[process.argv.indexOf('-p') + 1]) : 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
@@ -43,7 +40,6 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'knowledge');
 const VOICE_DIR = path.join(__dirname, 'public', 'voice-notes');
 const SKILLS_DIR = path.join(__dirname, '..', '..', 'core', 'skills');
-const ARCHIVOS_DIR = UPLOADS_DIR;
 const DINAMICAS_DIR = path.join(UPLOADS_DIR, 'dinamicas');
 const DATA_DIR = path.join(__dirname, 'data');
 const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
@@ -166,41 +162,6 @@ app.use(session({
     }
 }));
 
-// ─── Multer Upload Config ────────────────────────────────────────────────────
-const upload = multer({
-    storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-            if (req.path.includes('/ideas/voice')) return cb(null, VOICE_DIR);
-            cb(null, ARCHIVOS_DIR);
-        },
-        filename: (req, file, cb) => {
-            if (req.path.includes('/ideas/voice')) {
-                return cb(null, `voice_${Date.now()}.webm`);
-            }
-            const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-            const ext = path.extname(originalName);
-            const base = path.basename(originalName, ext);
-            const finalName = fs.existsSync(path.join(ARCHIVOS_DIR, originalName))
-                ? `${base}_${Date.now()}${ext}`
-                : originalName;
-            cb(null, finalName);
-        }
-    }),
-    fileFilter: (req, file, cb) => {
-        if (req.path.includes('/ideas/voice')) {
-            if (file.mimetype.startsWith('audio/') || file.mimetype === 'video/webm') return cb(null, true);
-        }
-        const allowed = ['.md', '.pdf', '.txt', '.docx'];
-        const ext = path.extname(file.originalname).toLowerCase();
-        if (allowed.includes(ext)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Tipo de archivo no permitido'), false);
-        }
-    },
-    limits: { fileSize: 50 * 1024 * 1024 }
-});
-
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 app.use(apiKeyAuth);
 
@@ -219,6 +180,40 @@ app.get('/health', async (req, res) => {
     }
 });
 
+// ─── Ollama Status (public) ─────────────────────────────────────────────────
+const { OLLAMA_URL, OLLAMA_MODEL } = require('./services/ollamaClient');
+app.get('/api/ollama/status', async (req, res) => {
+    try {
+        const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!resp.ok) return res.json({ online: false, model: OLLAMA_MODEL });
+        const data = await resp.json();
+        const models = (data.models || []).map(m => m.name);
+        const hasModel = models.some(n => n.startsWith(OLLAMA_MODEL));
+        res.json({ online: true, model: OLLAMA_MODEL, hasModel, models });
+    } catch (_err) {
+        res.json({ online: false, model: OLLAMA_MODEL });
+    }
+});
+
+// ─── Fireflies Webhook Proxy (public, forwards to Inteligencia-de-correos) ──
+app.post('/webhook/fireflies', async (req, res) => {
+    try {
+        const resp = await fetch('http://localhost:3003/webhook/fireflies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body),
+            signal: AbortSignal.timeout(10000),
+        });
+        const text = await resp.text();
+        res.status(resp.status).send(text);
+    } catch (err) {
+        log.error('Fireflies proxy error', { error: err.message });
+        res.status(502).json({ error: 'Inteligencia-de-correos no disponible' });
+    }
+});
+
 // ─── Public Routes ───────────────────────────────────────────────────────────
 app.use('/login', loginLimiter);
 app.use(authRoutes);
@@ -233,74 +228,28 @@ app.get('/', (req, res) => {
 // File routes (mixed /archivo/* and /api/*)
 app.use(filesRoutes);
 
-// Voice upload handler (needs multer, defined here because multer is in server.js)
-app.post('/api/ideas/voice', blockConsultor, upload.single('audio'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
-        const textToSave = (req.body.text || 'Nota de voz').trim();
-        const createdBy = req.session.user ? req.session.user.username : null;
-
-        await run('INSERT INTO ideas (text, audio_url, code_stage, created_by) VALUES (?, ?, ?, ?)', [
-            textToSave,
-            `/voice-notes/${req.file.filename}`,
-            'captured',
-            createdBy
-        ]);
-        let newIdea = await get('SELECT id, text, audio_url as audioUrl, created_at as createdAt, status FROM ideas ORDER BY id DESC LIMIT 1');
-
-        const analysis = await processAndSaveIdea(newIdea.id, newIdea.text, createdBy);
-
-        if (analysis && analysis.split && analysis.savedIds) {
-            const allIdeas = await all(
-                `SELECT id, text, audio_url as audioUrl, created_at as createdAt, status,
-                ai_type, ai_category, ai_action, ai_summary, created_by
-                FROM ideas WHERE id IN (${analysis.savedIds.map(() => '?').join(',')})`,
-                analysis.savedIds
-            );
-            res.json({ split: true, count: analysis.count, ideas: allIdeas });
-        } else {
-            newIdea = await get('SELECT id, text, audio_url as audioUrl, created_at as createdAt, status, ai_type, ai_category, ai_action, ai_summary, created_by FROM ideas WHERE id = ?', [newIdea.id]);
-            res.json(newIdea);
-        }
-    } catch (err) {
-        log.error('Voice upload error', { error: err.message });
-        res.status(500).json({ error: 'Failed to save voice note' });
-    }
-});
-
-// File upload handler (needs multer)
-app.post('/api/upload', blockConsultor, upload.single('file'), (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No file provided' });
-        const rawTags = req.body.tags || '';
-        const tagList = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-        if (tagList.length > 0) {
-            const tags = loadTags(TAGS_FILE);
-            tags[req.file.filename] = tagList;
-            saveTags(TAGS_FILE, tags);
-        }
-        res.json({
-            success: true,
-            filename: req.file.filename,
-            size: formatFileSize(req.file.size),
-            tags: tagList
-        });
-    } catch (err) {
-        log.error('Upload error', { error: err.message });
-        res.status(500).json({ error: 'Upload failed' });
-    }
-});
+// Upload routes (voice + file uploads with multer)
+app.use(uploadRoutes);
 
 // API Routes
 app.use('/api/ideas', ideasRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/areas', areasRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api', reunionesRoutes);   // /api/reuniones/*, /api/webhook/reuniones
 app.use('/api', gtdRoutes);      // /api/gtd/*, /api/waiting-for/*, /api/inbox-log/*, /api/checklist/*
 app.use('/api', externalRoutes);  // /api/external/*, /api/webhook/*, /api/keys/*
 app.use('/api', adminRoutes);     // /api/users, /api/projects, /api/search, /api/export, etc.
 app.use('/api/comments', commentsRoutes);
 app.use('/api/review', reviewRoutes);
+app.use('/api/feedback', feedbackRoutes);
+
+// ─── 404 Catch-All ──────────────────────────────────────────────────────────
+app.use((req, res) => {
+    const msg = `Not found: ${req.method} ${req.path}`;
+    log.warn(msg);
+    res.status(404).json({ error: 'Not found' });
+});
 
 // ─── Centralized Error Handler ───────────────────────────────────────────────
 const AppError = require('./helpers/AppError');

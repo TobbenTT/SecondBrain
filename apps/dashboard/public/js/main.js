@@ -46,11 +46,16 @@ const SECTION_META = {
     waiting: { title: 'A la Espera', subtitle: 'Delegaciones y seguimiento — GTD: Waiting For' },
     reportability: { title: 'Reportabilidad', subtitle: 'Checklist diario y actividad por consultor — Dashboard del equipo' },
     analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' },
+    agents: { title: 'Agentes', subtitle: 'Agentes especializados de negocio y ejecucion OpenClaw' },
     openclaw: { title: 'Monitor OpenClaw', subtitle: 'Pipeline multi-agente — PM → DEV → BUILDER → QA / Consulting → Reviewer' },
     'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
     'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
     'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' },
-    'revision': { title: 'Revision', subtitle: 'Cola de revision de Skills y Outputs para el equipo consultor' }
+    'revision': { title: 'Revision', subtitle: 'Cola de revision de Skills y Outputs para el equipo consultor' },
+    'reuniones': { title: 'Reuniones', subtitle: 'Inteligencia de reuniones — Analisis automatizado de Fireflies.ai' },
+    'feedback': { title: 'Feedback', subtitle: 'Sugerencias y mejoras del equipo' },
+    'admin-users': { title: 'Gestion de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
+    'graph-view': { title: 'Vista Gráfica', subtitle: 'Mapa interactivo de conexiones — Proyectos, Áreas, Reuniones, Ideas, Skills' }
 };
 
 
@@ -90,14 +95,23 @@ function switchSection(sectionId) {
     }
     history.replaceState(null, '', '#' + sectionId);
 
-    // Lazy-load analytics charts when section is first visible
+    // Lazy-load section-specific data
     if (sectionId === 'analytics') loadAnalytics();
     if (sectionId === 'openclaw') loadOpenClawStatus();
+    if (sectionId === 'agents') loadAgentsSection();
     if (sectionId === 'gtd-board') loadGtdBoard('context');
     if (sectionId === 'gtd-projects') loadGtdProjects();
     if (sectionId === 'ideas') initGtdFilterDropdowns();
-    if (sectionId === 'revision') loadReviewQueue();
+    if (sectionId === 'revision') { loadReviewQueue(); loadAuditTrail(); }
+    // methodologies section is static/explanatory — no data to load
+    if (sectionId === 'reportability') initReportability();
+    if (sectionId === 'reuniones') loadReuniones();
+    if (sectionId === 'feedback') loadFeedback();
+    if (sectionId === 'admin-users') loadAdminUsers();
+    if (sectionId === 'graph-view') loadGraphView();
 }
+
+function navigateToSection(id) { switchSection(id); }
 
 // ─── Panel actions + Home quick cards ──────────────────────────────────────────
 function initPanelActions() {
@@ -174,6 +188,231 @@ async function initHomeData() {
     } catch (err) {
         console.error('Home data error:', err);
     }
+
+    // Load team, gallery, and personal dashboard
+    loadHomeTeam();
+    loadHomeGallery();
+    loadMyDashboard();
+}
+
+async function loadHomeTeam() {
+    const grid = document.getElementById('homeTeamGrid');
+    if (!grid) return;
+    try {
+        const res = await fetch('/api/users');
+        if (!res.ok) return;
+        const users = await res.json();
+        if (users.length === 0) {
+            grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
+            return;
+        }
+        const roleColors = { admin: '#e74c3c', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71' };
+        grid.innerHTML = users.map(u => `
+            <div class="home-team-card">
+                <div class="home-team-avatar">${_avatarHtml(u.avatar, u.username, 64)}</div>
+                <h4 class="home-team-name">${escapeHtml(u.username)}</h4>
+                <span class="home-team-role" style="background:${roleColors[u.role] || '#6b7280'}22;color:${roleColors[u.role] || '#6b7280'};">${escapeHtml(u.role)}</span>
+                ${u.department ? `<span class="home-team-dept">${escapeHtml(u.department)}</span>` : ''}
+                ${u.expertise ? `<span class="home-team-expertise">${escapeHtml(u.expertise)}</span>` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Home team error:', err);
+    }
+}
+
+async function loadHomeGallery() {
+    const grid = document.getElementById('homeGalleryGrid');
+    const section = document.getElementById('homeGallerySection');
+    if (!grid) return;
+    try {
+        const res = await fetch('/api/gallery');
+        if (!res.ok) return;
+        const photos = await res.json();
+        if (photos.length === 0) {
+            grid.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">Sin fotos aun — sube la primera!</p>';
+            return;
+        }
+        grid.innerHTML = photos.map(p => `
+            <div class="gallery-item" title="${escapeHtml(p.caption || '')}">
+                <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.caption || 'Foto')}" loading="lazy">
+                <div class="gallery-caption">
+                    <span>${escapeHtml(p.caption || '')}</span>
+                    <span class="gallery-category">${escapeHtml(p.category)}</span>
+                </div>
+                ${window.__USER__?.role === 'admin' ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Gallery error:', err);
+    }
+}
+
+function openGalleryUpload() {
+    document.getElementById('galleryUploadForm').style.display = 'block';
+}
+
+async function uploadGalleryPhoto() {
+    const fileInput = document.getElementById('galleryFileInput');
+    const caption = document.getElementById('galleryCaptionInput');
+    const category = document.getElementById('galleryCategoryInput');
+    if (!fileInput.files[0]) { showToast('Selecciona una foto', 'warning'); return; }
+
+    const fd = new FormData();
+    fd.append('photo', fileInput.files[0]);
+    fd.append('caption', caption.value.trim());
+    fd.append('category', category.value);
+
+    try {
+        const res = await fetch('/api/gallery', { method: 'POST', body: fd });
+        if (res.ok) {
+            showToast('Foto subida', 'success');
+            fileInput.value = '';
+            caption.value = '';
+            document.getElementById('galleryUploadForm').style.display = 'none';
+            loadHomeGallery();
+        } else {
+            showToast('Error al subir foto', 'error');
+        }
+    } catch (err) {
+        showToast('Error al subir foto', 'error');
+    }
+}
+
+async function deleteGalleryPhoto(id) {
+    if (!confirm('Eliminar esta foto?')) return;
+    try {
+        const res = await fetch(`/api/gallery/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Foto eliminada', 'success');
+            loadHomeGallery();
+        }
+    } catch (err) {
+        showToast('Error', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERSONAL DASHBOARD (Home)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function loadMyDashboard() {
+    try {
+        const res = await fetch('/api/my-dashboard');
+        if (!res.ok) {
+            // Clear spinners — show empty state
+            ['hpTaskList', 'hpDelegations', 'hpReunionsList', 'hpActivityFeed'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<div class="hp-empty">Inicia sesión para ver tu dashboard</div>';
+            });
+            return;
+        }
+        const data = await res.json();
+
+        // Task summary badges
+        const summaryEl = document.getElementById('hpTaskSummary');
+        if (summaryEl) {
+            const s = data.tasks_summary;
+            const parts = [];
+            if (s.alta) parts.push(`<span class="hp-badge hp-badge-alta">${s.alta} urgente${s.alta > 1 ? 's' : ''}</span>`);
+            if (s.media) parts.push(`<span class="hp-badge hp-badge-media">${s.media} media</span>`);
+            if (s.baja) parts.push(`<span class="hp-badge hp-badge-baja">${s.baja} baja</span>`);
+            summaryEl.innerHTML = parts.join('');
+        }
+
+        // Tasks list
+        const taskEl = document.getElementById('hpTaskList');
+        if (taskEl) {
+            if (data.tasks.length === 0) {
+                taskEl.innerHTML = '<div class="hp-empty">Sin tareas asignadas</div>';
+            } else {
+                taskEl.innerHTML = data.tasks.map(t => {
+                    const label = t.ai_summary || (t.text || '').substring(0, 60);
+                    const priorityClass = t.priority === 'alta' ? 'hp-priority-alta' : (t.priority === 'media' ? 'hp-priority-media' : 'hp-priority-baja');
+                    const deadline = t.fecha_limite ? `<span class="hp-deadline">${new Date(t.fecha_limite).toLocaleDateString('es-CL')}</span>` : '';
+                    return `<div class="hp-task-item hp-clickable ${priorityClass}" onclick="switchSection('ideas')">
+                        <div class="hp-task-text">${escapeHtml(label)}</div>
+                        <div class="hp-task-meta">
+                            ${t.area_name ? `<span class="hp-tag">${escapeHtml(t.area_name)}</span>` : ''}
+                            ${t.project_name ? `<span class="hp-tag">${escapeHtml(t.project_name)}</span>` : ''}
+                            ${deadline}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // Delegations
+        const delEl = document.getElementById('hpDelegations');
+        if (delEl) {
+            if (data.delegations.length === 0) {
+                delEl.innerHTML = '<div class="hp-empty">Sin delegaciones pendientes</div>';
+            } else {
+                delEl.innerHTML = data.delegations.map(d => {
+                    const days = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000);
+                    return `<div class="hp-deleg-item hp-clickable" onclick="switchSection('waiting')">
+                        <div class="hp-deleg-text">${escapeHtml((d.description || '').substring(0, 70))}</div>
+                        <div class="hp-task-meta">
+                            <span class="hp-tag">→ ${escapeHtml(d.delegated_to)}</span>
+                            ${d.area_name ? `<span class="hp-tag">${escapeHtml(d.area_name)}</span>` : ''}
+                            <span class="hp-days ${days > 3 ? 'hp-days-overdue' : ''}">${days}d</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // Reuniones
+        const reunEl = document.getElementById('hpReuniones');
+        if (reunEl) {
+            if (data.reuniones.length === 0) {
+                reunEl.innerHTML = '<div class="hp-empty">Sin reuniones recientes</div>';
+            } else {
+                reunEl.innerHTML = data.reuniones.map(r => {
+                    const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+                    return `<div class="hp-reunion-item hp-clickable" onclick="switchSection('reuniones')">
+                        <span class="hp-reunion-date">${fecha}</span>
+                        <span class="hp-reunion-title">${escapeHtml(r.titulo || 'Sin título')}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // Activity feed
+        const actEl = document.getElementById('hpActivity');
+        if (actEl) {
+            if (data.activity.length === 0) {
+                actEl.innerHTML = '<div class="hp-empty">Sin actividad reciente</div>';
+            } else {
+                actEl.innerHTML = data.activity.map(a => {
+                    const label = a.ai_summary || (a.text || '').substring(0, 50);
+                    const timeAgo = _timeAgo(a.created_at);
+                    const stageColors = { captured: '#3498db', organized: '#f39c12', distilled: '#9b59b6', expressed: '#2ecc71' };
+                    const stageColor = stageColors[a.code_stage] || '#888';
+                    return `<div class="hp-activity-item hp-clickable" onclick="switchSection('ideas')">
+                        <div class="hp-activity-dot" style="background:${stageColor}"></div>
+                        <div class="hp-activity-content">
+                            <span class="hp-activity-text">${escapeHtml(label)}</span>
+                            <span class="hp-activity-meta">${a.assigned_to ? escapeHtml(a.assigned_to) + ' · ' : ''}${a.area_name ? escapeHtml(a.area_name) + ' · ' : ''}${timeAgo}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+    } catch (err) {
+        console.error('My dashboard error:', err);
+    }
+}
+
+function _timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `hace ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `hace ${days}d`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -293,16 +532,53 @@ function renderMarkdown(text) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+
+    // Parse tables BEFORE other transforms (work on lines)
+    const lines = escaped.split('\n');
+    const processed = [];
+    let i = 0;
+    while (i < lines.length) {
+        // Detect table: line with | and next line is separator (|---|)
+        if (lines[i].trim().startsWith('|') && lines[i].includes('|')) {
+            const tableLines = [];
+            while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+                tableLines.push(lines[i].trim());
+                i++;
+            }
+            if (tableLines.length >= 2) {
+                let tableHtml = '<table class="md-table">';
+                tableLines.forEach((tl, idx) => {
+                    // Skip separator row (| --- | --- |)
+                    if (/^\|[\s\-:]+\|/.test(tl.replace(/\|[\s\-:]+/g, '|--'))) {
+                        if (idx === 1) return; // standard separator after header
+                        return;
+                    }
+                    const cells = tl.split('|').filter((c, ci, arr) => ci > 0 && ci < arr.length - 1);
+                    const tag = idx === 0 ? 'th' : 'td';
+                    tableHtml += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+                });
+                tableHtml += '</table>';
+                processed.push(tableHtml);
+            } else {
+                processed.push(...tableLines);
+            }
+        } else {
+            processed.push(lines[i]);
+            i++;
+        }
+    }
+
     // Basic Markdown parser for the agent response
-    const html = escaped
+    const html = processed.join('\n')
         .replace(/^# (.*$)/gim, '<h1>$1</h1>')
         .replace(/^## (.*$)/gim, '<h2>$1</h2>')
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
-        .replace(/\*(.*)\*/gim, '<i>$1</i>')
-        .replace(/^\s*\*\s(.*?)$/gim, '<li>$1</li>') // List items
-        .replace(/<\/li>\n<li>/gim, '</li><li>')     // Fix lines
-        .replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>')  // Wrap in ul (naive)
+        .replace(/\*\*(.*?)\*\*/gim, '<b>$1</b>')
+        .replace(/\*(.*?)\*/gim, '<i>$1</i>')
+        .replace(/`([^`]+)`/gim, '<code>$1</code>')
+        .replace(/^\s*[-*]\s(.*?)$/gim, '<li>$1</li>')
+        .replace(/<\/li>\n<li>/gim, '</li><li>')
+        .replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>')
         .replace(/\n/gim, '<br>');
     return safeHTML(html);
 }
@@ -337,15 +613,31 @@ function initThemeToggle() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PROJECTS (dynamic, with filters)
+// PROJECTS (segmented: interno / cliente, with filters + edit)
 // ═══════════════════════════════════════════════════════════════════════════════
 let allProjects = [];
+let projectAreas = [];
 
 async function initProjects() {
     const toggleBtn = document.getElementById('toggleAddProject');
     const addBody = document.getElementById('addProjectBody');
     const addForm = document.getElementById('addProjectForm');
     const searchInput = document.getElementById('projectSearch');
+    const projType = document.getElementById('projType');
+    const clientFields = document.getElementById('apfClientFields');
+    const projAreaSelect = document.getElementById('projArea');
+
+    // Load areas for the select
+    try {
+        const aRes = await fetch('/api/areas');
+        if (aRes.ok) {
+            projectAreas = await aRes.json();
+            if (projAreaSelect) {
+                projAreaSelect.innerHTML = '<option value="">— Sin área —</option>' +
+                    projectAreas.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            }
+        }
+    } catch (_) { /* areas optional */ }
 
     // Toggle panel
     if (toggleBtn && addBody) {
@@ -356,6 +648,13 @@ async function initProjects() {
         });
     }
 
+    // Toggle client fields based on type
+    if (projType && clientFields) {
+        projType.addEventListener('change', () => {
+            clientFields.style.display = projType.value === 'cliente' ? 'flex' : 'none';
+        });
+    }
+
     // Submit new project
     if (addForm) {
         addForm.addEventListener('submit', async (e) => {
@@ -363,11 +662,17 @@ async function initProjects() {
             const techRaw = document.getElementById('projTech')?.value || '';
             const project = {
                 name: document.getElementById('projName').value,
-                url: document.getElementById('projUrl').value,
+                url: document.getElementById('projUrl')?.value || '',
                 description: document.getElementById('projDesc')?.value || '',
                 icon: document.getElementById('projIcon')?.value || '📦',
                 status: document.getElementById('projStatus')?.value || 'active',
-                tech: techRaw.split(',').map(t => t.trim()).filter(t => t)
+                tech: techRaw.split(',').map(t => t.trim()).filter(t => t),
+                project_type: projType?.value || 'interno',
+                client_name: document.getElementById('projClientName')?.value || '',
+                geography: document.getElementById('projGeography')?.value || '',
+                related_area_id: document.getElementById('projArea')?.value || null,
+                horizon: document.getElementById('projHorizon')?.value || '',
+                deadline: document.getElementById('projDeadline')?.value || ''
             };
 
             try {
@@ -378,6 +683,7 @@ async function initProjects() {
                 });
                 if (res.ok) {
                     addForm.reset();
+                    if (clientFields) clientFields.style.display = 'none';
                     loadProjects();
                     initHomeData();
                 }
@@ -389,6 +695,15 @@ async function initProjects() {
     if (searchInput) {
         searchInput.addEventListener('input', () => filterAndRenderProjects());
     }
+
+    // Type filters (Todos / Internos / Clientes)
+    document.querySelectorAll('[data-ptypefilter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-ptypefilter]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filterAndRenderProjects();
+        });
+    });
 
     // Status filters
     document.querySelectorAll('[data-pfilter]').forEach(btn => {
@@ -406,7 +721,7 @@ async function loadProjects() {
     try {
         const res = await fetch('/api/projects');
         allProjects = await res.json();
-        renderProjects(allProjects);
+        filterAndRenderProjects();
     } catch (err) {
         console.error('Load projects error:', err);
     }
@@ -414,20 +729,34 @@ async function loadProjects() {
 
 function filterAndRenderProjects() {
     const query = (document.getElementById('projectSearch')?.value || '').toLowerCase().trim();
-    const activeFilter = document.querySelector('[data-pfilter].active')?.dataset.pfilter || 'all';
+    const statusFilter = document.querySelector('[data-pfilter].active')?.dataset.pfilter || 'all';
+    const typeFilter = document.querySelector('[data-ptypefilter].active')?.dataset.ptypefilter || 'all';
 
     let filtered = allProjects;
+
+    // Type filter
+    if (typeFilter !== 'all') {
+        filtered = filtered.filter(p => (p.project_type || 'interno') === typeFilter);
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(p => p.status === statusFilter);
+    }
+
+    // Text search
     if (query) {
         filtered = filtered.filter(p =>
             p.name.toLowerCase().includes(query) ||
             (p.description || '').toLowerCase().includes(query) ||
-            (p.tech || []).some(t => t.toLowerCase().includes(query))
+            (p.tech || []).some(t => t.toLowerCase().includes(query)) ||
+            (p.client_name || '').toLowerCase().includes(query) ||
+            (p.area_name || '').toLowerCase().includes(query) ||
+            (p.geography || '').toLowerCase().includes(query)
         );
     }
-    if (activeFilter !== 'all') {
-        filtered = filtered.filter(p => p.status === activeFilter);
-    }
-    renderProjects(filtered);
+
+    renderProjects(filtered, typeFilter);
 }
 
 const STATUS_MAP = {
@@ -440,7 +769,47 @@ const STATUS_MAP = {
     cancelled: { label: '● Cancelado', cls: 'cancelled' }
 };
 
-function renderProjects(projects) {
+const HORIZON_MAP = { corto: 'Corto plazo', medio: 'Medio plazo', largo: 'Largo plazo' };
+
+function renderProjectCard(p) {
+    const st = STATUS_MAP[p.status] || STATUS_MAP.active;
+    const techHtml = (p.tech || []).map(t => `<span class="tech-tag">${escapeHtml(t)}</span>`).join('');
+    const isCliente = (p.project_type || 'interno') === 'cliente';
+
+    // Build meta tags
+    let metaHtml = '';
+    const metaItems = [];
+    if (p.area_name) metaItems.push(`<span class="proj-meta-item">${escapeHtml(p.area_name)}</span>`);
+    if (isCliente && p.client_name) metaItems.push(`<span class="proj-meta-item proj-meta-client">${escapeHtml(p.client_name)}</span>`);
+    if (p.geography) metaItems.push(`<span class="proj-meta-item">${escapeHtml(p.geography)}</span>`);
+    if (p.horizon && HORIZON_MAP[p.horizon]) metaItems.push(`<span class="proj-meta-item">${HORIZON_MAP[p.horizon]}</span>`);
+    if (p.deadline) metaItems.push(`<span class="proj-meta-item proj-meta-deadline">${escapeHtml(p.deadline)}</span>`);
+    if (metaItems.length) metaHtml = `<div class="proj-meta">${metaItems.join('')}</div>`;
+
+    const urlBtn = p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" class="btn btn-sm">Abrir ↗</a>` : '';
+
+    return `
+        <div class="project-card ${isCliente ? 'project-card--cliente' : ''}">
+            <div class="project-card-top">
+                <div class="project-icon-lg">${p.icon || '📦'}</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <span class="badge ${st.cls}">${st.label}</span>
+                    <button class="proj-edit-btn" onclick="openEditProject('${p.id}')" title="Editar">✏️</button>
+                </div>
+            </div>
+            <h3>${escapeHtml(p.name)}</h3>
+            <p>${escapeHtml(p.description || 'Sin descripción')}</p>
+            ${metaHtml}
+            <div class="project-tech">${techHtml || '<span class="tech-tag dim">—</span>'}</div>
+            <div class="project-footer">
+                ${urlBtn}
+                <button class="project-delete-btn" onclick="deleteProject('${p.id}')" title="Eliminar proyecto">🗑</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderProjects(projects, typeFilter) {
     const grid = document.getElementById('projectsGrid');
     if (!grid) return;
 
@@ -449,26 +818,172 @@ function renderProjects(projects) {
         return;
     }
 
-    grid.innerHTML = projects.map(p => {
-        const st = STATUS_MAP[p.status] || STATUS_MAP.active;
-        const techHtml = (p.tech || []).map(t => `<span class="tech-tag">${escapeHtml(t)}</span>`).join('');
-        return `
-            <div class="project-card">
-                <div class="project-card-top">
-                    <div class="project-icon-lg">${p.icon || '📦'}</div>
-                    <span class="badge ${st.cls}">${st.label}</span>
+    // If a specific type is selected, render flat grid
+    if (typeFilter && typeFilter !== 'all') {
+        grid.innerHTML = `<div class="proj-segment-grid">${projects.map(renderProjectCard).join('')}</div>`;
+        return;
+    }
+
+    // Segmented view: Internos first, then Clientes
+    const internos = projects.filter(p => (p.project_type || 'interno') === 'interno');
+    const clientes = projects.filter(p => (p.project_type || 'interno') === 'cliente');
+
+    let html = '';
+    if (internos.length) {
+        html += `
+            <div class="proj-segment-header">
+                <span class="proj-segment-title">Proyectos Internos</span>
+                <span class="proj-segment-count">${internos.length}</span>
+            </div>
+            <div class="proj-segment-grid">${internos.map(renderProjectCard).join('')}</div>
+        `;
+    }
+    if (clientes.length) {
+        html += `
+            <div class="proj-segment-header">
+                <span class="proj-segment-title">Proyectos de Clientes</span>
+                <span class="proj-segment-count">${clientes.length}</span>
+            </div>
+            <div class="proj-segment-grid">${clientes.map(renderProjectCard).join('')}</div>
+        `;
+    }
+    grid.innerHTML = html;
+}
+
+async function openEditProject(id) {
+    const p = allProjects.find(proj => proj.id === id);
+    if (!p) return;
+
+    const isCliente = (p.project_type || 'interno') === 'cliente';
+    const areasOptions = projectAreas.map(a =>
+        `<option value="${a.id}" ${a.id == p.related_area_id ? 'selected' : ''}>${escapeHtml(a.name)}</option>`
+    ).join('');
+
+    const horizonOptions = ['', 'corto', 'medio', 'largo'].map(h => {
+        const label = h ? HORIZON_MAP[h] : '— Sin definir —';
+        return `<option value="${h}" ${(p.horizon || '') === h ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const statusOptions = Object.entries(STATUS_MAP).map(([val, s]) =>
+        `<option value="${val}" ${p.status === val ? 'selected' : ''}>${s.label}</option>`
+    ).join('');
+
+    const formHtml = `
+        <form id="editProjectForm" class="add-project-form" style="padding:0;">
+            <div class="apf-row">
+                <div class="apf-field">
+                    <label>Tipo</label>
+                    <select id="editProjType">
+                        <option value="interno" ${!isCliente ? 'selected' : ''}>Interno</option>
+                        <option value="cliente" ${isCliente ? 'selected' : ''}>Cliente</option>
+                    </select>
                 </div>
-                <h3>${escapeHtml(p.name)}</h3>
-                <p>${escapeHtml(p.description || 'Sin descripción')}</p>
-                <div class="project-tech">${techHtml || '<span class="tech-tag dim">—</span>'}</div>
-                <div class="project-footer">
-                    <a href="${escapeHtml(p.url)}" target="_blank" class="btn btn-sm">Abrir ↗</a>
-                    <button class="project-delete-btn" onclick="deleteProject('${p.id}')" title="Eliminar proyecto">🗑</button>
+                <div class="apf-field">
+                    <label>Estado</label>
+                    <select id="editProjStatus">${statusOptions}</select>
+                </div>
+                <div class="apf-field">
+                    <label>Icono</label>
+                    <input type="text" id="editProjIcon" value="${p.icon || ''}" maxlength="4">
                 </div>
             </div>
-        `;
-    }).join('');
+            <div class="apf-row">
+                <div class="apf-field">
+                    <label>Nombre *</label>
+                    <input type="text" id="editProjName" value="${escapeHtml(p.name)}" required>
+                </div>
+                <div class="apf-field">
+                    <label>URL</label>
+                    <input type="url" id="editProjUrl" value="${escapeHtml(p.url || '')}">
+                </div>
+            </div>
+            <div class="apf-row">
+                <div class="apf-field apf-wide">
+                    <label>Descripción</label>
+                    <input type="text" id="editProjDesc" value="${escapeHtml(p.description || '')}">
+                </div>
+            </div>
+            <div class="apf-row" id="editClientFields" style="display:${isCliente ? 'flex' : 'none'};">
+                <div class="apf-field">
+                    <label>Cliente</label>
+                    <input type="text" id="editProjClient" value="${escapeHtml(p.client_name || '')}">
+                </div>
+                <div class="apf-field">
+                    <label>Geografía</label>
+                    <input type="text" id="editProjGeo" value="${escapeHtml(p.geography || '')}">
+                </div>
+            </div>
+            <div class="apf-row">
+                <div class="apf-field">
+                    <label>Área</label>
+                    <select id="editProjArea"><option value="">— Sin área —</option>${areasOptions}</select>
+                </div>
+                <div class="apf-field">
+                    <label>Horizonte</label>
+                    <select id="editProjHorizon">${horizonOptions}</select>
+                </div>
+                <div class="apf-field">
+                    <label>Deadline</label>
+                    <input type="date" id="editProjDeadline" value="${p.deadline || ''}">
+                </div>
+            </div>
+            <div class="apf-row">
+                <div class="apf-field apf-wide">
+                    <label>Tecnologías</label>
+                    <input type="text" id="editProjTech" value="${escapeHtml((p.tech || []).join(', '))}">
+                </div>
+            </div>
+        </form>
+    `;
+
+    const result = await showCustomModal({
+        title: `Editar: ${p.name}`,
+        message: formHtml,
+        isConfirm: true,
+        html: true,
+        onOpen: () => {
+            // Toggle client fields in modal
+            const editType = document.getElementById('editProjType');
+            const editClientFields = document.getElementById('editClientFields');
+            if (editType && editClientFields) {
+                editType.addEventListener('change', () => {
+                    editClientFields.style.display = editType.value === 'cliente' ? 'flex' : 'none';
+                });
+            }
+        }
+    });
+
+    if (!result) return;
+
+    const techRaw = document.getElementById('editProjTech')?.value || '';
+    const updated = {
+        name: document.getElementById('editProjName')?.value,
+        url: document.getElementById('editProjUrl')?.value || '',
+        description: document.getElementById('editProjDesc')?.value || '',
+        icon: document.getElementById('editProjIcon')?.value || '📦',
+        status: document.getElementById('editProjStatus')?.value || 'active',
+        tech: techRaw.split(',').map(t => t.trim()).filter(t => t),
+        project_type: document.getElementById('editProjType')?.value || 'interno',
+        client_name: document.getElementById('editProjClient')?.value || '',
+        geography: document.getElementById('editProjGeo')?.value || '',
+        related_area_id: document.getElementById('editProjArea')?.value || null,
+        horizon: document.getElementById('editProjHorizon')?.value || '',
+        deadline: document.getElementById('editProjDeadline')?.value || ''
+    };
+
+    try {
+        const res = await fetch(`/api/projects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updated)
+        });
+        if (res.ok) {
+            loadProjects();
+            initHomeData();
+        }
+    } catch (err) { console.error('Edit project error:', err); }
 }
+window.openEditProject = openEditProject;
 
 async function deleteProject(id) {
     const confirmed = await showCustomModal({
@@ -494,7 +1009,6 @@ let activeTagFilter = null;
 async function initArchivos() {
     const grid = document.getElementById('archivosGrid');
     const searchInput = document.getElementById('searchInput');
-    const filterBtns = document.querySelectorAll('.filter-btn[data-filter]');
     const statEl = document.getElementById('statArchivos');
 
     try {
@@ -502,13 +1016,25 @@ async function initArchivos() {
         allArchivos = await response.json();
         if (statEl) statEl.textContent = allArchivos.length;
 
+        // Populate filter chip counts
+        const counts = { all: allArchivos.length, markdown: 0, pdf: 0, app: 0 };
+        allArchivos.forEach(f => { if (counts[f.type] !== undefined) counts[f.type]++; });
+        const setCount = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        setCount('archCountAll', counts.all);
+        setCount('archCountMd', counts.markdown);
+        setCount('archCountPdf', counts.pdf);
+        setCount('archCountApp', counts.app);
+
         renderArchivos(allArchivos);
         renderTagFilterBar(allArchivos);
 
         if (searchInput) searchInput.addEventListener('input', () => filterAndRender());
-        filterBtns.forEach(btn => {
+
+        // Filter chips (reuse skill-filter-chip class)
+        const filterChips = document.querySelectorAll('#archivosFilterChips .skill-filter-chip');
+        filterChips.forEach(btn => {
             btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('active'));
+                filterChips.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 filterAndRender();
             });
@@ -550,7 +1076,8 @@ function renderTagFilterBar(files) {
 
 function filterAndRender() {
     const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    const type = document.querySelector('.filter-btn[data-filter].active')?.dataset.filter || 'all';
+    const activeChip = document.querySelector('#archivosFilterChips .skill-filter-chip.active');
+    const type = activeChip ? activeChip.dataset.filter : 'all';
     let filtered = allArchivos;
     if (query) {
         filtered = filtered.filter(f =>
@@ -566,6 +1093,13 @@ function filterAndRender() {
 function renderArchivos(files) {
     const grid = document.getElementById('archivosGrid');
     if (!grid) return;
+
+    // Summary
+    const summary = document.getElementById('archivosSummary');
+    if (summary) {
+        summary.innerHTML = `Mostrando <strong>${files.length}</strong> de ${allArchivos.length} documentos`;
+    }
+
     if (files.length === 0) {
         grid.innerHTML = `<div class="archivos-empty"><div class="empty-icon">📂</div><p>No se encontraron documentos</p></div>`;
         return;
@@ -573,18 +1107,22 @@ function renderArchivos(files) {
     grid.innerHTML = files.map(file => {
         const icon = file.type === 'markdown' ? '📝' : file.type === 'pdf' ? '📕' : file.type === 'app' ? '🚀' : '📄';
         const typeLabel = file.extension.replace('.', '').toUpperCase();
+        const typeClass = file.type === 'markdown' ? 'md' : file.type === 'pdf' ? 'pdf' : file.type === 'app' ? 'app' : 'other';
         const href = file.hasDynamic ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
-        const dynamicBadge = file.hasDynamic ? `<span class="archivo-dynamic-badge">✨ Interactivo</span>` : '';
+        const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="archivo-dynamic-badge">✨ Interactivo</span>` : '';
         const downloadBtn = file.type === 'pdf' ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="archivo-download" title="Descargar" onclick="event.stopPropagation();">⬇</a>` : '';
         const tagsHtml = (file.tags || []).length > 0 ? `<div class="archivo-tags">${file.tags.map(t => `<span class="archivo-tag">#${escapeHtml(t)}</span>`).join('')}</div>` : '';
-        const iconClass = file.type === 'markdown' ? 'md' : file.type === 'pdf' ? 'pdf' : file.type === 'app' ? 'app' : '';
+        const badgeClass = `badge-${typeClass}`;
 
         return `
-            <a href="${href}" class="archivo-card" title="${file.name}" ${file.hasDynamic ? 'target="_blank"' : ''}>
-                <div class="archivo-icon ${iconClass}">${icon}</div>
+            <a href="${href}" class="archivo-card type-${typeClass}" title="${escapeHtml(file.name)}" ${file.hasDynamic ? 'target="_blank"' : ''}>
+                <div class="archivo-icon ${typeClass}">${icon}</div>
                 <div class="archivo-info">
                     <h4>${escapeHtml(file.basename)} ${dynamicBadge}</h4>
-                    <div class="archivo-meta"><span>${typeLabel}</span><span>•</span><span>${file.sizeFormatted}</span></div>
+                    <div class="archivo-meta">
+                        <span class="archivo-type-badge ${badgeClass}">${typeLabel}</span>
+                        <span>${file.sizeFormatted}</span>
+                    </div>
                     ${tagsHtml}
                 </div>
                 ${downloadBtn}
@@ -1359,14 +1897,30 @@ function initChat() {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
+    function showTypingIndicator() {
+        const div = document.createElement('div');
+        div.className = 'message ai';
+        div.id = 'chatTyping';
+        div.innerHTML = '<div class="msg-content"><div class="chat-typing"><span></span><span></span><span></span></div></div>';
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const el = document.getElementById('chatTyping');
+        if (el) el.remove();
+    }
+
     async function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
 
         appendMessage('user', text);
         input.value = '';
+        sendBtn.disabled = true;
 
         const agent = document.getElementById('agentSelector')?.value || 'default';
+        showTypingIndicator();
 
         try {
             const res = await fetch('/api/ai/chat', {
@@ -1376,10 +1930,14 @@ function initChat() {
             });
             const data = await res.json();
 
+            removeTypingIndicator();
             if (data.error) throw new Error(data.error);
             appendMessage('ai', data.response);
         } catch (err) {
+            removeTypingIndicator();
             appendMessage('ai', `Error: ${err.message}`);
+        } finally {
+            sendBtn.disabled = false;
         }
     }
 
@@ -1601,57 +2159,144 @@ window.discussSkill = discussSkill;
 async function initSkills() {
     const grid = document.getElementById('skillsGrid');
     const searchInput = document.getElementById('skillsSearch');
+    const pagination = document.getElementById('skillsPagination');
     if (!grid) return;
+
+    const SKILLS_PER_PAGE = 24;
+    let currentPage = 1;
+    let activeGroup = 'all';
+
+    const GROUP_META = {
+        engineering:    { icon: '⚙️', label: 'Ingeniería & Activos' },
+        commissioning:  { icon: '🏗️', label: 'Comisionamiento' },
+        compliance:     { icon: '📋', label: 'Cumplimiento' },
+        workforce:      { icon: '👥', label: 'Fuerza Laboral' },
+        knowledge:      { icon: '📖', label: 'Conocimiento' },
+        gtd:            { icon: '🎯', label: 'GTD' },
+        communication:  { icon: '📝', label: 'Comunicación' },
+        'ai-dev':       { icon: '🤖', label: 'IA & Dev' },
+    };
 
     try {
         const res = await fetch('/api/skills');
         const skills = await res.json();
 
-        function renderSkills(filterText = '') {
-            grid.innerHTML = '';
+        // Ensure functionalGroup exists (fallback if server cache stale)
+        const CAT_FALLBACK = { core: 'engineering', customizable: 'communication', integration: 'ai-dev' };
+        skills.forEach(s => {
+            if (!s.functionalGroup) s.functionalGroup = CAT_FALLBACK[s.category] || 'engineering';
+        });
 
-            const filtered = skills.filter(s =>
-                s.name.toLowerCase().includes(filterText.toLowerCase()) ||
-                s.category.toLowerCase().includes(filterText.toLowerCase())
-            );
+        // Update group counters
+        const counts = { all: skills.length };
+        Object.keys(GROUP_META).forEach(g => { counts[g] = 0; });
+        skills.forEach(s => { if (counts[s.functionalGroup] !== undefined) counts[s.functionalGroup]++; });
+
+        const el = id => document.getElementById(id);
+        if (el('countAll')) el('countAll').textContent = counts.all;
+        if (el('countEngineering')) el('countEngineering').textContent = counts.engineering;
+        if (el('countCommissioning')) el('countCommissioning').textContent = counts.commissioning;
+        if (el('countCompliance')) el('countCompliance').textContent = counts.compliance;
+        if (el('countWorkforce')) el('countWorkforce').textContent = counts.workforce;
+        if (el('countKnowledge')) el('countKnowledge').textContent = counts.knowledge;
+        if (el('countGtd')) el('countGtd').textContent = counts.gtd;
+        if (el('countCommunication')) el('countCommunication').textContent = counts.communication;
+        if (el('countAiDev')) el('countAiDev').textContent = counts['ai-dev'];
+
+        // Filter chips (scoped to skills section to avoid collision with Review panel)
+        const chips = document.querySelectorAll('#skillsFilters .skill-filter-chip');
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                chips.forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                activeGroup = chip.dataset.group;
+                currentPage = 1;
+                renderSkills();
+            });
+        });
+
+        function getFiltered() {
+            const searchText = (searchInput?.value || '').toLowerCase();
+            return skills.filter(s => {
+                const matchGroup = activeGroup === 'all' || s.functionalGroup === activeGroup;
+                const groupLabel = (GROUP_META[s.functionalGroup] || {}).label || '';
+                const matchSearch = !searchText ||
+                    s.name.toLowerCase().includes(searchText) ||
+                    groupLabel.toLowerCase().includes(searchText);
+                return matchGroup && matchSearch;
+            });
+        }
+
+        function renderPagination(total) {
+            if (!pagination) return;
+            const totalPages = Math.ceil(total / SKILLS_PER_PAGE);
+            if (totalPages <= 1) { pagination.innerHTML = ''; return; }
+
+            let html = `<button ${currentPage <= 1 ? 'disabled' : ''} onclick="window._skillsGoPage(${currentPage - 1})">&#8249;</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (totalPages > 7 && i > 2 && i < totalPages - 1 && Math.abs(i - currentPage) > 1) {
+                    if (i === 3 || i === totalPages - 2) html += '<span class="page-info">...</span>';
+                    continue;
+                }
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="window._skillsGoPage(${i})">${i}</button>`;
+            }
+            html += `<button ${currentPage >= totalPages ? 'disabled' : ''} onclick="window._skillsGoPage(${currentPage + 1})">&#8250;</button>`;
+            html += `<span class="page-info">${total} skills</span>`;
+            pagination.innerHTML = html;
+        }
+
+        window._skillsGoPage = function(page) {
+            currentPage = page;
+            renderSkills();
+            document.getElementById('section-skills')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        function renderSkills() {
+            grid.innerHTML = '';
+            const filtered = getFiltered();
 
             if (filtered.length === 0) {
                 grid.innerHTML = '<div class="empty-state">No se encontraron skills.</div>';
+                if (pagination) pagination.innerHTML = '';
                 return;
             }
 
-            filtered.forEach(skill => {
+            const start = (currentPage - 1) * SKILLS_PER_PAGE;
+            const pageSkills = filtered.slice(start, start + SKILLS_PER_PAGE);
+
+            pageSkills.forEach(skill => {
                 const card = document.createElement('div');
                 card.className = 'skill-card';
 
-                // Format Name: Remove extension, replace dashes with spaces, capitalize
                 let displayName = skill.name.replace(/\.md$/i, '').replace(/-/g, ' ');
                 displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
 
                 card.onclick = () => viewSkill(skill.path, displayName);
 
-                // Icon based on category
-                let icon = '📄';
-                if (skill.category === 'core') icon = '🧠';
-                else if (skill.category === 'customizable') icon = '🛠️';
-                else if (displayName.includes('audit')) icon = '📋';
-                else if (displayName.includes('plan')) icon = '📅';
+                const meta = GROUP_META[skill.functionalGroup] || { icon: '📄', label: skill.functionalGroup };
+                const catIcon = skill.category === 'core' ? '🧠' : skill.category === 'integration' ? '🔗' : '🛠️';
+                const catLabel = skill.category === 'core' ? 'Core' : skill.category === 'integration' ? 'Integration' : 'Customizable';
 
                 card.innerHTML = `
-                    <div class="skill-icon">${icon}</div>
+                    <div class="skill-icon">${meta.icon}</div>
                     <div class="skill-info">
                         <h3>${displayName}</h3>
-                        <span class="skill-category">${skill.category}</span>
+                        <div class="skill-badges">
+                            <span class="skill-category">${meta.label}</span>
+                            <span class="skill-type-badge skill-type-${skill.category}">${catIcon} ${catLabel}</span>
+                        </div>
                     </div>
                 `;
                 grid.appendChild(card);
             });
+
+            renderPagination(filtered.length);
         }
 
         renderSkills();
 
         if (searchInput) {
-            searchInput.addEventListener('input', (e) => renderSkills(e.target.value));
+            searchInput.addEventListener('input', () => { currentPage = 1; renderSkills(); });
         }
 
     } catch (err) {
@@ -1668,9 +2313,13 @@ async function viewSkill(filePath, title) {
     const pathInput = document.getElementById('skillModalPath');
 
     if (modalTitle) {
+        const isAdmin = window.__USER__ && window.__USER__.role === 'admin';
         modalTitle.innerHTML = `
             <span>${title || 'Sin Título'}</span>
-            <button id="btnDiscussSkill" class="btn-icon" style="margin-left:auto;font-size:1.2rem;" title="Discutir con IA">💬</button>
+            <div class="skill-modal-actions">
+                ${isAdmin ? '<button id="btnEditSkill" class="skill-modal-btn" title="Editar skill">✏️</button>' : ''}
+                <button id="btnDiscussSkill" class="skill-modal-btn" title="Discutir con IA">💬</button>
+            </div>
         `;
     }
     if (pathInput) pathInput.value = filePath;
@@ -1692,10 +2341,26 @@ async function viewSkill(filePath, title) {
         modalContent.innerHTML = '';
         modalContent.appendChild(pre);
 
+        // Parse sections from markdown for comment section selector
+        const sectionSelect = document.getElementById('skillCommentSection');
+        if (sectionSelect) {
+            const sections = (data.content || '').split('\n')
+                .filter(line => /^#{1,3}\s+/.test(line))
+                .map(line => line.replace(/^#+\s+/, '').trim());
+            sectionSelect.innerHTML = '<option value="">General (todo el skill)</option>' +
+                sections.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
         // Attach Discuss Handler
         const btnDiscuss = document.getElementById('btnDiscussSkill');
         if (btnDiscuss) {
             btnDiscuss.onclick = () => discussSkill(title, data.content);
+        }
+
+        // Attach Edit Handler (admin only)
+        const btnEdit = document.getElementById('btnEditSkill');
+        if (btnEdit) {
+            btnEdit.onclick = () => enterSkillEditMode(filePath, title, data.content);
         }
 
         // Load comments and documents for this skill
@@ -1708,12 +2373,81 @@ async function viewSkill(filePath, title) {
     }
 }
 
+// ─── Skill Editing (Admin Only) ──────────────────────────────────────────────
+
+function enterSkillEditMode(filePath, title, currentContent) {
+    const modalContent = document.getElementById('skillModalContent');
+    if (!modalContent) return;
+
+    switchSkillTab('content');
+
+    modalContent.innerHTML = `
+        <textarea id="skillEditTextarea" style="
+            width:100%;height:calc(100% - 50px);min-height:400px;
+            background:#0a1628;color:#d1d5db;border:1px solid #2a3a52;
+            border-radius:8px;padding:12px;font-family:monospace;
+            font-size:0.88rem;line-height:1.6;resize:vertical;outline:none;
+        ">${escapeHtml(currentContent)}</textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+            <button id="btnCancelEdit" class="btn btn-sm" style="background:#555;box-shadow:none;">Cancelar</button>
+            <button id="btnSaveSkill" class="btn btn-sm">Guardar y Publicar</button>
+        </div>
+    `;
+
+    const textarea = document.getElementById('skillEditTextarea');
+    if (textarea) textarea.focus();
+
+    document.getElementById('btnCancelEdit').onclick = () => viewSkill(filePath, title);
+    document.getElementById('btnSaveSkill').onclick = () => saveSkillContent(filePath, title);
+}
+
+async function saveSkillContent(filePath, title) {
+    const textarea = document.getElementById('skillEditTextarea');
+    const btnSave = document.getElementById('btnSaveSkill');
+    if (!textarea || !btnSave) return;
+
+    const content = textarea.value;
+    const originalText = btnSave.innerText;
+    btnSave.innerText = 'Guardando...';
+    btnSave.disabled = true;
+
+    try {
+        const res = await fetch('/api/skills/content', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: filePath, content })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || 'Error desconocido');
+        }
+
+        if (data.warning) {
+            showToast(data.warning, 'info');
+        } else {
+            showToast(data.message || 'Skill guardado', 'success');
+        }
+
+        viewSkill(filePath, title);
+
+    } catch (err) {
+        showToast('Error al guardar: ' + err.message, 'error');
+        btnSave.innerText = originalText;
+        btnSave.disabled = false;
+    }
+}
+
+window.enterSkillEditMode = enterSkillEditMode;
+window.saveSkillContent = saveSkillContent;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // UTILS & MODALS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Custom Modal Logic (Promise-based)
-function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = false }) {
+function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = false, html = false, onOpen = null }) {
     return new Promise((resolve) => {
         const modal = document.getElementById('customModal');
         const titleEl = document.getElementById('customModalTitle');
@@ -1729,7 +2463,7 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         }
 
         titleEl.textContent = title;
-        msgEl.textContent = message;
+        if (html) { msgEl.innerHTML = message; } else { msgEl.textContent = message; }
         if (input) input.value = '';
 
         // Setup Input
@@ -1744,6 +2478,7 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         }
 
         modal.style.display = 'flex';
+        if (onOpen) setTimeout(() => onOpen(), 0);
 
         // Handlers
         const close = (val) => {
@@ -2419,8 +3154,9 @@ function openFixModal(ideaId, aiType, aiCategory, paraType, assignedTo, priority
     if (priority) document.getElementById('fixPriority').value = priority;
 
     // Load users into the assigned_to dropdown
-    fetch('/api/users').then(r => r.json()).then(users => {
+    fetch('/api/users').then(r => { if (!r.ok) throw new Error('Failed'); return r.json(); }).then(users => {
         const sel = document.getElementById('fixAssignedTo');
+        if (!sel) return;
         sel.innerHTML = '<option value="">— Sin cambio —</option>';
         users.forEach(u => {
             const opt = document.createElement('option');
@@ -2429,7 +3165,7 @@ function openFixModal(ideaId, aiType, aiCategory, paraType, assignedTo, priority
             if (u.username === assignedTo) opt.selected = true;
             sel.appendChild(opt);
         });
-    });
+    }).catch(err => console.error('Error loading users:', err));
 
     document.getElementById('fixModal').style.display = 'flex';
 }
@@ -2655,10 +3391,9 @@ async function loadTeamSummary() {
 
         strip.innerHTML = summary.map(u => {
             const pctColor = u.completion_pct >= 80 ? '#10b981' : u.completion_pct >= 50 ? '#f59e0b' : '#ef4444';
-            const initial = u.username.charAt(0).toUpperCase();
             return `
-                <div class="team-member-card" onclick="loadChecklist('${u.username}')">
-                    <div class="team-member-avatar" style="background:${pctColor}20;color:${pctColor};border:2px solid ${pctColor};">${initial}</div>
+                <div class="team-member-card" onclick="loadChecklist('${escapeHtml(u.username)}')">
+                    <div class="team-member-avatar" style="border:2px solid ${pctColor};">${_avatarHtml(u.avatar, u.username, 40)}</div>
                     <div class="team-member-info">
                         <span class="team-member-name">${u.username}</span>
                         <span class="team-member-dept">${u.department || u.role}</span>
@@ -2835,7 +3570,7 @@ async function loadFullReport() {
             return `
                 <div class="report-consultant-card">
                     <div class="report-card-header">
-                        <div class="report-avatar" style="border-color:${pctColor};">${u.username.charAt(0).toUpperCase()}</div>
+                        <div class="report-avatar" style="border-color:${pctColor};">${_avatarHtml(u.avatar, u.username, 48)}</div>
                         <div class="report-user-info">
                             <h3>${u.username}</h3>
                             <span>${u.department || u.role}</span>
@@ -2962,6 +3697,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inboxPrev) inboxPrev.addEventListener('click', () => { if (currentInboxPage > 1) loadInboxLog(currentInboxPage - 1); });
     if (inboxNext) inboxNext.addEventListener('click', () => loadInboxLog(currentInboxPage + 1));
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OLLAMA STATUS INDICATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+async function checkOllamaStatus() {
+    const dot = document.getElementById('ollamaDot');
+    const label = document.getElementById('ollamaLabel');
+    if (!dot || !label) return;
+    try {
+        const res = await fetch('/api/ollama/status');
+        const data = await res.json();
+        if (data.online && data.hasModel) {
+            dot.className = 'ollama-dot online';
+            label.textContent = `Ollama: ${data.model}`;
+        } else if (data.online) {
+            dot.className = 'ollama-dot offline';
+            label.textContent = `Ollama: sin modelo`;
+        } else {
+            dot.className = 'ollama-dot offline';
+            label.textContent = 'Ollama: offline';
+        }
+    } catch {
+        dot.className = 'ollama-dot offline';
+        label.textContent = 'Ollama: offline';
+    }
+}
+checkOllamaStatus();
+setInterval(checkOllamaStatus, 60000);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL SEARCH (Cross-section)
@@ -3126,6 +3889,15 @@ async function checkNotifications() {
                         <span class="notif-icon">📥</span>
                         <span class="notif-text">Sin procesar: ${escapeHtml((s.text || '').substring(0, 50))}</span>
                         <button class="notif-dismiss" onclick="dismissNotification(event, ${s.id}, 'stale_capture')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
+            }
+            if (data.meeting_ready && data.meeting_ready.length > 0) {
+                html += data.meeting_ready.map(m =>
+                    `<div class="notification-item info" onclick="switchSection('reuniones')" style="cursor:pointer;">
+                        <span class="notif-icon">📅</span>
+                        <span class="notif-text">Reunion: ${escapeHtml((m.titulo || '').substring(0, 50))}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${m.id}, 'meeting_ready')" title="Descartar">✕</button>
                     </div>`
                 ).join('');
             }
@@ -4042,10 +4814,10 @@ async function loadGtdBoard(groupBy = 'context') {
         // Effectiveness summary
         if (effContainer) {
             effContainer.innerHTML = `
-                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.activeProjects || 0}</span><span class="gtd-eff-label">Proyectos Activos</span></div>
-                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.nextActions?.length || 0}</span><span class="gtd-eff-label">Proximas Acciones</span></div>
-                <div class="gtd-eff-card"><span class="gtd-eff-number">${ideas.length}</span><span class="gtd-eff-label">Tareas Pendientes</span></div>
-                <div class="gtd-eff-card"><span class="gtd-eff-number">${eff.byAssignee?.length || 0}</span><span class="gtd-eff-label">Consultores Activos</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-icon">📂</span><span class="gtd-eff-number">${eff.activeProjects || 0}</span><span class="gtd-eff-label">Proyectos Activos</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-icon">🎯</span><span class="gtd-eff-number">${eff.nextActions?.length || 0}</span><span class="gtd-eff-label">Proximas Acciones</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-icon">📋</span><span class="gtd-eff-number">${ideas.length}</span><span class="gtd-eff-label">Tareas Pendientes</span></div>
+                <div class="gtd-eff-card"><span class="gtd-eff-icon">👥</span><span class="gtd-eff-number">${eff.byAssignee?.length || 0}</span><span class="gtd-eff-label">Consultores Activos</span></div>
             `;
         }
 
@@ -4067,8 +4839,16 @@ async function loadGtdBoard(groupBy = 'context') {
             labelMap = { comprometida: '🔒 Comprometida', esta_semana: '📅 Esta Semana', algun_dia: '💭 Algun Dia', tal_vez: '🤷 Tal Vez' };
         }
 
+        const fallbackLabels = {
+            context: '📍 Sin Contexto',
+            energy: '⚡ Sin Energia',
+            assignee: '👤 Sin Persona',
+            compromiso: '📌 Sin Compromiso'
+        };
+        const fallbackLabel = fallbackLabels[groupBy] || 'Sin Asignar';
+
         ideas.forEach(idea => {
-            const key = idea[groupField] || 'Sin Asignar';
+            const key = idea[groupField] || '_sin_asignar';
             if (!groups[key]) groups[key] = [];
             groups[key].push(idea);
         });
@@ -4079,28 +4859,33 @@ async function loadGtdBoard(groupBy = 'context') {
         }
 
         container.innerHTML = Object.entries(groups).map(([key, items]) => {
-            const label = (labelMap && labelMap[key]) || `👤 ${key}`;
-            const itemsHtml = items.slice(0, 10).map(idea => {
+            const label = key === '_sin_asignar' ? fallbackLabel : ((labelMap && labelMap[key]) || `👤 ${key}`);
+            const itemsHtml = items.slice(0, 15).map(idea => {
                 const isNext = idea.proxima_accion == 1;
-                return `<div class="gtd-board-item ${isNext ? 'next-action' : ''}" onclick="viewSubtasks('${idea.parent_idea_id || idea.id}')">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="checkbox" onclick="event.stopPropagation();completeIdea('${idea.id}')" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;">
-                        <span style="flex:1;font-size:0.82rem;">${isNext ? '🎯 ' : ''}${escapeHtml((idea.ai_summary || idea.text || '').substring(0, 80))}</span>
+                const isAlta = idea.priority === 'alta';
+                const extraClass = isNext ? 'next-action' : (isAlta ? 'priority-alta' : '');
+                const badges = [];
+                if (idea.assigned_to) badges.push(`<span class="gtd-mini-badge">👤 ${escapeHtml(idea.assigned_to)}</span>`);
+                if (idea.estimated_time) badges.push(`<span class="gtd-mini-badge badge-time">⏱ ${escapeHtml(idea.estimated_time)}</span>`);
+                if (isAlta) badges.push(`<span class="gtd-mini-badge badge-alta">ALTA</span>`);
+
+                return `<div class="gtd-board-item ${extraClass}" onclick="viewSubtasks('${idea.parent_idea_id || idea.id}')">
+                    <div class="gtd-item-row">
+                        <input type="checkbox" class="gtd-item-checkbox" onclick="event.stopPropagation();completeIdea('${idea.id}')">
+                        <span class="gtd-item-text">${isNext ? '🎯 ' : ''}${escapeHtml((idea.ai_summary || idea.text || '').substring(0, 100))}</span>
                     </div>
-                    <div style="display:flex;gap:4px;margin-top:4px;margin-left:24px;">
-                        ${idea.assigned_to ? `<span class="gtd-mini-badge">👤 ${idea.assigned_to}</span>` : ''}
-                        ${idea.estimated_time ? `<span class="gtd-mini-badge">⏱ ${idea.estimated_time}</span>` : ''}
-                        ${idea.priority === 'alta' ? `<span class="gtd-mini-badge" style="background:#ef4444;color:white;">ALTA</span>` : ''}
-                    </div>
+                    ${badges.length ? `<div class="gtd-item-badges">${badges.join('')}</div>` : ''}
                 </div>`;
             }).join('');
+
+            const moreCount = items.length > 15 ? `<div class="gtd-item-badges" style="justify-content:center;padding:4px;"><span class="gtd-mini-badge">+${items.length - 15} mas</span></div>` : '';
 
             return `<div class="gtd-board-column">
                 <div class="gtd-board-column-header">
                     <span>${label}</span>
                     <span class="gtd-board-count">${items.length}</span>
                 </div>
-                <div class="gtd-board-column-body">${itemsHtml}</div>
+                <div class="gtd-board-column-body">${itemsHtml}${moreCount}</div>
             </div>`;
         }).join('');
 
@@ -4276,7 +5061,7 @@ function renderOpenClawAgents(agents) {
     if (!container) return;
 
     if (!agents || agents.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">OpenClaw no ha procesado ideas todavia. Ejecuta <code>python main.py</code> desde la carpeta openclaw.</p>';
+        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">Los agentes aun no han procesado ideas. Asigna ideas a agentes desde la seccion Captura o ejecuta el pipeline OpenClaw.</p>';
         return;
     }
 
@@ -4364,6 +5149,12 @@ window.loadOpenClawStatus = loadOpenClawStatus;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let _reviewData = null;
+let _reviewSkillsCache = [];
+let _reviewSkillCommentMap = {};
+let _revSkillCategory = 'all';
+let _revSkillPage = 1;
+const REV_SKILLS_PER_PAGE = 15;
+let _auditTimeline = [];
 
 async function loadReviewQueue() {
     try {
@@ -4371,54 +5162,58 @@ async function loadReviewQueue() {
             fetch('/api/review/queue'),
             fetch('/api/skills')
         ]);
+
+        if (!reviewRes.ok || !skillsRes.ok) {
+            const errMsg = !reviewRes.ok ? `Review API: ${reviewRes.status}` : `Skills API: ${skillsRes.status}`;
+            throw new Error(errMsg);
+        }
+
         const reviewData = await reviewRes.json();
-        const skills = await skillsRes.json();
+        const skills = Array.isArray(skillsRes) ? skillsRes : await skillsRes.json();
         _reviewData = reviewData;
 
         // Stats
         const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
-        el('revStatSkills', skills.length);
-        el('revStatPending', reviewData.stats.pending_review);
-        el('revStatApproved', reviewData.stats.approved);
-        el('revStatChanges', reviewData.stats.needs_changes);
+        const stats = reviewData.stats || {};
+        el('revStatOutputs', stats.total_outputs || 0);
+        el('revStatPending', stats.pending_review || 0);
+        el('revStatApproved', stats.approved || 0);
+        el('revStatChanges', stats.needs_changes || 0);
 
-        // Build skill comment map
-        const skillCommentMap = {};
-        (reviewData.skill_comments || []).forEach(sc => { skillCommentMap[sc.target_id] = sc.comment_count; });
+        // Output filter chip counts
+        el('revChipAll', stats.total_outputs || 0);
+        el('revChipPending', stats.pending_review || 0);
+        el('revChipApproved', stats.approved || 0);
+        el('revChipChanges', stats.needs_changes || 0);
+
+        // Build skill comment map and cache
+        _reviewSkillCommentMap = {};
+        (reviewData.skill_comments || []).forEach(sc => { _reviewSkillCommentMap[sc.target_id] = sc.comment_count; });
+        _reviewSkillsCache = Array.isArray(skills) ? skills : [];
+
+        // Skill category counts
+        const sCounts = { all: _reviewSkillsCache.length, core: 0, customizable: 0, integration: 0 };
+        _reviewSkillsCache.forEach(s => { if (sCounts[s.category] !== undefined) sCounts[s.category]++; });
+        el('revSkillAll', sCounts.all);
+        el('revSkillCore', sCounts.core);
+        el('revSkillCustom', sCounts.customizable);
+        el('revSkillInteg', sCounts.integration);
 
         // Render skills list
-        const skillsList = document.getElementById('reviewSkillsList');
-        if (skillsList) {
-            if (skills.length === 0) {
-                skillsList.innerHTML = '<div class="empty-state">No hay skills disponibles.</div>';
-            } else {
-                skillsList.innerHTML = skills.map(s => {
-                    let displayName = s.name.replace(/\.md$/i, '').replace(/-/g, ' ');
-                    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-                    const commentCount = skillCommentMap[s.path] || 0;
-                    const badge = commentCount > 0 ? `<span class="review-badge reviewed">${commentCount} comentario${commentCount > 1 ? 's' : ''}</span>` : '';
-                    return `<div class="review-item" onclick="viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">
-                        <div class="review-item-info">
-                            <span class="review-item-icon">${s.category === 'core' ? '🧠' : '🛠️'}</span>
-                            <div>
-                                <strong>${displayName}</strong>
-                                <span class="review-item-meta">${s.category}</span>
-                            </div>
-                        </div>
-                        <div class="review-item-actions">
-                            ${badge}
-                            <button class="btn btn-sm" onclick="event.stopPropagation(); viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">Revisar</button>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
+        _revSkillCategory = 'all';
+        _revSkillPage = 1;
+        renderReviewSkills();
 
         // Render outputs list
-        renderReviewOutputs(reviewData.outputs, reviewData.output_comments);
+        renderReviewOutputs(reviewData.outputs || [], reviewData.output_comments || []);
 
     } catch (err) {
         console.error('loadReviewQueue error:', err);
+        // Show error in UI instead of infinite spinner
+        const skillsList = document.getElementById('reviewSkillsList');
+        if (skillsList) skillsList.innerHTML = `<div class="empty-state">Error cargando skills: ${err.message}</div>`;
+        const outputsList = document.getElementById('reviewOutputsList');
+        if (outputsList) outputsList.innerHTML = `<div class="empty-state">Error cargando outputs: ${err.message}</div>`;
     }
 }
 
@@ -4458,9 +5253,12 @@ function renderReviewOutputs(outputs, outputComments) {
     }).join('');
 }
 
-function filterReviewOutputs() {
+function filterReviewOutputs(filter) {
     if (!_reviewData) return;
-    const filter = document.getElementById('reviewOutputFilter')?.value || 'all';
+    // Update active chip
+    document.querySelectorAll('#reviewOutputFilters .skill-filter-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.filter === filter);
+    });
     let filtered = _reviewData.outputs;
     if (filter === 'pending') filtered = filtered.filter(o => !o.review_status);
     else if (filter === 'approved') filtered = filtered.filter(o => o.review_status === 'approved');
@@ -4504,10 +5302,21 @@ async function loadSkillComments(skillPath) {
     }
 }
 
+function _docIcon(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf') return '📕';
+    if (ext === 'docx') return '📘';
+    if (ext === 'md') return '📝';
+    if (ext === 'txt') return '📄';
+    return '📎';
+}
+
 async function loadSkillDocuments(skillPath) {
     const container = document.getElementById('skillDocsList');
     if (!container) return;
     container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    const isAdminOrMgr = window.__USER__ && ['admin', 'manager'].includes(window.__USER__.role);
 
     try {
         const res = await fetch(`/api/skill-documents?skill=${encodeURIComponent(skillPath)}`);
@@ -4518,35 +5327,113 @@ async function loadSkillDocuments(skillPath) {
             return;
         }
 
-        container.innerHTML = docs.map(d => `
-            <div class="skill-doc-item">
-                <span class="skill-doc-icon">📎</span>
+        container.innerHTML = docs.map(d => {
+            const icon = _docIcon(d.document_name);
+            const downloadBtn = d.file_path
+                ? `<a href="/api/skill-documents/download/${d.id}" class="btn-icon-sm" title="Descargar">⬇️</a>`
+                : '';
+            const linkBtn = d.document_url
+                ? `<a href="${d.document_url}" target="_blank" class="btn-icon-sm" title="Abrir enlace">🔗</a>`
+                : '';
+            const deleteBtn = isAdminOrMgr
+                ? `<button class="btn-icon-sm" onclick="event.stopPropagation();deleteSkillDocument(${d.id})" title="Eliminar">🗑️</button>`
+                : '';
+            const date = d.created_at ? new Date(d.created_at).toLocaleDateString('es-ES') : '';
+
+            return `<div class="skill-doc-item">
+                <span class="skill-doc-icon">${icon}</span>
                 <div class="skill-doc-info">
                     <strong>${d.document_name}</strong>
                     ${d.description ? `<p>${d.description}</p>` : ''}
-                    ${d.document_url ? `<a href="${d.document_url}" target="_blank">Abrir documento</a>` : ''}
                 </div>
-                <span class="skill-doc-meta">${d.created_by || ''}</span>
-            </div>
-        `).join('');
+                <div class="skill-doc-meta">
+                    <span>${d.created_by || ''}</span>
+                    <span>${date}</span>
+                    ${downloadBtn}${linkBtn}${deleteBtn}
+                </div>
+            </div>`;
+        }).join('');
     } catch (err) {
         container.innerHTML = '<div class="error-msg">Error al cargar documentos</div>';
     }
 }
 
+function toggleSkillDocUpload() {
+    const form = document.getElementById('skillDocUploadForm');
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function uploadSkillDocument() {
+    const skillPath = document.getElementById('skillModalPath')?.value;
+    const fileInput = document.getElementById('skillDocFile');
+    const descInput = document.getElementById('skillDocDescription');
+    const statusEl = document.getElementById('skillDocUploadStatus');
+
+    if (!skillPath || !fileInput?.files?.length) {
+        if (statusEl) statusEl.textContent = 'Selecciona un archivo';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('skill_path', skillPath);
+    if (descInput?.value.trim()) formData.append('description', descInput.value.trim());
+
+    if (statusEl) statusEl.textContent = 'Subiendo...';
+
+    try {
+        const res = await fetch('/api/skill-documents/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Error al subir');
+
+        showToast(`Documento "${data.document_name}" subido`, 'success');
+        fileInput.value = '';
+        if (descInput) descInput.value = '';
+        if (statusEl) statusEl.textContent = '';
+        document.getElementById('skillDocUploadForm').style.display = 'none';
+        loadSkillDocuments(skillPath);
+    } catch (err) {
+        if (statusEl) statusEl.textContent = err.message;
+        showToast('Error: ' + err.message, 'error');
+    }
+}
+
+async function deleteSkillDocument(docId) {
+    if (!confirm('Eliminar este documento?')) return;
+    const skillPath = document.getElementById('skillModalPath')?.value;
+
+    try {
+        const res = await fetch(`/api/skill-documents/${docId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Documento eliminado', 'success');
+        if (skillPath) loadSkillDocuments(skillPath);
+    } catch (err) {
+        showToast('Error al eliminar documento', 'error');
+    }
+}
+
+window.toggleSkillDocUpload = toggleSkillDocUpload;
+window.uploadSkillDocument = uploadSkillDocument;
+window.deleteSkillDocument = deleteSkillDocument;
+
 async function submitSkillComment() {
     const skillPath = document.getElementById('skillModalPath')?.value;
     const input = document.getElementById('skillCommentInput');
+    const sectionSelect = document.getElementById('skillCommentSection');
     if (!skillPath || !input || !input.value.trim()) return;
+
+    const section = sectionSelect?.value || null;
 
     try {
         const res = await fetch('/api/comments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_type: 'skill', target_id: skillPath, content: input.value.trim() })
+            body: JSON.stringify({ target_type: 'skill', target_id: skillPath, content: input.value.trim(), section })
         });
         if (!res.ok) throw new Error('Failed');
         input.value = '';
+        if (sectionSelect) sectionSelect.value = '';
         loadSkillComments(skillPath);
         showToast('Comentario enviado', 'success');
     } catch (err) {
@@ -4633,15 +5520,20 @@ function renderCommentsList(container, comments, targetType, targetId) {
     container.innerHTML = comments.map(c => {
         const date = new Date(c.created_at).toLocaleString('es-ES');
         const canDelete = window.__USER__ && (window.__USER__.username === c.username || window.__USER__.role === 'admin');
-        const deleteBtn = canDelete ? `<button class="btn-icon-danger" onclick="event.stopPropagation(); deleteComment(${c.id}, '${targetType}', '${targetId.replace(/'/g, "\\'")}')" title="Eliminar">🗑️</button>` : '';
+        const safeTargetId = escapeHtml(String(targetId));
+        const deleteBtn = canDelete ? `<button class="btn-icon-danger" data-comment-id="${c.id}" data-target-type="${escapeHtml(targetType)}" data-target-id="${safeTargetId}" onclick="event.stopPropagation(); deleteComment(this.dataset.commentId, this.dataset.targetType, this.dataset.targetId)" title="Eliminar">🗑️</button>` : '';
+        const sectionBadge = c.section ? `<span class="comment-section-badge">${escapeHtml(c.section)}</span>` : '';
+        const avatarHtml = _avatarHtml(c.avatar, c.username, 28);
         return `<div class="comment-item">
             <div class="comment-header">
-                <strong>${c.username}</strong>
-                <span class="comment-role">${c.role || ''}</span>
+                <span class="comment-avatar">${avatarHtml}</span>
+                <strong>${escapeHtml(c.username)}</strong>
+                <span class="comment-role">${escapeHtml(c.role || '')}</span>
+                ${sectionBadge}
                 <span class="comment-date">${date}</span>
                 ${deleteBtn}
             </div>
-            <div class="comment-body">${c.content}</div>
+            <div class="comment-body">${escapeHtml(c.content)}</div>
         </div>`;
     }).join('');
 }
@@ -4696,6 +5588,90 @@ function initConsultorUI() {
     }
 }
 
+// ─── Audit Trail ────────────────────────────────────────────────────────────
+
+async function loadAuditTrail() {
+    const container = document.getElementById('auditTrailList');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
+
+    try {
+        const res = await fetch('/api/review/audit');
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+
+        _auditTimeline = [];
+
+        (data.review_actions || []).forEach(r => {
+            _auditTimeline.push({
+                date: r.reviewed_at,
+                type: 'review',
+                icon: r.review_status === 'approved' ? '✅' : '🔄',
+                user: r.reviewed_by,
+                action: r.review_status === 'approved' ? 'Aprobado' : 'Requiere cambios',
+                detail: (r.ai_summary || r.text || '').substring(0, 80),
+                agent: r.suggested_agent || r.executed_by,
+                ideaId: r.id
+            });
+        });
+
+        (data.comments || []).forEach(c => {
+            _auditTimeline.push({
+                date: c.created_at,
+                type: 'comment',
+                icon: '💬',
+                user: c.username,
+                action: `Comentario en ${c.target_type}`,
+                detail: c.content.substring(0, 80),
+                section: c.section,
+                targetId: c.target_id
+            });
+        });
+
+        _auditTimeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+        renderAuditTimeline('all');
+
+    } catch (err) {
+        console.error('Audit trail error:', err);
+        container.innerHTML = `<div class="empty-state">Error al cargar auditoria: ${err.message}</div>`;
+    }
+}
+
+function renderAuditTimeline(filter) {
+    const container = document.getElementById('auditTrailList');
+    if (!container) return;
+
+    const filtered = filter === 'all' ? _auditTimeline : _auditTimeline.filter(t => t.type === filter);
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:12px;">No hay actividad de auditoria registrada.</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(t => {
+        const date = new Date(t.date).toLocaleString('es-ES');
+        const sectionTag = t.section ? `<span class="comment-section-badge">${t.section}</span>` : '';
+        const agentTag = t.agent ? `<span class="comment-role">${t.agent}</span>` : '';
+        return `<div class="audit-item">
+            <span class="audit-icon">${t.icon}</span>
+            <div class="audit-info">
+                <div class="audit-header">
+                    <strong>${t.user}</strong> ${t.action} ${agentTag} ${sectionTag}
+                </div>
+                <div class="audit-detail">${t.detail}${t.detail.length >= 80 ? '...' : ''}</div>
+            </div>
+            <span class="audit-date">${date}</span>
+        </div>`;
+    }).join('');
+}
+
+function filterAuditTrail(filter) {
+    document.querySelectorAll('#auditFilters .skill-filter-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.audit === filter);
+    });
+    renderAuditTimeline(filter);
+}
+
 // Expose functions globally
 window.loadReviewQueue = loadReviewQueue;
 window.filterReviewOutputs = filterReviewOutputs;
@@ -4705,4 +5681,1708 @@ window.reviewApprove = reviewApprove;
 window.reviewNeedsChanges = reviewNeedsChanges;
 window.submitOutputComment = submitOutputComment;
 window.deleteComment = deleteComment;
+window.loadAuditTrail = loadAuditTrail;
+window.filterAuditTrail = filterAuditTrail;
+window.filterReviewSkills = filterReviewSkills;
+window.filterReviewSkillCategory = filterReviewSkillCategory;
+window._revSkillsGoPage = _revSkillsGoPage;
+window.loadAgentsSection = loadAgentsSection;
+window.seedDemoData = seedDemoData;
+
+// ─── Render Review Skills (with category filter + pagination) ────────────────
+
+function _getFilteredRevSkills() {
+    const searchVal = (document.getElementById('reviewSkillSearch')?.value || '').toLowerCase().trim();
+    return _reviewSkillsCache.filter(s => {
+        const matchCat = _revSkillCategory === 'all' || s.category === _revSkillCategory;
+        const name = s.name.replace(/\.md$/i, '').replace(/-/g, ' ').toLowerCase();
+        const matchSearch = !searchVal || name.includes(searchVal) || (s.category || '').toLowerCase().includes(searchVal);
+        return matchCat && matchSearch;
+    });
+}
+
+function renderReviewSkills() {
+    const skillsList = document.getElementById('reviewSkillsList');
+    const pagination = document.getElementById('reviewSkillsPagination');
+    if (!skillsList) return;
+
+    const filtered = _getFilteredRevSkills();
+
+    if (filtered.length === 0) {
+        skillsList.innerHTML = '<div class="empty-state">No se encontraron skills.</div>';
+        if (pagination) pagination.innerHTML = '';
+        return;
+    }
+
+    const totalPages = Math.ceil(filtered.length / REV_SKILLS_PER_PAGE);
+    if (_revSkillPage > totalPages) _revSkillPage = totalPages;
+    const start = (_revSkillPage - 1) * REV_SKILLS_PER_PAGE;
+    const pageItems = filtered.slice(start, start + REV_SKILLS_PER_PAGE);
+
+    skillsList.innerHTML = pageItems.map(s => {
+        let displayName = s.name.replace(/\.md$/i, '').replace(/-/g, ' ');
+        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+        const commentCount = _reviewSkillCommentMap[s.path] || 0;
+        const badge = commentCount > 0 ? `<span class="review-badge reviewed">${commentCount} comentario${commentCount > 1 ? 's' : ''}</span>` : '';
+        const icon = s.category === 'core' ? '🧠' : s.category === 'integration' ? '🔗' : '🛠️';
+        return `<div class="review-item" onclick="viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">
+            <div class="review-item-info">
+                <span class="review-item-icon">${icon}</span>
+                <div>
+                    <strong>${displayName}</strong>
+                    <span class="review-item-meta">${s.category}</span>
+                </div>
+            </div>
+            <div class="review-item-actions">
+                ${badge}
+                <button class="btn btn-sm" onclick="event.stopPropagation(); viewSkill('${s.path}', '${displayName.replace(/'/g, "\\'")}')">Revisar</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Pagination
+    if (pagination) {
+        if (totalPages <= 1) { pagination.innerHTML = ''; return; }
+        let html = `<button ${_revSkillPage <= 1 ? 'disabled' : ''} onclick="_revSkillsGoPage(${_revSkillPage - 1})">&#8249;</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+            html += `<button class="${i === _revSkillPage ? 'active' : ''}" onclick="_revSkillsGoPage(${i})">${i}</button>`;
+        }
+        html += `<button ${_revSkillPage >= totalPages ? 'disabled' : ''} onclick="_revSkillsGoPage(${_revSkillPage + 1})">&#8250;</button>`;
+        html += `<span class="page-info">${filtered.length} skills</span>`;
+        pagination.innerHTML = html;
+    }
+}
+
+function _revSkillsGoPage(page) {
+    _revSkillPage = page;
+    renderReviewSkills();
+}
+
+function filterReviewSkillCategory(cat) {
+    document.querySelectorAll('#reviewSkillFilters .skill-filter-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.category === cat);
+    });
+    _revSkillCategory = cat;
+    _revSkillPage = 1;
+    renderReviewSkills();
+}
+
+function filterReviewSkills() {
+    _revSkillPage = 1;
+    renderReviewSkills();
+}
+
+window.navigateToSection = navigateToSection;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AGENTES SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const BUSINESS_AGENT_ICONS = {
+    staffing: '👥', training: '📚', finance: '💰', compliance: '📋', gtd: '🎯'
+};
+
+async function loadAgentsSection() {
+    try {
+        const res = await fetch('/api/agents');
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+
+        // Business agents
+        const bizGrid = document.getElementById('businessAgentsGrid');
+        if (bizGrid && data.business) {
+            bizGrid.innerHTML = data.business.map(a => {
+                const icon = BUSINESS_AGENT_ICONS[a.key] || '🤖';
+                const skillBadge = a.skillExists
+                    ? `<span class="agent-skill-badge" onclick="event.stopPropagation(); viewSkill('${a.skillPath}', '${a.name}')" title="Ver skill">📄 ${a.skillFile}</span>`
+                    : `<span class="agent-skill-badge missing">📄 ${a.skillFile} (no encontrado)</span>`;
+                return `<div class="agent-card">
+                    <div class="agent-card-header">
+                        <span class="agent-card-icon">${icon}</span>
+                        <div class="agent-card-info">
+                            <strong>${a.name}</strong>
+                            <span class="agent-card-role">${a.role}</span>
+                        </div>
+                    </div>
+                    <div class="agent-card-footer">${skillBadge}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // Execution agents
+        const execGrid = document.getElementById('executionAgentsGrid');
+        if (execGrid && data.execution) {
+            execGrid.innerHTML = data.execution.map(a => {
+                const isActive = a.last_active && (Date.now() - new Date(a.last_active + (a.last_active.includes('Z') ? '' : 'Z')).getTime()) < 300000;
+                const statusDot = isActive ? '<span style="color:#10b981;">●</span>' : '<span style="color:#6b7280;">●</span>';
+                const lastActive = a.last_active ? timeAgo(a.last_active) : 'Sin actividad';
+                return `<div class="agent-card" style="border-left:3px solid ${a.color};">
+                    <div class="agent-card-header">
+                        <span class="agent-card-icon">${a.icon}</span>
+                        <div class="agent-card-info">
+                            <strong>${a.name}</strong>
+                            <span class="agent-card-role">${a.role}</span>
+                        </div>
+                    </div>
+                    <div class="agent-card-stats">
+                        <div class="agent-stat"><span class="agent-stat-num">${a.total_processed}</span><span>Procesados</span></div>
+                        <div class="agent-stat"><span class="agent-stat-num" style="color:#10b981;">${a.completed}</span><span>Completados</span></div>
+                        <div class="agent-stat"><span class="agent-stat-num" style="color:#ef4444;">${a.failed}</span><span>Fallidos</span></div>
+                    </div>
+                    <div class="agent-card-footer">
+                        ${statusDot} <span style="font-size:0.75rem;color:var(--text-muted);">${lastActive}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    } catch (err) {
+        console.error('Agents section error:', err);
+        const bizGrid = document.getElementById('businessAgentsGrid');
+        if (bizGrid) bizGrid.innerHTML = '<div class="empty-state">Error cargando agentes</div>';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEED DATA (Admin)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function seedDemoData() {
+    const btn = document.getElementById('btnSeedData');
+    if (!btn) return;
+    if (!confirm('Esto insertará proyectos e ideas de ejemplo en la base de datos. ¿Continuar?')) return;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Sembrando...';
+
+    try {
+        const res = await fetch('/api/admin/seed', { method: 'POST' });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        showToast(`Datos sembrados: ${data.seeded.projects} proyectos, ${data.seeded.ideas} ideas, ${data.seeded.waiting_for} delegaciones`, 'success');
+        btn.textContent = '✅ Datos sembrados';
+
+        // Refresh current section data
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        showToast('Error al sembrar datos: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '🌱 Sembrar datos de ejemplo';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REUNIONES (Meetings Intelligence)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _reunionesPage = 1;
+const REUNIONES_LIMIT = 20;
+
+async function loadReuniones() {
+    // Load email recipients panel if admin
+    if (window.__USER__ && window.__USER__.role === 'admin') loadEmailRecipients();
+    try {
+        // Load stats
+        const statsRes = await fetch('/api/reuniones/stats/summary');
+        if (statsRes.ok) {
+            const stats = await statsRes.json();
+            const s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+            s('reunStatTotal', stats.total_reuniones);
+            s('reunStatWeek', stats.this_week);
+            s('reunStatCompromisos', stats.total_compromisos);
+            s('reunStatWithCompromisos', stats.total_with_compromisos);
+        }
+
+        // Build query
+        const params = new URLSearchParams({ page: _reunionesPage, limit: REUNIONES_LIMIT });
+        const search = document.getElementById('reunionesSearch');
+        const from = document.getElementById('reunionesFrom');
+        const to = document.getElementById('reunionesTo');
+        const participant = document.getElementById('reunionesParticipant');
+        if (search && search.value) params.set('search', search.value);
+        if (from && from.value) params.set('from', from.value);
+        if (to && to.value) params.set('to', to.value);
+        if (participant && participant.value) params.set('participant', participant.value);
+
+        const res = await fetch(`/api/reuniones?${params}`);
+        const data = await res.json();
+        renderReuniones(data.reuniones);
+        updateReunionesPagination(data.pagination);
+        populateParticipantFilter(data.reuniones);
+    } catch (err) {
+        console.error('Load reuniones error:', err);
+        const list = document.getElementById('reunionesList');
+        if (list) list.innerHTML = '<div class="notification-empty">Error al cargar reuniones</div>';
+    }
+}
+
+function renderReuniones(reuniones) {
+    const list = document.getElementById('reunionesList');
+    if (!list) return;
+
+    if (!reuniones || reuniones.length === 0) {
+        list.innerHTML = `<div class="notification-empty">
+            <p>No hay reuniones registradas.</p>
+            <p style="font-size:0.85rem;color:var(--text-muted);">Las reuniones se importan automaticamente desde Fireflies.ai via webhook.</p>
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = reuniones.map(r => {
+        const fecha = new Date(r.fecha).toLocaleDateString('es-ES', {
+            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+        });
+        const rawAsistentes = r.asistentes || [];
+        const nombresCortos = rawAsistentes.map(a => {
+            if (a.includes('@')) {
+                const local = a.split('@')[0];
+                return local.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+            return a;
+        });
+        const MAX_SHOW = 3;
+        const asistentes = nombresCortos.length === 0
+            ? 'Sin identificar'
+            : nombresCortos.length <= MAX_SHOW
+                ? nombresCortos.join(', ')
+                : nombresCortos.slice(0, MAX_SHOW).join(', ') + ` +${nombresCortos.length - MAX_SHOW} más`;
+        const numCompromisos = (r.compromisos || []).length;
+        const numAcuerdos = (r.acuerdos || []).length;
+        const nivel = r.nivel_analisis || '';
+
+        const deleteBtn = window.__USER__?.role === 'admin'
+            ? `<button class="reunion-delete-btn" title="Eliminar reunion" onclick="event.stopPropagation(); deleteReunion(${r.id}, '${escapeHtml(r.titulo).replace(/'/g, "\\'")}')">✕</button>`
+            : '';
+
+        return `
+        <div class="reunion-card" onclick="openReunionDetail(${r.id})">
+            <div class="reunion-card-header">
+                <span class="reunion-title">${escapeHtml(r.titulo)}</span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <span class="reunion-date">${fecha}</span>
+                    ${deleteBtn}
+                </span>
+            </div>
+            <div class="reunion-card-meta">
+                <span class="reunion-badge">Participantes: ${escapeHtml(asistentes)}</span>
+                ${nivel ? `<span class="reunion-nivel">${escapeHtml(nivel)}</span>` : ''}
+            </div>
+            <div class="reunion-card-stats">
+                <span class="reunion-stat">Acuerdos: ${numAcuerdos}</span>
+                <span class="reunion-stat">Compromisos: ${numCompromisos}</span>
+                ${r.proxima_reunion ? `<span class="reunion-stat">Proxima: ${r.proxima_reunion}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function deleteReunion(id, titulo) {
+    if (!confirm(`¿Eliminar la reunion "${titulo}"?`)) return;
+    try {
+        const res = await fetch(`/api/reuniones/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Reunion eliminada', 'success');
+            loadReuniones();
+        } else {
+            showToast(data.error || 'Error al eliminar', 'error');
+        }
+    } catch (err) {
+        showToast('Error al eliminar reunion', 'error');
+    }
+}
+
+async function openReunionDetail(id) {
+    try {
+        const [reunionRes, usersRes] = await Promise.all([
+            fetch(`/api/reuniones/${id}`),
+            fetch('/api/users')
+        ]);
+        const r = await reunionRes.json();
+        const systemUsers = usersRes.ok ? await usersRes.json() : [];
+
+        document.getElementById('reunionModalTitle').textContent = r.titulo;
+
+        const fechaFmt = new Date(r.fecha).toLocaleDateString('es-ES', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const puntosHtml = (r.puntos_clave || []).length > 0
+            ? r.puntos_clave.map(p => `<li>${escapeHtml(p)}</li>`).join('')
+            : '<li style="color:var(--text-muted);">Sin puntos clave</li>';
+
+        const acuerdosHtml = (r.acuerdos || []).length > 0
+            ? r.acuerdos.map(a => `<li>${escapeHtml(a)}</li>`).join('')
+            : '<li style="color:var(--text-muted);">Sin acuerdos registrados</li>';
+
+        const prioridadColor = { Alta: '#ef4444', Media: '#f59e0b', Baja: '#22c55e' };
+        const compromisosHtml = (r.compromisos || []).length > 0
+            ? r.compromisos.map(c => {
+                const color = prioridadColor[c.prioridad] || '#6b7280';
+                return `<div class="compromiso-card" style="border-left-color:${color};">
+                    <strong>${escapeHtml(c.quien || 'Sin asignar')}</strong>: ${escapeHtml(c.tarea)}
+                    <br><small style="color:var(--text-muted);">Fecha: ${escapeHtml(c.cuando || 'Por definir')} | Prioridad: <span style="color:${color};font-weight:600;">${escapeHtml(c.prioridad || 'Media')}</span></small>
+                </div>`;
+            }).join('')
+            : '<p style="color:var(--text-muted);">Sin compromisos registrados</p>';
+
+        const entregablesHtml = (r.entregables || []).length > 0
+            ? `<h3>Entregables</h3><ul>${r.entregables.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`
+            : '';
+
+        document.getElementById('reunionModalContent').innerHTML = `
+            <div style="margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;color:var(--text-secondary);">
+                <span><strong>Fecha:</strong> ${fechaFmt}</span>
+                ${r.nivel_analisis ? `<span><strong>Nivel:</strong> ${escapeHtml(r.nivel_analisis)}</span>` : ''}
+            </div>
+            <div style="margin-bottom:16px;">
+                <strong>Participantes:</strong>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                ${(r.asistentes || []).map(a => {
+                    const nameLower = a.toLowerCase().replace(/[._@]/g, ' ').trim();
+                    const matched = systemUsers.find(u => u.username.toLowerCase() === nameLower || a.toLowerCase().includes(u.username.toLowerCase()) || u.username.toLowerCase().includes(nameLower.split(' ')[0]));
+                    const avatar = matched ? _avatarHtml(matched.avatar, matched.username, 24) : '';
+                    return `<span class="reunion-participant-badge">${avatar} ${escapeHtml(a)}</span>`;
+                }).join('') || '<span style="color:var(--text-muted);">No identificados</span>'}
+                </div>
+            </div>
+            <h3>Resumen / Puntos Clave</h3>
+            <ul>${puntosHtml}</ul>
+            <h3>Acuerdos</h3>
+            <ul>${acuerdosHtml}</ul>
+            <h3>Compromisos</h3>
+            ${compromisosHtml}
+            ${entregablesHtml}
+            ${r.proxima_reunion ? `<div style="margin-top:16px;padding:10px;background:var(--bg-secondary);border-radius:6px;"><strong>Proxima reunion:</strong> ${r.proxima_reunion}</div>` : ''}
+            <div class="reunion-links-section" id="reunionLinksSection" data-reunion-id="${id}"></div>
+        `;
+
+        document.getElementById('reunionModal').style.display = 'flex';
+
+        // Load related projects/areas
+        loadReunionLinks(id);
+    } catch (err) {
+        console.error('Reunion detail error:', err);
+        showToast('Error al cargar detalle de reunion', 'error');
+    }
+}
+
+async function loadReunionLinks(reunionId) {
+    const section = document.getElementById('reunionLinksSection');
+    if (!section) return;
+    try {
+        const res = await fetch(`/api/reuniones/${reunionId}/links`);
+        if (!res.ok) return;
+        const links = await res.json();
+        const projects = links.filter(l => l.link_type === 'project');
+        const areas = links.filter(l => l.link_type === 'area');
+        const isAdmin = window.__USER__ && ['admin', 'manager'].includes(window.__USER__.role);
+
+        if (projects.length === 0 && areas.length === 0 && !isAdmin) {
+            section.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        if (projects.length > 0 || isAdmin) {
+            html += `<h4>Proyectos Relacionados</h4><div class="reunion-link-badges">`;
+            html += projects.map(l => `
+                <span class="reunion-link-badge type-project">
+                    🚀 ${escapeHtml(l.name || l.link_id)}
+                    ${l.auto_detected ? '<small style="opacity:0.5;">(auto)</small>' : ''}
+                    ${isAdmin ? `<span class="link-remove" data-link-id="${l.id}" data-reunion-id="${reunionId}" onclick="removeReunionLink(this)">✕</span>` : ''}
+                </span>
+            `).join('');
+            if (isAdmin) html += `<button class="reunion-add-link-btn" onclick="addReunionLinkPrompt(${reunionId}, 'project')">+ Proyecto</button>`;
+            html += `</div>`;
+        }
+        if (areas.length > 0 || isAdmin) {
+            html += `<h4>Areas Relacionadas</h4><div class="reunion-link-badges">`;
+            html += areas.map(l => `
+                <span class="reunion-link-badge type-area">
+                    📋 ${escapeHtml(l.name || l.link_id)}
+                    ${l.auto_detected ? '<small style="opacity:0.5;">(auto)</small>' : ''}
+                    ${isAdmin ? `<span class="link-remove" data-link-id="${l.id}" data-reunion-id="${reunionId}" onclick="removeReunionLink(this)">✕</span>` : ''}
+                </span>
+            `).join('');
+            if (isAdmin) html += `<button class="reunion-add-link-btn" onclick="addReunionLinkPrompt(${reunionId}, 'area')">+ Area</button>`;
+            html += `</div>`;
+        }
+        section.innerHTML = html;
+    } catch (err) {
+        console.error('Load reunion links error:', err);
+    }
+}
+
+async function addReunionLinkPrompt(reunionId, linkType) {
+    try {
+        const endpoint = linkType === 'project' ? '/api/projects' : '/api/areas';
+        const res = await fetch(endpoint);
+        if (!res.ok) return;
+        const items = await res.json();
+        const list = Array.isArray(items) ? items : (items.projects || items.areas || []);
+
+        if (list.length === 0) {
+            showToast(`No hay ${linkType === 'project' ? 'proyectos' : 'areas'} disponibles`, 'warning');
+            return;
+        }
+
+        const options = list.map(i => `${i.id} — ${i.name}`).join('\n');
+        const choice = prompt(`Selecciona ${linkType === 'project' ? 'proyecto' : 'area'} (escribe el ID):\n\n${options}`);
+        if (!choice) return;
+
+        const linkId = choice.split(' ')[0].trim();
+        const addRes = await fetch(`/api/reuniones/${reunionId}/links`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ link_type: linkType, link_id: linkId })
+        });
+        if (addRes.ok) {
+            showToast('Vinculo agregado', 'success');
+            loadReunionLinks(reunionId);
+        } else {
+            const err = await addRes.json();
+            showToast(err.error || 'Error al vincular', 'error');
+        }
+    } catch (err) {
+        showToast('Error al agregar vinculo', 'error');
+    }
+}
+
+async function removeReunionLink(el) {
+    const linkId = el.dataset.linkId;
+    const reunionId = el.dataset.reunionId;
+    if (!confirm('Eliminar este vinculo?')) return;
+    try {
+        const res = await fetch(`/api/reuniones/${reunionId}/links/${linkId}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Vinculo eliminado', 'success');
+            loadReunionLinks(reunionId);
+        }
+    } catch (err) {
+        showToast('Error', 'error');
+    }
+}
+
+function filterReuniones() {
+    _reunionesPage = 1;
+    loadReuniones();
+}
+
+function clearReunionesFilters() {
+    ['reunionesSearch', 'reunionesFrom', 'reunionesTo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const part = document.getElementById('reunionesParticipant');
+    if (part) part.value = '';
+    filterReuniones();
+}
+
+function reunionesChangePage(delta) {
+    _reunionesPage += delta;
+    if (_reunionesPage < 1) _reunionesPage = 1;
+    loadReuniones();
+}
+
+function updateReunionesPagination(pagination) {
+    if (!pagination) return;
+    const info = document.getElementById('reunionesPageInfo');
+    const prev = document.getElementById('reunionesPrevPage');
+    const next = document.getElementById('reunionesNextPage');
+    if (info) info.textContent = `Pagina ${pagination.page} de ${pagination.totalPages || 1}`;
+    if (prev) prev.disabled = pagination.page <= 1;
+    if (next) next.disabled = pagination.page >= pagination.totalPages;
+}
+
+function populateParticipantFilter(reuniones) {
+    const select = document.getElementById('reunionesParticipant');
+    if (!select) return;
+    const currentValue = select.value;
+    const allNames = new Set();
+    reuniones.forEach(r => {
+        (r.asistentes || []).forEach(name => {
+            if (name && name !== 'Participantes no identificados') allNames.add(name);
+        });
+    });
+    // Only repopulate if we have new names
+    if (allNames.size > 0 && select.options.length <= 1) {
+        [...allNames].sort().forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+    }
+    if (currentValue) select.value = currentValue;
+}
+
+// ─── Email Recipients Management (Admin) ─────────────────────────────────────
+
+function openAddRecipientForm() {
+    const form = document.getElementById('addRecipientForm');
+    if (form) { form.style.display = 'block'; document.getElementById('newRecipientEmail').focus(); }
+}
+
+async function loadEmailRecipients() {
+    const list = document.getElementById('emailRecipientsList');
+    if (!list) return;
+    try {
+        const res = await fetch('/api/reuniones/email-recipients/all');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.recipients || data.recipients.length === 0) {
+            list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px;">No hay destinatarios configurados. Agrega emails para recibir reportes de reuniones.</p>';
+            return;
+        }
+        list.innerHTML = data.recipients.map(r => `
+            <div class="recipient-row" ${!r.activo ? 'style="opacity:0.5;"' : ''}>
+                <div class="recipient-info">
+                    <span>${r.activo ? '📧' : '🚫'}</span>
+                    <span class="email">${escapeHtml(r.email)}</span>
+                    ${r.nombre ? `<span class="name">(${escapeHtml(r.nombre)})</span>` : ''}
+                </div>
+                <div class="recipient-actions">
+                    <button class="btn btn-sm btn-primary" onclick="toggleRecipient(${r.id}, ${r.activo ? 0 : 1})">
+                        ${r.activo ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button class="btn btn-sm" onclick="deleteRecipient(${r.id}, '${escapeHtml(r.email)}')" style="color:#e74c3c;border-color:rgba(231,76,60,0.3);">
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Load recipients error:', err);
+    }
+}
+
+async function addEmailRecipient() {
+    const emailInput = document.getElementById('newRecipientEmail');
+    const nameInput = document.getElementById('newRecipientName');
+    const email = emailInput?.value?.trim();
+    const nombre = nameInput?.value?.trim();
+    if (!email || !email.includes('@')) {
+        showToast('Ingresa un email valido', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/reuniones/email-recipients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, nombre })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error al agregar', 'error'); return; }
+        showToast(`Email ${email} agregado`, 'success');
+        emailInput.value = '';
+        nameInput.value = '';
+        document.getElementById('addRecipientForm').style.display = 'none';
+        loadEmailRecipients();
+    } catch (err) {
+        showToast('Error de conexion', 'error');
+    }
+}
+
+async function toggleRecipient(id, activo) {
+    try {
+        await fetch(`/api/reuniones/email-recipients/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activo: !!activo })
+        });
+        loadEmailRecipients();
+    } catch (err) {
+        showToast('Error al actualizar', 'error');
+    }
+}
+
+async function deleteRecipient(id, email) {
+    if (!confirm(`Eliminar ${email} de los destinatarios?`)) return;
+    try {
+        await fetch(`/api/reuniones/email-recipients/${id}`, { method: 'DELETE' });
+        showToast(`${email} eliminado`, 'success');
+        loadEmailRecipients();
+    } catch (err) {
+        showToast('Error al eliminar', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FEEDBACK SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _allFeedback = [];
+let _fbFilter = 'all';
+let _fbPendingFiles = []; // Files queued for upload
+
+const FB_STATUS_LABELS = {
+    abierto: { label: 'Abierto', color: '#3b82f6' },
+    en_progreso: { label: 'En Progreso', color: '#f59e0b' },
+    resuelto: { label: 'Resuelto', color: '#10b981' },
+    descartado: { label: 'Descartado', color: '#6b7280' }
+};
+
+const FB_CATEGORY_LABELS = {
+    mejora: { label: 'Mejora', icon: '✨' },
+    bug: { label: 'Bug', icon: '🐛' },
+    feature: { label: 'Feature', icon: '🚀' },
+    otro: { label: 'Otro', icon: '💬' }
+};
+
+const FB_PRIORITY_ICONS = { baja: '🟢', media: '🟡', alta: '🔴' };
+
+const FB_FILE_ICONS = {
+    pdf: '📕', txt: '📄', docx: '📘', xlsx: '📊',
+    default: '📎'
+};
+
+function _isImage(name) { return /\.(jpg|jpeg|png|gif|webp)$/i.test(name); }
+function _fileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    return FB_FILE_ICONS[ext] || FB_FILE_ICONS.default;
+}
+function _formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// ─── File Upload: Drag & Drop + Preview ─────────────────────────────────────
+function initFbUploadZone() {
+    const zone = document.getElementById('fbUploadZone');
+    const input = document.getElementById('fbFiles');
+    if (!zone || !input) return;
+
+    input.addEventListener('change', () => {
+        _addFbFiles(Array.from(input.files));
+        input.value = '';
+    });
+
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        _addFbFiles(Array.from(e.dataTransfer.files));
+    });
+}
+
+function _addFbFiles(files) {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt', '.docx', '.xlsx'];
+    for (const f of files) {
+        if (_fbPendingFiles.length >= 5) { showToast('Maximo 5 archivos', 'warning'); break; }
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        if (!allowed.includes(ext)) { showToast(`${f.name}: tipo no permitido`, 'warning'); continue; }
+        if (f.size > 10 * 1024 * 1024) { showToast(`${f.name}: max 10MB`, 'warning'); continue; }
+        _fbPendingFiles.push(f);
+    }
+    _renderFbPreviews();
+}
+
+function _renderFbPreviews() {
+    const container = document.getElementById('fbPreviews');
+    const prompt = document.getElementById('fbUploadPrompt');
+    if (!container) return;
+
+    if (_fbPendingFiles.length === 0) {
+        container.innerHTML = '';
+        if (prompt) prompt.style.display = '';
+        return;
+    }
+    if (prompt) prompt.style.display = _fbPendingFiles.length >= 5 ? 'none' : '';
+
+    container.innerHTML = _fbPendingFiles.map((f, i) => {
+        if (_isImage(f.name)) {
+            const url = URL.createObjectURL(f);
+            return `<div class="fb-preview-item">
+                <img src="${url}" alt="${escapeHtml(f.name)}">
+                <button type="button" class="fb-preview-remove" onclick="_removeFbFile(${i})">×</button>
+                <span class="fb-preview-name">${escapeHtml(f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name)}</span>
+            </div>`;
+        }
+        return `<div class="fb-preview-item fb-preview-file">
+            <span class="fb-preview-icon">${_fileIcon(f.name)}</span>
+            <button type="button" class="fb-preview-remove" onclick="_removeFbFile(${i})">×</button>
+            <span class="fb-preview-name">${escapeHtml(f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name)}</span>
+            <span class="fb-preview-size">${_formatSize(f.size)}</span>
+        </div>`;
+    }).join('');
+}
+
+function _removeFbFile(index) {
+    _fbPendingFiles.splice(index, 1);
+    _renderFbPreviews();
+}
+window._removeFbFile = _removeFbFile;
+
+// ─── Load & Render ──────────────────────────────────────────────────────────
+async function loadFeedback() {
+    const list = document.getElementById('feedbackList');
+    if (!list) return;
+
+    try {
+        const res = await fetch('/api/feedback');
+        _allFeedback = await res.json();
+
+        const counts = { all: _allFeedback.length, abierto: 0, en_progreso: 0, resuelto: 0 };
+        _allFeedback.forEach(fb => { if (counts[fb.status] !== undefined) counts[fb.status]++; });
+        const setC = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        setC('fbCountAll', counts.all);
+        setC('fbCountOpen', counts.abierto);
+        setC('fbCountProgress', counts.en_progreso);
+        setC('fbCountResolved', counts.resuelto);
+
+        renderFeedback();
+    } catch (err) {
+        console.error('Feedback load error:', err);
+        if (list) list.innerHTML = '<div class="archivos-empty"><div class="empty-icon">⚠️</div><p>Error al cargar feedback</p></div>';
+    }
+}
+
+function filterFeedback(status) {
+    _fbFilter = status;
+    document.querySelectorAll('#feedbackFilters .skill-filter-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.fbfilter === status);
+    });
+    renderFeedback();
+}
+
+function renderFeedback() {
+    const list = document.getElementById('feedbackList');
+    if (!list) return;
+
+    let items = _allFeedback;
+    if (_fbFilter !== 'all') items = items.filter(fb => fb.status === _fbFilter);
+
+    if (items.length === 0) {
+        list.innerHTML = `<div class="archivos-empty"><div class="empty-icon">💬</div><p>${_fbFilter === 'all' ? 'No hay feedback aun. Se el primero en enviar una sugerencia.' : 'No hay feedback con este estado.'}</p></div>`;
+        return;
+    }
+
+    const isAdmin = window.__USER__ && ['admin', 'manager'].includes(window.__USER__.role);
+
+    list.innerHTML = items.map(fb => {
+        const st = FB_STATUS_LABELS[fb.status] || FB_STATUS_LABELS.abierto;
+        const cat = FB_CATEGORY_LABELS[fb.category] || FB_CATEGORY_LABELS.otro;
+        const pri = FB_PRIORITY_ICONS[fb.priority] || '🟡';
+        const date = new Date(fb.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+        const canDelete = isAdmin || (window.__USER__ && window.__USER__.username === fb.username);
+
+        // Attachments indicator
+        const attachCount = fb.attachment_count || 0;
+        const attachHtml = attachCount > 0
+            ? `<div class="fb-attachments" id="fbAttach_${fb.id}">
+                   <button class="fb-attach-toggle" onclick="loadFbAttachments(${fb.id})">📎 ${attachCount} adjunto${attachCount > 1 ? 's' : ''} — ver</button>
+               </div>`
+            : '';
+
+        let responseHtml = '';
+        if (fb.admin_response) {
+            responseHtml = `<div class="fb-response">
+                <span class="fb-response-by">↩ ${escapeHtml(fb.responded_by || 'Admin')}</span>
+                <p>${escapeHtml(fb.admin_response)}</p>
+            </div>`;
+        }
+
+        let actionsHtml = '';
+        if (isAdmin) {
+            actionsHtml = `<div class="fb-actions">
+                <select class="fb-status-select" onchange="updateFeedbackStatus(${fb.id}, this.value)">
+                    <option value="abierto" ${fb.status === 'abierto' ? 'selected' : ''}>Abierto</option>
+                    <option value="en_progreso" ${fb.status === 'en_progreso' ? 'selected' : ''}>En Progreso</option>
+                    <option value="resuelto" ${fb.status === 'resuelto' ? 'selected' : ''}>Resuelto</option>
+                    <option value="descartado" ${fb.status === 'descartado' ? 'selected' : ''}>Descartado</option>
+                </select>
+                <button class="btn-icon-sm" onclick="openRespondModal(${fb.id})" title="Responder">↩</button>
+                ${canDelete ? `<button class="btn-icon-sm delete" onclick="deleteFeedback(${fb.id})" title="Eliminar">🗑</button>` : ''}
+            </div>`;
+        } else if (canDelete) {
+            actionsHtml = `<div class="fb-actions">
+                <button class="btn-icon-sm delete" onclick="deleteFeedback(${fb.id})" title="Eliminar">🗑</button>
+            </div>`;
+        }
+
+        return `<div class="feedback-card fb-status-${fb.status}">
+            <div class="fb-header">
+                <h3>${escapeHtml(fb.title)}</h3>
+                <span class="fb-status-badge" style="background:${st.color};">${st.label}</span>
+            </div>
+            <p class="fb-content">${escapeHtml(fb.content)}</p>
+            <div class="fb-meta">
+                <span class="fb-category">${cat.icon} ${cat.label}</span>
+                <span>${pri} ${fb.priority}</span>
+                <span>👤 ${escapeHtml(fb.username)}</span>
+                <span>📅 ${date}</span>
+            </div>
+            ${attachHtml}
+            ${responseHtml}
+            ${actionsHtml}
+        </div>`;
+    }).join('');
+}
+
+// ─── Load & show attachments for a feedback card ────────────────────────────
+async function loadFbAttachments(fbId) {
+    const container = document.getElementById(`fbAttach_${fbId}`);
+    if (!container) return;
+
+    try {
+        const res = await fetch(`/api/feedback/${fbId}/attachments`);
+        const attachments = await res.json();
+
+        const isAdmin = window.__USER__ && ['admin', 'manager'].includes(window.__USER__.role);
+        const fb = _allFeedback.find(f => f.id === fbId);
+        const isAuthor = fb && window.__USER__ && window.__USER__.username === fb.username;
+
+        container.innerHTML = `<div class="fb-attach-list">
+            ${attachments.map(a => {
+                const canDel = isAdmin || isAuthor;
+                const delBtn = canDel ? `<button class="fb-attach-del" onclick="deleteFbAttachment(${a.id}, ${fbId})" title="Eliminar">×</button>` : '';
+                if (_isImage(a.original_name)) {
+                    return `<div class="fb-attach-item">
+                        <img src="/api/feedback/attachment/${a.id}" alt="${escapeHtml(a.original_name)}" onclick="openFbLightbox('/api/feedback/attachment/${a.id}')">
+                        ${delBtn}
+                    </div>`;
+                }
+                return `<div class="fb-attach-item fb-attach-file" onclick="window.open('/api/feedback/attachment/${a.id}','_blank')">
+                    <span class="fb-attach-icon">${_fileIcon(a.original_name)}</span>
+                    <span class="fb-attach-name">${escapeHtml(a.original_name)}</span>
+                    <span class="fb-attach-size">${_formatSize(a.size)}</span>
+                    ${delBtn}
+                </div>`;
+            }).join('')}
+        </div>`;
+    } catch (err) {
+        container.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem;">Error al cargar adjuntos</span>';
+    }
+}
+
+async function deleteFbAttachment(attachId, fbId) {
+    if (!confirm('Eliminar este adjunto?')) return;
+    try {
+        const res = await fetch(`/api/feedback/attachment/${attachId}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Adjunto eliminado', 'info');
+            loadFeedback();
+        }
+    } catch (err) {
+        showToast('Error al eliminar adjunto', 'error');
+    }
+}
+
+// ─── Lightbox ───────────────────────────────────────────────────────────────
+function openFbLightbox(src) {
+    const lb = document.getElementById('fbLightbox');
+    const img = document.getElementById('fbLightboxImg');
+    if (lb && img) { img.src = src; lb.style.display = 'flex'; }
+}
+function closeFbLightbox() {
+    const lb = document.getElementById('fbLightbox');
+    if (lb) { lb.style.display = 'none'; document.getElementById('fbLightboxImg').src = ''; }
+}
+
+// ─── Modal open/close ───────────────────────────────────────────────────────
+function openFeedbackModal() {
+    _fbPendingFiles = [];
+    _renderFbPreviews();
+    const m = document.getElementById('feedbackModal');
+    if (m) m.style.display = 'block';
+}
+
+function closeFeedbackModal() {
+    const m = document.getElementById('feedbackModal');
+    if (m) {
+        m.style.display = 'none';
+        document.getElementById('feedbackForm')?.reset();
+        _fbPendingFiles = [];
+        _renderFbPreviews();
+    }
+}
+
+function openRespondModal(id) {
+    document.getElementById('fbRespondId').value = id;
+    document.getElementById('fbResponseText').value = '';
+    const m = document.getElementById('feedbackRespondModal');
+    if (m) m.style.display = 'block';
+}
+
+function closeFeedbackRespondModal() {
+    const m = document.getElementById('feedbackRespondModal');
+    if (m) m.style.display = 'none';
+}
+
+// ─── Save new feedback (FormData with files) ────────────────────────────────
+(function() {
+    document.addEventListener('DOMContentLoaded', () => {
+        initFbUploadZone();
+
+        const form = document.getElementById('feedbackForm');
+        if (form) form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnSaveFeedback');
+            if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+            try {
+                const fd = new FormData();
+                fd.append('title', document.getElementById('fbTitle').value);
+                fd.append('content', document.getElementById('fbContent').value);
+                fd.append('category', document.getElementById('fbCategory').value);
+                fd.append('priority', document.getElementById('fbPriority').value);
+                _fbPendingFiles.forEach(f => fd.append('attachments', f));
+
+                const res = await fetch('/api/feedback', { method: 'POST', body: fd });
+                if (res.ok) {
+                    closeFeedbackModal();
+                    showToast(_fbPendingFiles.length > 0 ? 'Feedback enviado con adjuntos' : 'Feedback enviado', 'success');
+                    _fbPendingFiles = [];
+                    loadFeedback();
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || 'Error', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexion', 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Enviar Feedback'; }
+            }
+        });
+    });
+})();
+
+async function updateFeedbackStatus(id, status) {
+    try {
+        const res = await fetch(`/api/feedback/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+            showToast('Estado actualizado', 'success');
+            loadFeedback();
+        }
+    } catch (err) {
+        showToast('Error al actualizar', 'error');
+    }
+}
+
+async function submitFeedbackResponse() {
+    const id = document.getElementById('fbRespondId').value;
+    const response = document.getElementById('fbResponseText').value;
+    if (!response.trim()) return;
+
+    try {
+        const res = await fetch(`/api/feedback/${id}/respond`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ response })
+        });
+        if (res.ok) {
+            closeFeedbackRespondModal();
+            showToast('Respuesta enviada', 'success');
+            loadFeedback();
+        }
+    } catch (err) {
+        showToast('Error al responder', 'error');
+    }
+}
+
+async function deleteFeedback(id) {
+    if (!confirm('Eliminar este feedback?')) return;
+    try {
+        const res = await fetch(`/api/feedback/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Feedback eliminado', 'info');
+            loadFeedback();
+        }
+    } catch (err) {
+        showToast('Error al eliminar', 'error');
+    }
+}
+
+window.filterFeedback = filterFeedback;
+window.openFeedbackModal = openFeedbackModal;
+window.closeFeedbackModal = closeFeedbackModal;
+window.openRespondModal = openRespondModal;
+window.closeFeedbackRespondModal = closeFeedbackRespondModal;
+window.updateFeedbackStatus = updateFeedbackStatus;
+window.submitFeedbackResponse = submitFeedbackResponse;
+window.deleteFeedback = deleteFeedback;
+window.loadFbAttachments = loadFbAttachments;
+window.deleteFbAttachment = deleteFbAttachment;
+window.openFbLightbox = openFbLightbox;
+window.closeFbLightbox = closeFbLightbox;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILE & ADMIN USERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _avatarHtml(avatar, username, size = 40) {
+    if (avatar) return `<img src="${avatar}" alt="${username}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
+    const initial = (username || '?').charAt(0).toUpperCase();
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${size * 0.45}px;">${initial}</div>`;
+}
+
+// ─── Profile Modal (self-edit) ──────────────────────────────────────────────
+async function openProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (!modal) return;
+
+    try {
+        const res = await fetch('/api/profile');
+        const p = await res.json();
+
+        document.getElementById('profileUsername').textContent = p.username;
+        const roleBadge = document.getElementById('profileRole');
+        roleBadge.textContent = p.role;
+        roleBadge.className = 'profile-role-badge role-' + (p.role || 'user');
+        document.getElementById('profileDepartment').value = p.department || '';
+        document.getElementById('profileExpertise').value = p.expertise || '';
+
+        const preview = document.getElementById('profileAvatarPreview');
+        if (preview) preview.innerHTML = _avatarHtml(p.avatar, p.username, 96);
+
+        modal.style.display = 'block';
+    } catch (err) {
+        showToast('Error al cargar perfil', 'error');
+    }
+}
+
+function closeProfileModal() {
+    const m = document.getElementById('profileModal');
+    if (m) m.style.display = 'none';
+}
+
+// Profile form submit
+(function() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('profileForm');
+        if (form) form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        department: document.getElementById('profileDepartment').value,
+                        expertise: document.getElementById('profileExpertise').value
+                    })
+                });
+                if (res.ok) {
+                    showToast('Perfil actualizado', 'success');
+                    window.__USER__.department = document.getElementById('profileDepartment').value;
+                    window.__USER__.expertise = document.getElementById('profileExpertise').value;
+                }
+            } catch (err) {
+                showToast('Error al guardar', 'error');
+            }
+        });
+
+        // Profile avatar upload
+        const avatarInput = document.getElementById('profileAvatarInput');
+        if (avatarInput) avatarInput.addEventListener('change', async () => {
+            if (!avatarInput.files[0]) return;
+            const fd = new FormData();
+            fd.append('avatar', avatarInput.files[0]);
+            try {
+                const res = await fetch('/api/profile/avatar', { method: 'PUT', body: fd });
+                const data = await res.json();
+                if (res.ok && data.avatar) {
+                    showToast('Foto actualizada', 'success');
+                    window.__USER__.avatar = data.avatar;
+                    // Update sidebar avatar
+                    const sidebar = document.getElementById('sidebarAvatar');
+                    if (sidebar) sidebar.innerHTML = `<img src="${data.avatar}" alt="avatar">`;
+                    // Update preview
+                    const preview = document.getElementById('profileAvatarPreview');
+                    if (preview) preview.innerHTML = _avatarHtml(data.avatar, window.__USER__.username, 80);
+                }
+            } catch (err) {
+                showToast('Error al subir foto', 'error');
+            }
+            avatarInput.value = '';
+        });
+    });
+})();
+
+async function changeOwnPassword() {
+    const current = document.getElementById('profileCurrentPw').value;
+    const newPw = document.getElementById('profileNewPw').value;
+    if (!current || !newPw || newPw.length < 4) {
+        showToast('Ingresa contraseña actual y nueva (min 4 caracteres)', 'warning');
+        return;
+    }
+    try {
+        const res = await fetch('/api/profile/password', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: current, newPassword: newPw })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Contraseña actualizada', 'success');
+            document.getElementById('profileCurrentPw').value = '';
+            document.getElementById('profileNewPw').value = '';
+        } else {
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al cambiar contraseña', 'error');
+    }
+}
+
+// ─── Admin Users Management ─────────────────────────────────────────────────
+let _adminUsers = [];
+
+async function loadAdminUsers() {
+    const tbody = document.getElementById('adminUsersTbody');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/users');
+        _adminUsers = await res.json();
+
+        // Stats bar
+        const statsBar = document.getElementById('auStatsBar');
+        if (statsBar) {
+            const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0 };
+            _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
+            statsBar.innerHTML = `
+                <div class="au-stat"><span class="au-stat-num">${_adminUsers.length}</span><span class="au-stat-label">Total</span></div>
+                <div class="au-stat au-stat-admin"><span class="au-stat-num">${roleCounts.admin}</span><span class="au-stat-label">Admins</span></div>
+                <div class="au-stat au-stat-manager"><span class="au-stat-num">${roleCounts.manager}</span><span class="au-stat-label">Managers</span></div>
+                <div class="au-stat au-stat-analyst"><span class="au-stat-num">${roleCounts.analyst}</span><span class="au-stat-label">Analysts</span></div>
+                <div class="au-stat au-stat-consultor"><span class="au-stat-num">${roleCounts.consultor}</span><span class="au-stat-label">Consultores</span></div>
+            `;
+        }
+
+        renderAdminUsersTable(_adminUsers);
+    } catch (err) {
+        console.error('Load admin users error:', err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar usuarios</td></tr>';
+    }
+}
+
+function renderAdminUsersTable(users) {
+    const tbody = document.getElementById('adminUsersTbody');
+    if (!tbody) return;
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">No se encontraron usuarios</td></tr>';
+        return;
+    }
+
+    const roleLabels = { admin: 'Admin', manager: 'Manager', analyst: 'Analyst', consultor: 'Consultor' };
+
+    tbody.innerHTML = users.map(u => {
+        const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        return `<tr class="au-row" data-user-id="${u.id}">
+            <td>
+                <div class="au-user-cell">
+                    ${_avatarHtml(u.avatar, u.username, 36)}
+                    <span class="au-username">${escapeHtml(u.username)}</span>
+                </div>
+            </td>
+            <td>
+                <select class="au-role-select role-${escapeHtml(u.role)}" data-user-id="${u.id}" data-original="${escapeHtml(u.role)}" onchange="changeUserRole(this)">
+                    ${['admin','manager','analyst','consultor'].map(r =>
+                        `<option value="${r}" ${r === u.role ? 'selected' : ''}>${roleLabels[r]}</option>`
+                    ).join('')}
+                </select>
+            </td>
+            <td><span class="au-cell-text">${escapeHtml(u.department || '—')}</span></td>
+            <td><span class="au-cell-text">${escapeHtml(u.expertise || '—')}</span></td>
+            <td><span class="au-cell-date">${date}</span></td>
+            <td>
+                <div class="au-actions">
+                    <button class="au-btn-edit" onclick="openUserEditModal(${u.id})" title="Editar">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="au-btn-delete" onclick="deleteAdminUser(${u.id}, '${escapeHtml(u.username)}')" title="Eliminar">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function filterAdminUsers() {
+    const search = (document.getElementById('auSearchInput')?.value || '').toLowerCase();
+    const roleFilter = document.getElementById('auFilterRole')?.value || '';
+    const filtered = _adminUsers.filter(u => {
+        const matchSearch = !search || u.username.toLowerCase().includes(search)
+            || (u.department || '').toLowerCase().includes(search)
+            || (u.expertise || '').toLowerCase().includes(search);
+        const matchRole = !roleFilter || u.role === roleFilter;
+        return matchSearch && matchRole;
+    });
+    renderAdminUsersTable(filtered);
+}
+
+async function changeUserRole(select) {
+    const userId = select.dataset.userId;
+    const newRole = select.value;
+    const originalRole = select.dataset.original;
+    if (newRole === originalRole) return;
+
+    const user = _adminUsers.find(u => u.id === parseInt(userId));
+    if (!user) return;
+
+    try {
+        const res = await fetch(`/api/users/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole, department: user.department, expertise: user.expertise })
+        });
+        if (res.ok) {
+            select.dataset.original = newRole;
+            select.className = `au-role-select role-${newRole}`;
+            user.role = newRole;
+            // Update stats
+            const statsBar = document.getElementById('auStatsBar');
+            if (statsBar) {
+                const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0 };
+                _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
+                statsBar.querySelector('.au-stat-admin .au-stat-num').textContent = roleCounts.admin;
+                statsBar.querySelector('.au-stat-manager .au-stat-num').textContent = roleCounts.manager;
+                statsBar.querySelector('.au-stat-analyst .au-stat-num').textContent = roleCounts.analyst;
+                statsBar.querySelector('.au-stat-consultor .au-stat-num').textContent = roleCounts.consultor;
+            }
+            showToast(`Rol de ${user.username} cambiado a ${newRole}`, 'success');
+        } else {
+            select.value = originalRole;
+            showToast('Error al cambiar rol', 'error');
+        }
+    } catch (err) {
+        select.value = originalRole;
+        showToast('Error de conexion', 'error');
+    }
+}
+
+function openUserEditModal(userId) {
+    const modal = document.getElementById('userEditModal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('userEditTitle');
+    const usernameInput = document.getElementById('userEditUsername');
+    const pwInput = document.getElementById('userEditPassword');
+    const pwLabel = document.getElementById('userEditPwLabel');
+    const idInput = document.getElementById('userEditId');
+    const preview = document.getElementById('userEditAvatarPreview');
+
+    if (userId) {
+        // Edit mode
+        const u = _adminUsers.find(x => x.id === userId);
+        if (!u) return;
+        if (titleEl) titleEl.textContent = `Editar: ${u.username}`;
+        if (idInput) idInput.value = u.id;
+        if (usernameInput) { usernameInput.value = u.username; usernameInput.disabled = true; }
+        if (pwInput) pwInput.placeholder = 'Dejar vacio para no cambiar';
+        if (pwLabel) pwLabel.textContent = 'Nueva Contraseña (opcional)';
+        document.getElementById('userEditRole').value = u.role || 'analyst';
+        document.getElementById('userEditDepartment').value = u.department || '';
+        document.getElementById('userEditExpertise').value = u.expertise || '';
+        if (preview) preview.innerHTML = _avatarHtml(u.avatar, u.username, 70);
+    } else {
+        // Create mode
+        if (titleEl) titleEl.textContent = 'Nuevo Usuario';
+        if (idInput) idInput.value = '';
+        if (usernameInput) { usernameInput.value = ''; usernameInput.disabled = false; }
+        if (pwInput) pwInput.placeholder = 'Min 4 caracteres';
+        if (pwLabel) pwLabel.textContent = 'Contraseña';
+        document.getElementById('userEditRole').value = 'analyst';
+        document.getElementById('userEditDepartment').value = '';
+        document.getElementById('userEditExpertise').value = '';
+        if (preview) preview.innerHTML = _avatarHtml(null, '?', 70);
+    }
+
+    modal.style.display = 'block';
+}
+
+function closeUserEditModal() {
+    const m = document.getElementById('userEditModal');
+    if (m) m.style.display = 'none';
+}
+
+// User edit form + avatar upload
+(function() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('userEditForm');
+        if (form) form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('userEditId').value;
+            const isEdit = !!id;
+
+            const payload = {
+                role: document.getElementById('userEditRole').value,
+                department: document.getElementById('userEditDepartment').value,
+                expertise: document.getElementById('userEditExpertise').value
+            };
+
+            if (isEdit) {
+                const pw = document.getElementById('userEditPassword').value;
+                if (pw) payload.newPassword = pw;
+            } else {
+                payload.username = document.getElementById('userEditUsername').value;
+                payload.password = document.getElementById('userEditPassword').value;
+                if (!payload.username || !payload.password || payload.password.length < 4) {
+                    showToast('Username y password (min 4) son requeridos', 'warning');
+                    return;
+                }
+            }
+
+            try {
+                const url = isEdit ? `/api/users/${id}` : '/api/users';
+                const method = isEdit ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeUserEditModal();
+                    showToast(isEdit ? 'Usuario actualizado' : 'Usuario creado', 'success');
+                    loadAdminUsers();
+                } else {
+                    showToast(data.error || 'Error', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexion', 'error');
+            }
+        });
+
+        // Admin avatar upload for user being edited
+        const avatarInput = document.getElementById('userEditAvatarInput');
+        if (avatarInput) avatarInput.addEventListener('change', async () => {
+            const id = document.getElementById('userEditId').value;
+            if (!id || !avatarInput.files[0]) {
+                if (!id) showToast('Guarda el usuario primero, luego sube la foto', 'info');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('avatar', avatarInput.files[0]);
+            try {
+                const res = await fetch(`/api/users/${id}/avatar`, { method: 'PUT', body: fd });
+                const data = await res.json();
+                if (res.ok && data.avatar) {
+                    showToast('Foto actualizada', 'success');
+                    const preview = document.getElementById('userEditAvatarPreview');
+                    if (preview) preview.innerHTML = _avatarHtml(data.avatar, '', 70);
+                    loadAdminUsers();
+                }
+            } catch (err) {
+                showToast('Error al subir foto', 'error');
+            }
+            avatarInput.value = '';
+        });
+    });
+})();
+
+async function deleteAdminUser(id, username) {
+    if (!confirm(`Eliminar al usuario "${username}"? Esta accion no se puede deshacer.`)) return;
+    try {
+        const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Usuario eliminado', 'info');
+            loadAdminUsers();
+        } else {
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al eliminar', 'error');
+    }
+}
+
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.changeOwnPassword = changeOwnPassword;
+window.loadAdminUsers = loadAdminUsers;
+window.openUserEditModal = openUserEditModal;
+window.closeUserEditModal = closeUserEditModal;
+window.deleteAdminUser = deleteAdminUser;
+window.filterAdminUsers = filterAdminUsers;
+window.changeUserRole = changeUserRole;
+window.loadGraphView = loadGraphView;
+window.resetGraphZoom = resetGraphZoom;
+window.searchGraphNode = searchGraphNode;
+window.toggleGraphType = toggleGraphType;
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GRAPH VIEW — Obsidian-style force-directed graph
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const GRAPH_TYPES = {
+    project: { color: '#2ecc71', label: 'Proyectos', icon: '🎯' },
+    area:    { color: '#9b59b6', label: 'Áreas', icon: '📂' },
+    idea:    { color: '#3498db', label: 'Ideas', icon: '💡' },
+    reunion: { color: '#e74c3c', label: 'Reuniones', icon: '📅' },
+    skill:   { color: '#f39c12', label: 'Skills', icon: '🔧' },
+    user:    { color: '#1abc9c', label: 'Usuarios', icon: '👤' }
+};
+
+let _graphSim = null;
+let _graphData = null;
+let _graphZoom = null;
+let _graphActiveTypes = new Set(Object.keys(GRAPH_TYPES));
+
+async function loadGraphView() {
+    const container = document.getElementById('graphContainer');
+    if (!container) return;
+
+    // Show loading
+    const svg = d3.select('#graphSvg');
+    svg.selectAll('*').remove();
+    const rect = container.getBoundingClientRect();
+    const width = rect.width || 900;
+    const height = rect.height || 600;
+    svg.attr('width', width).attr('height', height);
+
+    // Render filter buttons
+    const filtersEl = document.getElementById('graphFilters');
+    if (filtersEl) {
+        filtersEl.innerHTML = Object.entries(GRAPH_TYPES).map(([type, cfg]) =>
+            `<button class="graph-filter-btn active" data-type="${type}" style="--gf-color:${cfg.color}" onclick="toggleGraphType('${type}', this)">
+                ${cfg.icon} ${cfg.label}
+            </button>`
+        ).join('');
+    }
+
+    // Render legend
+    const legendEl = document.getElementById('graphLegend');
+    if (legendEl) {
+        legendEl.innerHTML = Object.entries(GRAPH_TYPES).map(([, cfg]) =>
+            `<div class="graph-legend-item">
+                <div class="graph-legend-dot" style="background:${cfg.color}"></div>
+                <span>${cfg.label}</span>
+            </div>`
+        ).join('');
+    }
+
+    try {
+        const res = await fetch('/api/graph');
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        _graphData = await res.json();
+        _graphActiveTypes = new Set(Object.keys(GRAPH_TYPES));
+        _renderGraph(width, height);
+    } catch (err) {
+        svg.append('text').attr('x', width / 2).attr('y', height / 2)
+            .attr('text-anchor', 'middle').attr('class', 'graph-label')
+            .text('Error cargando grafo: ' + err.message);
+    }
+}
+
+function _renderGraph(width, height) {
+    if (!_graphData) return;
+    const svg = d3.select('#graphSvg');
+    svg.selectAll('*').remove();
+
+    // Filter by active types
+    const nodes = _graphData.nodes.filter(n => _graphActiveTypes.has(n.type));
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const edges = _graphData.edges.filter(e => nodeIds.has(e.source?.id || e.source) && nodeIds.has(e.target?.id || e.target));
+
+    // Deep copy for D3 mutation
+    const simNodes = nodes.map(d => ({ ...d }));
+    const simEdges = edges.map(d => ({ ...d }));
+
+    // Compute connection counts for sizing
+    const connCount = {};
+    simEdges.forEach(e => {
+        const s = typeof e.source === 'object' ? e.source.id : e.source;
+        const t = typeof e.target === 'object' ? e.target.id : e.target;
+        connCount[s] = (connCount[s] || 0) + 1;
+        connCount[t] = (connCount[t] || 0) + 1;
+    });
+    function nodeRadius(d) {
+        const c = connCount[d.id] || 0;
+        return Math.max(5, Math.min(22, 5 + c * 1.8));
+    }
+
+    // Create zoom group
+    const g = svg.append('g');
+
+    _graphZoom = d3.zoom()
+        .scaleExtent([0.1, 5])
+        .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(_graphZoom);
+
+    // Edges
+    const edgeG = g.append('g').attr('class', 'graph-edges');
+    const link = edgeG.selectAll('line')
+        .data(simEdges)
+        .join('line')
+        .attr('class', 'graph-edge');
+
+    // Nodes group
+    const nodeG = g.append('g').attr('class', 'graph-nodes');
+    const node = nodeG.selectAll('g')
+        .data(simNodes)
+        .join('g')
+        .attr('class', 'graph-node')
+        .call(d3.drag()
+            .on('start', _dragStart)
+            .on('drag', _dragging)
+            .on('end', _dragEnd));
+
+    // Circle for each node
+    node.append('circle')
+        .attr('r', d => nodeRadius(d))
+        .attr('fill', d => GRAPH_TYPES[d.type]?.color || '#888')
+        .attr('stroke', d => GRAPH_TYPES[d.type]?.color || '#888')
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', d => nodeRadius(d) * 0.4);
+
+    // Labels (only for bigger nodes or non-ideas)
+    node.filter(d => d.type !== 'idea' || (connCount[d.id] || 0) >= 3)
+        .append('text')
+        .attr('class', 'graph-label')
+        .attr('dy', d => nodeRadius(d) + 12)
+        .text(d => d.label ? (d.label.length > 25 ? d.label.substring(0, 25) + '…' : d.label) : '');
+
+    // Tooltip & highlight
+    const tooltip = d3.select('#graphTooltip');
+
+    node.on('mouseenter', function (event, d) {
+        const conns = connCount[d.id] || 0;
+        const typeCfg = GRAPH_TYPES[d.type] || {};
+        tooltip
+            .style('display', 'block')
+            .style('left', (event.clientX + 12) + 'px')
+            .style('top', (event.clientY - 10) + 'px')
+            .html(`
+                <div style="font-weight:700;color:${typeCfg.color || '#fff'};margin-bottom:4px">${typeCfg.icon || ''} ${escapeHtml(d.label || '')}</div>
+                <div style="color:var(--text-muted);font-size:0.75rem">${typeCfg.label || d.type} · ${conns} conexion${conns !== 1 ? 'es' : ''}</div>
+            `);
+
+        // Highlight connected nodes and edges
+        const connected = new Set();
+        connected.add(d.id);
+        simEdges.forEach(e => {
+            const sId = typeof e.source === 'object' ? e.source.id : e.source;
+            const tId = typeof e.target === 'object' ? e.target.id : e.target;
+            if (sId === d.id) connected.add(tId);
+            if (tId === d.id) connected.add(sId);
+        });
+
+        node.classed('dimmed', n => !connected.has(n.id));
+        node.classed('highlighted', n => n.id === d.id);
+        link.classed('dimmed', e => {
+            const sId = typeof e.source === 'object' ? e.source.id : e.source;
+            const tId = typeof e.target === 'object' ? e.target.id : e.target;
+            return sId !== d.id && tId !== d.id;
+        });
+        link.classed('highlighted', e => {
+            const sId = typeof e.source === 'object' ? e.source.id : e.source;
+            const tId = typeof e.target === 'object' ? e.target.id : e.target;
+            return sId === d.id || tId === d.id;
+        });
+    })
+    .on('mousemove', function (event) {
+        tooltip
+            .style('left', (event.clientX + 12) + 'px')
+            .style('top', (event.clientY - 10) + 'px');
+    })
+    .on('mouseleave', function () {
+        tooltip.style('display', 'none');
+        node.classed('dimmed', false).classed('highlighted', false);
+        link.classed('dimmed', false).classed('highlighted', false);
+    })
+    .on('click', function (event, d) {
+        // Navigate to the entity's section
+        const sectionMap = {
+            project: 'projects', area: 'areas', idea: 'ideas',
+            reunion: 'reuniones', skill: 'skills', user: 'admin-users'
+        };
+        const sec = sectionMap[d.type];
+        if (sec) switchSection(sec);
+    });
+
+    // Force simulation
+    if (_graphSim) _graphSim.stop();
+    _graphSim = d3.forceSimulation(simNodes)
+        .force('link', d3.forceLink(simEdges).id(d => d.id).distance(90).strength(0.4))
+        .force('charge', d3.forceManyBody().strength(-140))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 3))
+        .force('x', d3.forceX(width / 2).strength(0.03))
+        .force('y', d3.forceY(height / 2).strength(0.03))
+        .on('tick', () => {
+            link
+                .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+        });
+
+    function _dragStart(event, d) {
+        if (!event.active) _graphSim.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+    }
+    function _dragging(event, d) {
+        d.fx = event.x; d.fy = event.y;
+    }
+    function _dragEnd(event, d) {
+        if (!event.active) _graphSim.alphaTarget(0);
+        d.fx = null; d.fy = null;
+    }
+}
+
+function toggleGraphType(type, btn) {
+    if (_graphActiveTypes.has(type)) {
+        _graphActiveTypes.delete(type);
+        btn.classList.remove('active');
+    } else {
+        _graphActiveTypes.add(type);
+        btn.classList.add('active');
+    }
+    const container = document.getElementById('graphContainer');
+    const rect = container.getBoundingClientRect();
+    _renderGraph(rect.width || 900, rect.height || 600);
+}
+
+function resetGraphZoom() {
+    const svg = d3.select('#graphSvg');
+    if (_graphZoom) {
+        svg.transition().duration(500).call(_graphZoom.transform, d3.zoomIdentity);
+    }
+}
+
+function searchGraphNode(query) {
+    if (!_graphData || !query.trim()) {
+        d3.selectAll('.graph-node').classed('dimmed', false).classed('highlighted', false);
+        d3.selectAll('.graph-edge').classed('dimmed', false).classed('highlighted', false);
+        return;
+    }
+    const q = query.toLowerCase().trim();
+    const matchIds = new Set();
+    _graphData.nodes.forEach(n => {
+        if ((n.label || '').toLowerCase().includes(q)) matchIds.add(n.id);
+    });
+
+    if (matchIds.size === 0) {
+        d3.selectAll('.graph-node').classed('dimmed', true).classed('highlighted', false);
+        d3.selectAll('.graph-edge').classed('dimmed', true).classed('highlighted', false);
+        return;
+    }
+
+    d3.selectAll('.graph-node').classed('dimmed', d => !matchIds.has(d.id)).classed('highlighted', d => matchIds.has(d.id));
+    d3.selectAll('.graph-edge').classed('dimmed', true).classed('highlighted', false);
+
+    // Center on first match
+    const firstMatch = d3.selectAll('.graph-node').filter(d => matchIds.has(d.id)).datum();
+    if (firstMatch && _graphZoom) {
+        const svg = d3.select('#graphSvg');
+        const container = document.getElementById('graphContainer');
+        const rect = container.getBoundingClientRect();
+        const transform = d3.zoomIdentity
+            .translate(rect.width / 2, rect.height / 2)
+            .scale(1.5)
+            .translate(-firstMatch.x, -firstMatch.y);
+        svg.transition().duration(600).call(_graphZoom.transform, transform);
+    }
+}
 
