@@ -444,10 +444,15 @@ function seedAreas() {
 }
 
 async function seedUsers() {
+    // Skip seeding when Supabase Auth is configured — users are managed via Supabase
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+        return;
+    }
+
     db.get('SELECT count(*) as count FROM users', [], async (err, row) => {
         if (err) return log.error('Seed users query failed', { error: err.message });
         if (row.count === 0) {
-            log.info('Seeding initial users');
+            log.info('Seeding initial users (SQLite fallback)');
             try {
                 const bcrypt = require('bcryptjs');
                 const salt = await bcrypt.genSalt(10);

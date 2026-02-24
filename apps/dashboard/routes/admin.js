@@ -16,22 +16,56 @@ const router = express.Router();
 
 router.get('/users', async (req, res) => {
     try {
-        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users');
-        // Add email from Supabase if available
+        // ─── Supabase: list from Auth as source of truth ───
         if (isSupabaseConfigured() && supabaseAdmin) {
-            const { data: sbUsers } = await supabaseAdmin.auth.admin.listUsers();
-            if (sbUsers?.users) {
-                const emailMap = {};
-                sbUsers.users.forEach(u => { emailMap[u.id] = u.email; });
-                users.forEach(u => {
-                    if (u.supabase_uid && emailMap[u.supabase_uid]) {
-                        u.email = emailMap[u.supabase_uid];
-                    }
-                });
+            const { data: sbData } = await supabaseAdmin.auth.admin.listUsers();
+            const sbUsers = sbData?.users || [];
+
+            // Roles from user_roles table
+            const { data: roles } = await supabase.from('user_roles').select('user_id, role');
+            const roleMap = {};
+            (roles || []).forEach(r => { roleMap[r.user_id] = r.role; });
+
+            // Local profiles (SQLite)
+            const localUsers = await all('SELECT * FROM users WHERE supabase_uid IS NOT NULL');
+            const localMap = {};
+            localUsers.forEach(u => { localMap[u.supabase_uid] = u; });
+
+            // Auto-create local profiles for Supabase users that don't have one yet
+            for (const sb of sbUsers) {
+                if (!localMap[sb.id]) {
+                    const displayName = sb.user_metadata?.display_name || sb.email?.split('@')[0] || 'user';
+                    const role = roleMap[sb.id] || 'analyst';
+                    const result = await run(
+                        'INSERT INTO users (supabase_uid, username, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
+                        [sb.id, displayName, role, '', '']
+                    );
+                    localMap[sb.id] = { id: result.lastID, supabase_uid: sb.id, username: displayName, role, department: '', expertise: '', avatar: null, created_at: new Date().toISOString() };
+                }
             }
+
+            const users = sbUsers.map(sb => {
+                const local = localMap[sb.id];
+                return {
+                    id: local.id,
+                    supabase_uid: sb.id,
+                    username: local.username,
+                    email: sb.email,
+                    role: roleMap[sb.id] || local.role || 'analyst',
+                    department: local.department || '',
+                    expertise: local.expertise || '',
+                    avatar: local.avatar || null,
+                    created_at: local.created_at
+                };
+            });
+            return res.json(users);
         }
+
+        // ─── SQLite fallback ───
+        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users');
         res.json(users);
     } catch (_err) {
+        log.error('List users error', { error: _err.message });
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });

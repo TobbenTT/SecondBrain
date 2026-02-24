@@ -6891,7 +6891,7 @@ async function loadAdminUsers() {
         renderAdminUsersTable(_adminUsers);
     } catch (err) {
         console.error('Load admin users error:', err);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar usuarios</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar usuarios</td></tr>';
     }
 }
 
@@ -6900,7 +6900,7 @@ function renderAdminUsersTable(users) {
     if (!tbody) return;
 
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">No se encontraron usuarios</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">No se encontraron usuarios</td></tr>';
         return;
     }
 
@@ -6915,6 +6915,7 @@ function renderAdminUsersTable(users) {
                     <span class="au-username">${escapeHtml(u.username)}</span>
                 </div>
             </td>
+            <td><span class="au-cell-text" style="font-size:0.82rem;opacity:0.8">${escapeHtml(u.email || '—')}</span></td>
             <td>
                 <select class="au-role-select role-${escapeHtml(u.role)}" data-user-id="${u.id}" data-original="${escapeHtml(u.role)}" onchange="changeUserRole(this)">
                     ${['admin','manager','analyst','consultor'].map(r =>
@@ -6944,6 +6945,7 @@ function filterAdminUsers() {
     const roleFilter = document.getElementById('auFilterRole')?.value || '';
     const filtered = _adminUsers.filter(u => {
         const matchSearch = !search || u.username.toLowerCase().includes(search)
+            || (u.email || '').toLowerCase().includes(search)
             || (u.department || '').toLowerCase().includes(search)
             || (u.expertise || '').toLowerCase().includes(search);
         const matchRole = !roleFilter || u.role === roleFilter;
@@ -6998,6 +7000,8 @@ function openUserEditModal(userId) {
 
     const titleEl = document.getElementById('userEditTitle');
     const usernameInput = document.getElementById('userEditUsername');
+    const emailInput = document.getElementById('userEditEmail');
+    const emailGroup = document.getElementById('userEditEmailGroup');
     const pwInput = document.getElementById('userEditPassword');
     const pwLabel = document.getElementById('userEditPwLabel');
     const idInput = document.getElementById('userEditId');
@@ -7010,6 +7014,8 @@ function openUserEditModal(userId) {
         if (titleEl) titleEl.textContent = `Editar: ${u.username}`;
         if (idInput) idInput.value = u.id;
         if (usernameInput) { usernameInput.value = u.username; usernameInput.disabled = true; }
+        if (emailInput) { emailInput.value = u.email || ''; emailInput.disabled = true; }
+        if (emailGroup) emailGroup.style.display = u.email ? '' : 'none';
         if (pwInput) pwInput.placeholder = 'Dejar vacio para no cambiar';
         if (pwLabel) pwLabel.textContent = 'Nueva Contraseña (opcional)';
         document.getElementById('userEditRole').value = u.role || 'analyst';
@@ -7021,6 +7027,8 @@ function openUserEditModal(userId) {
         if (titleEl) titleEl.textContent = 'Nuevo Usuario';
         if (idInput) idInput.value = '';
         if (usernameInput) { usernameInput.value = ''; usernameInput.disabled = false; }
+        if (emailInput) { emailInput.value = ''; emailInput.disabled = false; }
+        if (emailGroup) emailGroup.style.display = '';
         if (pwInput) pwInput.placeholder = 'Min 4 caracteres';
         if (pwLabel) pwLabel.textContent = 'Contraseña';
         document.getElementById('userEditRole').value = 'analyst';
@@ -7057,11 +7065,13 @@ function closeUserEditModal() {
                 if (pw) payload.newPassword = pw;
             } else {
                 payload.username = document.getElementById('userEditUsername').value;
+                payload.email = (document.getElementById('userEditEmail')?.value || '').trim();
                 payload.password = document.getElementById('userEditPassword').value;
-                if (!payload.username || !payload.password || payload.password.length < 4) {
-                    showToast('Username y password (min 4) son requeridos', 'warning');
+                if (!payload.email || !payload.password || payload.password.length < 4) {
+                    showToast('Email y contraseña (mín 4) son requeridos', 'warning');
                     return;
                 }
+                if (!payload.username) payload.username = payload.email.split('@')[0];
             }
 
             try {
