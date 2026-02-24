@@ -56,17 +56,51 @@ fi
 
 # Esperar a que Ollama inicie
 sleep 3
-log "Descargando modelo llama3 (esto puede tardar 5-10 minutos)..."
-ollama pull llama3
-log "Modelo llama3 descargado"
 
-header "4/7 — Configurar Ollama para escuchar en todas las interfaces"
-# Necesario para que Docker containers accedan a Ollama via host.docker.internal
+# Detectar GPU para elegir modelo
+header "3b/7 — Detectar hardware y descargar modelo"
+HAS_GPU=false
+if command -v nvidia-smi &> /dev/null; then
+    GPU_MEM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 || echo "0")
+    if [ "${GPU_MEM:-0}" -gt 0 ]; then
+        HAS_GPU=true
+        log "GPU detectada: ${GPU_MEM}MB VRAM"
+    fi
+fi
+
+TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
+log "RAM total: ${TOTAL_RAM}MB"
+
+# Elegir modelo basado en hardware
+SELECTED_MODEL="llama3"
+if [ "$HAS_GPU" = true ] && [ "${GPU_MEM:-0}" -ge 8000 ]; then
+    SELECTED_MODEL="llama3"
+    log "GPU con >=8GB VRAM — usando llama3 (8B, ~4.7GB)"
+elif [ "$TOTAL_RAM" -ge 16000 ]; then
+    SELECTED_MODEL="llama3"
+    log ">=16GB RAM — usando llama3 (8B, CPU mode)"
+elif [ "$TOTAL_RAM" -ge 8000 ]; then
+    SELECTED_MODEL="qwen2.5:3b"
+    log "<16GB RAM — usando qwen2.5:3b (3B, ligero y rapido)"
+    warn "Para mejor calidad, agrega mas RAM o una GPU"
+else
+    SELECTED_MODEL="qwen2.5:1.5b"
+    log "<8GB RAM — usando qwen2.5:1.5b (1.5B, minimo viable)"
+    warn "Rendimiento limitado. Recomendado: >=8GB RAM"
+fi
+
+log "Descargando modelo ${SELECTED_MODEL} (puede tardar 5-15 minutos)..."
+ollama pull "${SELECTED_MODEL}"
+log "Modelo ${SELECTED_MODEL} descargado"
+
+header "4/7 — Configurar Ollama para Docker"
+# Ollama necesita escuchar en 0.0.0.0 para que Docker containers lo alcancen
 mkdir -p /etc/systemd/system/ollama.service.d
-cat > /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+cat > /etc/systemd/system/ollama.service.d/override.conf << 'SVCEOF'
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0"
-EOF
+Environment="OLLAMA_KEEP_ALIVE=10m"
+SVCEOF
 systemctl daemon-reload
 systemctl restart ollama
 log "Ollama configurado para aceptar conexiones de Docker"
@@ -77,7 +111,7 @@ ufw default allow outgoing
 ufw allow ssh
 ufw allow 80/tcp       # HTTP (Nginx)
 ufw allow 443/tcp      # HTTPS (Nginx + SSL)
-# NO exponer puertos 3000-3003 directamente — Nginx hace proxy
+# NO exponer 3000 ni 11434 directamente — Nginx hace proxy
 ufw --force enable
 log "Firewall configurado (SSH + HTTP + HTTPS)"
 
@@ -101,10 +135,19 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "${GREEN}  VPS lista para SecondBrain!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+echo "Modelo Ollama instalado: ${SELECTED_MODEL}"
+echo ""
 echo "Siguiente paso: Clonar el repo y configurar .env"
 echo "  su - deployer"
 echo "  git clone https://github.com/TobbenTT/SecondBrain.git"
 echo "  cd SecondBrain"
-echo "  # Copiar y editar los archivos .env (ver DEPLOY.md)"
+echo ""
+echo "  # Actualizar modelo en .env si cambio del default:"
+echo "  # OLLAMA_MODEL=${SELECTED_MODEL}"
+echo ""
 echo "  docker compose up -d --build"
+echo ""
+echo "Verificar Ollama:"
+echo "  curl http://localhost:11434/api/tags"
+echo "  ollama list"
 echo ""

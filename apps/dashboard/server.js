@@ -161,7 +161,10 @@ app.get('/health', async (req, res) => {
 });
 
 // ─── Ollama Status (public) ─────────────────────────────────────────────────
-const { OLLAMA_URL, OLLAMA_MODEL } = require('./services/ollamaClient');
+const { OLLAMA_URL, OLLAMA_MODEL, warmup: ollamaWarmup } = require('./services/ollamaClient');
+
+// Warmup Ollama on startup (non-blocking)
+ollamaWarmup().catch(() => {});
 app.get('/api/ollama/status', async (req, res) => {
     try {
         const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
