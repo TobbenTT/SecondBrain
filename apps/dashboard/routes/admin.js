@@ -376,7 +376,7 @@ router.post('/orchestrator/execute', blockConsultor, async (req, res) => {
 
 router.get('/reportability', async (req, res) => {
     try {
-        const users = await all('SELECT id, username, role, department, expertise, avatar FROM users');
+        const users = await all("SELECT id, username, role, department, expertise, avatar FROM users WHERE role NOT IN ('usuario', 'cliente')");
         const today = new Date().toISOString().split('T')[0];
         const report = [];
 
@@ -455,6 +455,7 @@ router.get('/reportability/team-summary', async (req, res) => {
                 THEN ROUND(CAST(COALESCE(dc.completed_today, 0) AS FLOAT) / dc.checklist_total * 100)
                 ELSE 0 END as completion_pct
             FROM users u
+            WHERE u.role NOT IN ('usuario', 'cliente')
             LEFT JOIN (
                 SELECT assigned_to,
                     count(*) as total_assigned,
