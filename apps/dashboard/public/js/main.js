@@ -1529,7 +1529,8 @@ async function loadIdeas(filter = null, page = null) {
             const isCompleted = idea.completada == 1;
 
             if (isCompleted) {
-                actionBtns = `<span style="color:#22c55e;font-size:0.8rem;">✅ Completada ${idea.fecha_finalizacion ? new Date(idea.fecha_finalizacion).toLocaleDateString('es-ES') : ''}</span>`;
+                actionBtns = `<span style="color:#22c55e;font-size:0.8rem;">✅ Completada ${idea.fecha_finalizacion ? new Date(idea.fecha_finalizacion).toLocaleDateString('es-ES') : ''}</span>
+                    <button class="btn-code-action" onclick="reopenIdea('${idea.id}')" title="Reabrir tarea" style="margin-left:6px;">🔄 Reabrir</button>`;
             } else if (stage === 'captured') {
                 actionBtns = `<button class="btn-code-action" onclick="processIdea('${idea.id}', '${safeText}')">⚡ Organizar</button>`;
             } else if (stage === 'organized') {
@@ -4075,7 +4076,7 @@ async function loadAnalytics() {
 
         // By type (doughnut)
         const ctx4 = document.getElementById('chartByType');
-        if (ctx4 && data.byType) {
+        if (ctx4 && data.byType && data.byType.length > 0) {
             analyticsCharts.byType = new Chart(ctx4, {
                 type: 'doughnut',
                 data: {
@@ -4084,11 +4085,13 @@ async function loadAnalytics() {
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af' } } } }
             });
+        } else if (ctx4) {
+            ctx4.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.85rem;">Sin datos de tipos aun</div>';
         }
 
         // By priority (doughnut)
         const ctx5 = document.getElementById('chartByPriority');
-        if (ctx5 && data.byPriority) {
+        if (ctx5 && data.byPriority && data.byPriority.length > 0) {
             const priColors = { alta: '#ef4444', media: '#f59e0b', baja: '#22c55e' };
             analyticsCharts.byPriority = new Chart(ctx5, {
                 type: 'doughnut',
@@ -4098,11 +4101,13 @@ async function loadAnalytics() {
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af' } } } }
             });
+        } else if (ctx5) {
+            ctx5.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.85rem;">Sin datos de prioridad aun</div>';
         }
 
         // User productivity (stacked bar)
         const ctx6 = document.getElementById('chartUserProductivity');
-        if (ctx6 && data.userProductivity) {
+        if (ctx6 && data.userProductivity && data.userProductivity.length > 0) {
             analyticsCharts.userProd = new Chart(ctx6, {
                 type: 'bar',
                 data: {
@@ -4115,6 +4120,8 @@ async function loadAnalytics() {
                 },
                 options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { color: '#9ca3af' } } } }
             });
+        } else if (ctx6) {
+            ctx6.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.85rem;">Sin datos de productividad aun</div>';
         }
 
     } catch (err) {
@@ -4722,6 +4729,20 @@ async function completeIdea(ideaId) {
     }
 }
 
+async function reopenIdea(ideaId) {
+    try {
+        const res = await fetch(`/api/ideas/${ideaId}/reopen`, { method: 'POST' });
+        if (res.ok) {
+            showToast('Tarea reabierta', 'success');
+            loadIdeas();
+        } else {
+            showToast('Error al reabrir', 'error');
+        }
+    } catch (err) {
+        showToast('Error de red', 'error');
+    }
+}
+
 // ─── Decompose Idea into Project ────────────────────────────────────────────
 async function decomposeIdea(ideaId) {
     if (!confirm('¿Convertir esta idea en un PROYECTO con sub-tareas?')) return;
@@ -5028,6 +5049,7 @@ async function generateDailyReport() {
 
 // Expose GTD functions globally
 window.completeIdea = completeIdea;
+window.reopenIdea = reopenIdea;
 window.decomposeIdea = decomposeIdea;
 window.viewSubtasks = viewSubtasks;
 window.loadGtdBoard = loadGtdBoard;
@@ -5516,10 +5538,11 @@ function _handleContentMouseUp(e) {
 function _showInlinePopover(e) {
     _removeInlinePopover();
 
-    const container = document.getElementById('skillTabContent');
-    if (!container) return;
+    // Append to modal-content so it can float to the right side (Jira style)
+    const modalContent = document.querySelector('#skillModal .modal-content');
+    if (!modalContent) return;
 
-    const rect = container.getBoundingClientRect();
+    const modalRect = modalContent.getBoundingClientRect();
     const popover = document.createElement('div');
     popover.className = 'inline-comment-popover';
 
@@ -5534,12 +5557,17 @@ function _showInlinePopover(e) {
         </button>
     `;
 
-    // Position relative to the content area
-    popover.style.top = (e.clientY - rect.top + container.scrollTop + 8) + 'px';
-    popover.style.left = Math.min(e.clientX - rect.left, rect.width - 350) + 'px';
+    // Position: fixed to the right edge of the modal, at the selection height
+    popover.style.position = 'fixed';
+    popover.style.top = Math.max(modalRect.top + 60, Math.min(e.clientY - 20, modalRect.bottom - 200)) + 'px';
+    popover.style.left = (modalRect.right + 8) + 'px';
 
-    container.style.position = 'relative';
-    container.appendChild(popover);
+    // If no space on the right, show inside at the right edge
+    if (modalRect.right + 360 > window.innerWidth) {
+        popover.style.left = (modalRect.right - 350) + 'px';
+    }
+
+    document.body.appendChild(popover);
     _inlinePopover = popover;
 }
 

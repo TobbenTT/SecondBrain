@@ -393,6 +393,18 @@ router.post('/:id/complete', blockConsultor, async (req, res) => {
     }
 });
 
+router.post('/:id/reopen', blockConsultor, async (req, res) => {
+    try {
+        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        await run('UPDATE ideas SET completada = 0, fecha_finalizacion = NULL WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (_err) {
+        res.status(500).json({ error: 'Failed to reopen task' });
+    }
+});
+
 router.get('/:id/subtasks', async (req, res) => {
     try {
         const subtasks = await all(

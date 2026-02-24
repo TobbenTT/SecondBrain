@@ -43,9 +43,35 @@ router.get('/gtd/daily-report', async (req, res) => {
 
         const areas = await all('SELECT * FROM areas WHERE status = "active"');
 
-        const report = await aiService.generateDailyReport({
-            ideas, projects, waitingFor, completedToday, userStats, areas
-        });
+        let report;
+        try {
+            report = await aiService.generateDailyReport({
+                ideas, projects, waitingFor, completedToday, userStats, areas
+            });
+        } catch (_aiErr) {
+            report = null;
+        }
+
+        // Fallback: generate a plain stats report when AI is unavailable
+        if (!report || report.includes('Error al generar')) {
+            const date = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const lines = [`## Reporte del ${date}\n`];
+            lines.push(`### Resumen\n- **${ideas.length}** ideas capturadas hoy\n- **${completedToday.length}** tareas completadas\n- **${projects.length}** proyectos activos\n- **${waitingFor.length}** delegaciones pendientes\n`);
+            if (userStats.filter(u => u.pending > 0 || u.completed_today > 0).length > 0) {
+                lines.push('### Por Consultor');
+                userStats.filter(u => u.pending > 0 || u.completed_today > 0).forEach(u => {
+                    lines.push(`- **${u.username}**: ${u.pending} pendientes, ${u.completed_today} completadas hoy`);
+                });
+                lines.push('');
+            }
+            if (waitingFor.length > 0) {
+                lines.push('### Delegaciones Pendientes');
+                waitingFor.forEach(w => lines.push(`- Esperando de **${w.delegated_to}**: ${w.description}`));
+                lines.push('');
+            }
+            lines.push('\n> *Reporte generado sin IA — instale Ollama para reportes inteligentes.*');
+            report = lines.join('\n');
+        }
 
         res.json({ report, stats: { ideas_today: ideas.length, completed_today: completedToday.length, active_projects: projects.length, pending_delegations: waitingFor.length, userStats } });
     } catch (err) {
