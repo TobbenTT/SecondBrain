@@ -25,9 +25,9 @@ router.get('/users', async (req, res) => {
             }
 
             if (roles && roles.length > 0) {
-                // Map Supabase roles to dashboard roles (user → analyst)
-                const ROLE_MAP = { admin: 'admin', manager: 'manager', analyst: 'analyst', consultor: 'consultor', user: 'analyst' };
-                const normalizeRole = (r) => ROLE_MAP[r] || 'analyst';
+                // Map Supabase roles to dashboard roles (user → usuario)
+                const ROLE_MAP = { admin: 'admin', manager: 'manager', analyst: 'analyst', consultor: 'consultor', usuario: 'usuario', cliente: 'cliente', user: 'usuario' };
+                const normalizeRole = (r) => ROLE_MAP[r] || 'usuario';
 
                 const roleMap = {};
                 roles.forEach(r => { roleMap[r.user_id] = normalizeRole(r.role); });
@@ -102,7 +102,7 @@ router.post('/users', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Password (min 4 chars) required' });
     }
 
-    const validRoles = ['admin', 'manager', 'analyst', 'consultor'];
+    const validRoles = ['admin', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
     const safeRole = validRoles.includes(role) ? role : 'analyst';
 
     try {
@@ -160,7 +160,7 @@ router.post('/users', requireAdmin, async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', requireAdmin, async (req, res) => {
     const { role, department, expertise, newPassword } = req.body;
-    const validRoles = ['admin', 'manager', 'analyst', 'consultor'];
+    const validRoles = ['admin', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
 
     try {
         const user = await get('SELECT * FROM users WHERE id = ?', [req.params.id]);

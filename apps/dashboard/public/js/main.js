@@ -206,7 +206,7 @@ async function loadHomeTeam() {
             grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
             return;
         }
-        const roleColors = { admin: '#e74c3c', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71' };
+        const roleColors = { admin: '#e74c3c', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71', usuario: '#9b59b6', cliente: '#e67e22' };
         grid.innerHTML = users.map(u => `
             <div class="home-team-card">
                 <div class="home-team-avatar">${_avatarHtml(u.avatar, u.username, 64)}</div>
@@ -6877,7 +6877,7 @@ async function loadAdminUsers() {
         // Stats bar
         const statsBar = document.getElementById('auStatsBar');
         if (statsBar) {
-            const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0 };
+            const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
             _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             statsBar.innerHTML = `
                 <div class="au-stat"><span class="au-stat-num">${_adminUsers.length}</span><span class="au-stat-label">Total</span></div>
@@ -6885,6 +6885,8 @@ async function loadAdminUsers() {
                 <div class="au-stat au-stat-manager"><span class="au-stat-num">${roleCounts.manager}</span><span class="au-stat-label">Managers</span></div>
                 <div class="au-stat au-stat-analyst"><span class="au-stat-num">${roleCounts.analyst}</span><span class="au-stat-label">Analysts</span></div>
                 <div class="au-stat au-stat-consultor"><span class="au-stat-num">${roleCounts.consultor}</span><span class="au-stat-label">Consultores</span></div>
+                <div class="au-stat au-stat-usuario"><span class="au-stat-num">${roleCounts.usuario}</span><span class="au-stat-label">Usuarios</span></div>
+                <div class="au-stat au-stat-cliente"><span class="au-stat-num">${roleCounts.cliente}</span><span class="au-stat-label">Clientes</span></div>
             `;
         }
 
@@ -6904,7 +6906,7 @@ function renderAdminUsersTable(users) {
         return;
     }
 
-    const roleLabels = { admin: 'Admin', manager: 'Manager', analyst: 'Analyst', consultor: 'Consultor' };
+    const roleLabels = { admin: 'Admin', manager: 'Manager', analyst: 'Analyst', consultor: 'Consultor', usuario: 'Usuario', cliente: 'Cliente' };
 
     tbody.innerHTML = users.map(u => {
         const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -6918,7 +6920,7 @@ function renderAdminUsersTable(users) {
             <td><span class="au-cell-text" style="font-size:0.82rem;opacity:0.8">${escapeHtml(u.email || '—')}</span></td>
             <td>
                 <select class="au-role-select role-${escapeHtml(u.role)}" data-user-id="${u.id}" data-original="${escapeHtml(u.role)}" onchange="changeUserRole(this)">
-                    ${['admin','manager','analyst','consultor'].map(r =>
+                    ${['admin','manager','analyst','consultor','usuario','cliente'].map(r =>
                         `<option value="${r}" ${r === u.role ? 'selected' : ''}>${roleLabels[r]}</option>`
                     ).join('')}
                 </select>
@@ -6976,12 +6978,14 @@ async function changeUserRole(select) {
             // Update stats
             const statsBar = document.getElementById('auStatsBar');
             if (statsBar) {
-                const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0 };
+                const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
                 _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
                 statsBar.querySelector('.au-stat-admin .au-stat-num').textContent = roleCounts.admin;
                 statsBar.querySelector('.au-stat-manager .au-stat-num').textContent = roleCounts.manager;
                 statsBar.querySelector('.au-stat-analyst .au-stat-num').textContent = roleCounts.analyst;
                 statsBar.querySelector('.au-stat-consultor .au-stat-num').textContent = roleCounts.consultor;
+                statsBar.querySelector('.au-stat-usuario .au-stat-num').textContent = roleCounts.usuario;
+                statsBar.querySelector('.au-stat-cliente .au-stat-num').textContent = roleCounts.cliente;
             }
             showToast(`Rol de ${user.username} cambiado a ${newRole}`, 'success');
         } else {

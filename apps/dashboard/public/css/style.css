@@ -6659,6 +6659,14 @@ select option {
     background: rgba(241, 196, 15, 0.15);
     color: #f1c40f;
 }
+.profile-role-badge.role-usuario {
+    background: rgba(155, 89, 182, 0.15);
+    color: #9b59b6;
+}
+.profile-role-badge.role-cliente {
+    background: rgba(230, 126, 34, 0.15);
+    color: #e67e22;
+}
 
 .profile-form {
     display: flex;
@@ -6771,6 +6779,8 @@ select option {
 .au-stat-manager .au-stat-num { color: #f1c40f; }
 .au-stat-analyst .au-stat-num { color: #3498db; }
 .au-stat-consultor .au-stat-num { color: #2ecc71; }
+.au-stat-usuario .au-stat-num { color: #9b59b6; }
+.au-stat-cliente .au-stat-num { color: #e67e22; }
 
 /* Controls Bar */
 .au-controls {
@@ -6963,6 +6973,16 @@ select option {
 .au-role-select.role-consultor {
     background-color: rgba(46, 204, 113, 0.12);
     color: #2ecc71;
+}
+
+.au-role-select.role-usuario {
+    background-color: rgba(155, 89, 182, 0.12);
+    color: #9b59b6;
+}
+
+.au-role-select.role-cliente {
+    background-color: rgba(230, 126, 34, 0.12);
+    color: #e67e22;
 }
 
 .au-cell-text {
