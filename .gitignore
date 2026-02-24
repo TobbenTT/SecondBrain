@@ -108,3 +108,8 @@ Daily-Meeting-*.md
 
 # Temp/local files
 localhost
+
+# Legacy folders (removed from repo)
+General/
+agents/
+scripts/
