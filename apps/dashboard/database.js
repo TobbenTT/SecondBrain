@@ -172,8 +172,8 @@ function initTables() {
             if (!err) seedUsers();
         });
 
-        // Migration: Add department/expertise/avatar to users
-        ['department', 'expertise', 'avatar'].forEach(col => {
+        // Migration: Add department/expertise/avatar/supabase_uid to users
+        ['department', 'expertise', 'avatar', 'supabase_uid'].forEach(col => {
             db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (_err) => {
                 // Ignore if exists
             });
@@ -345,6 +345,7 @@ function initTables() {
         db.run('CREATE INDEX IF NOT EXISTS idx_inbox_log_idea ON inbox_log(original_idea_id)');
         db.run('CREATE INDEX IF NOT EXISTS idx_notif_dismiss_user ON notification_dismissals(username, notification_type)');
         db.run('CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)');
+        db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_supabase_uid ON users(supabase_uid)');
         db.run('CREATE INDEX IF NOT EXISTS idx_comments_target ON comments(target_type, target_id)');
         db.run('CREATE INDEX IF NOT EXISTS idx_comments_username ON comments(username)');
         db.run('CREATE INDEX IF NOT EXISTS idx_skill_docs_path ON skill_documents(skill_path)');

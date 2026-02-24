@@ -7,6 +7,7 @@ const log = require('../helpers/logger');
 const orchestratorBridge = require('../services/orchestratorBridge');
 const { requireAdmin, denyRole } = require('../middleware/authorize');
 const { avatarUpload, AVATARS_DIR } = require('./auth');
+const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
 const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
@@ -15,7 +16,20 @@ const router = express.Router();
 
 router.get('/users', async (req, res) => {
     try {
-        const users = await all('SELECT id, username, role, department, expertise, avatar, created_at FROM users');
+        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users');
+        // Add email from Supabase if available
+        if (isSupabaseConfigured() && supabaseAdmin) {
+            const { data: sbUsers } = await supabaseAdmin.auth.admin.listUsers();
+            if (sbUsers?.users) {
+                const emailMap = {};
+                sbUsers.users.forEach(u => { emailMap[u.id] = u.email; });
+                users.forEach(u => {
+                    if (u.supabase_uid && emailMap[u.supabase_uid]) {
+                        u.email = emailMap[u.supabase_uid];
+                    }
+                });
+            }
+        }
         res.json(users);
     } catch (_err) {
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -24,16 +38,51 @@ router.get('/users', async (req, res) => {
 
 // Create user (admin only)
 router.post('/users', requireAdmin, async (req, res) => {
-    const { username, password, role, department, expertise } = req.body;
+    const { username, email, password, role, department, expertise } = req.body;
 
-    if (!username || !username.trim() || !password || password.length < 4) {
-        return res.status(400).json({ error: 'username and password (min 4 chars) required' });
+    if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password (min 4 chars) required' });
     }
 
     const validRoles = ['admin', 'manager', 'analyst', 'consultor'];
     const safeRole = validRoles.includes(role) ? role : 'analyst';
 
     try {
+        // ─── Supabase path ───
+        if (isSupabaseConfigured() && supabaseAdmin && email) {
+            // Create user in Supabase Auth
+            const { data: sbUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+                email: email.trim(),
+                password,
+                email_confirm: true,
+                user_metadata: { display_name: (username || email.split('@')[0]).trim() }
+            });
+            if (createErr) {
+                log.error('Supabase create user error', { error: createErr.message });
+                return res.status(400).json({ error: createErr.message });
+            }
+
+            const uid = sbUser.user.id;
+
+            // Insert role in user_roles
+            await supabase.from('user_roles').insert({ user_id: uid, role: safeRole });
+
+            // Create local profile
+            const displayName = (username || email.split('@')[0]).trim();
+            const result = await run(
+                'INSERT INTO users (supabase_uid, username, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
+                [uid, displayName, safeRole, (department || '').trim(), (expertise || '').trim()]
+            );
+            const created = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users WHERE id = ?', [result.lastID]);
+            created.email = email.trim();
+            log.info('User created via Supabase', { email: email.trim(), role: safeRole });
+            return res.json(created);
+        }
+
+        // ─── SQLite fallback ───
+        if (!username || !username.trim()) {
+            return res.status(400).json({ error: 'username required' });
+        }
         const existing = await get('SELECT id FROM users WHERE username = ?', [username.toLowerCase().trim()]);
         if (existing) return res.status(409).json({ error: 'Username already exists' });
 
@@ -59,20 +108,39 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
         const user = await get('SELECT * FROM users WHERE id = ?', [req.params.id]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
+        const newRole = validRoles.includes(role) ? role : user.role;
+
+        // Update local profile
         await run('UPDATE users SET role = ?, department = ?, expertise = ? WHERE id = ?', [
-            validRoles.includes(role) ? role : user.role,
+            newRole,
             (department !== undefined ? department : user.department || '').trim(),
             (expertise !== undefined ? expertise : user.expertise || '').trim(),
             req.params.id
         ]);
 
-        // Optional password reset
-        if (newPassword && newPassword.length >= 4) {
+        // ─── Supabase sync ───
+        if (user.supabase_uid && isSupabaseConfigured()) {
+            // Sync role to user_roles in Supabase
+            if (supabase && newRole !== user.role) {
+                await supabase.from('user_roles')
+                    .update({ role: newRole })
+                    .eq('user_id', user.supabase_uid);
+            }
+            // Password reset via Supabase Admin
+            if (newPassword && newPassword.length >= 4 && supabaseAdmin) {
+                const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(
+                    user.supabase_uid,
+                    { password: newPassword }
+                );
+                if (pwErr) log.error('Supabase password reset error', { error: pwErr.message });
+            }
+        } else if (newPassword && newPassword.length >= 4) {
+            // SQLite fallback password reset
             const hash = await bcrypt.hash(newPassword, 10);
             await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
         }
 
-        const updated = await get('SELECT id, username, role, department, expertise, avatar, created_at FROM users WHERE id = ?', [req.params.id]);
+        const updated = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users WHERE id = ?', [req.params.id]);
         res.json(updated);
     } catch (err) {
         log.error('Update user error', { error: err.message });
@@ -108,17 +176,25 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     const currentUser = req.session?.user;
 
     try {
-        const user = await get('SELECT id, username FROM users WHERE id = ?', [req.params.id]);
+        const user = await get('SELECT id, username, supabase_uid, avatar FROM users WHERE id = ?', [req.params.id]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         if (user.id === currentUser.id) {
             return res.status(400).json({ error: 'Cannot delete your own account' });
         }
 
+        // Delete from Supabase if applicable
+        if (user.supabase_uid && isSupabaseConfigured() && supabaseAdmin) {
+            // Delete from user_roles
+            await supabase.from('user_roles').delete().eq('user_id', user.supabase_uid);
+            // Delete from Supabase Auth
+            const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(user.supabase_uid);
+            if (delErr) log.error('Supabase delete user error', { error: delErr.message });
+        }
+
         // Delete avatar file
-        const full = await get('SELECT avatar FROM users WHERE id = ?', [req.params.id]);
-        if (full && full.avatar) {
-            const avatarPath = path.join(__dirname, '..', 'public', full.avatar);
+        if (user.avatar) {
+            const avatarPath = path.join(__dirname, '..', 'public', user.avatar);
             if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);
         }
 
