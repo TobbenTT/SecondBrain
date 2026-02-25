@@ -39,7 +39,10 @@ router.get('/login', (req, res) => {
     }
     const csrfToken = crypto.randomBytes(32).toString('hex');
     req.session._csrfToken = csrfToken;
-    res.render('login', { error: null, csrfToken });
+    // Force session save — saveUninitialized:false skips new sessions otherwise
+    req.session.save(() => {
+        res.render('login', { error: null, csrfToken });
+    });
 });
 
 router.post('/login', async (req, res) => {
