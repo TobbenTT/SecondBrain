@@ -13,7 +13,7 @@ const compression = require('compression');
 const log = require('./helpers/logger');
 
 // Database
-const { db, run, get, all } = require('./database');
+const { db, run, get, all, closeDb } = require('./database');
 
 // Middleware
 const { apiKeyAuth, requireAuth } = require('./middleware/auth');
@@ -344,12 +344,14 @@ if (process.env.NODE_ENV !== 'test') {
 
 function gracefulShutdown(signal) {
     log.info('Graceful shutdown initiated', { signal });
-    server.close(() => {
-        db.close((err) => {
-            if (err) log.error('DB close error', { error: err.message });
+    server.close(async () => {
+        try {
+            await closeDb();
             log.info('Database closed — goodbye');
-            process.exit(0);
-        });
+        } catch (err) {
+            log.error('DB close error', { error: err.message });
+        }
+        process.exit(0);
     });
     setTimeout(() => {
         log.error('Forced shutdown after timeout');

@@ -1,4 +1,33 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: secondbrain-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - sb-redis-data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: secondbrain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: secondbrain
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-vsc_prod_2026}
+      POSTGRES_DB: secondbrain
+    volumes:
+      - sb-pg-data:/var/lib/postgresql/data
+      - ./scripts/init-pg.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secondbrain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   dashboard:
     build: ./apps/dashboard
     container_name: secondbrain-dashboard
@@ -8,6 +37,14 @@ services:
     env_file:
       - ./apps/dashboard/.env
     environment:
+      - NODE_ENV=production
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=secondbrain
+      - PG_PASSWORD=${PG_PASSWORD:-vsc_prod_2026}
+      - PG_DATABASE=secondbrain
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       # Ollama runs on host, Docker container reaches it via host.docker.internal
       - OLLAMA_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
@@ -28,9 +65,13 @@ services:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 5s
-      start_period: 10s
+      start_period: 15s
       retries: 3
     depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
       ollama-pull:
         condition: service_completed_successfully
 
@@ -84,6 +125,8 @@ services:
     restart: "no"
 
 volumes:
+  sb-redis-data:
+  sb-pg-data:
   sb-data:
   sb-avatars:
   sb-gallery:
