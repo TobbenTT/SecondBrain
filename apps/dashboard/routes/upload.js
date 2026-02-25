@@ -85,7 +85,7 @@ const upload = multer({
 });
 
 // ─── Multer Error Handler ────────────────────────────────────────────────────
-function handleMulterError(err, req, res, next) {
+function handleMulterError(err, req, res, _next) {
     if (err instanceof multer.MulterError) {
         const messages = {
             LIMIT_FILE_SIZE: 'El archivo excede el tamaño máximo permitido (50MB)',
@@ -98,7 +98,9 @@ function handleMulterError(err, req, res, next) {
         log.warn('File type rejected', { path: req.path, originalname: req.file?.originalname });
         return res.status(400).json({ error: 'Tipo de archivo no permitido. Solo se aceptan: .md, .pdf, .txt, .docx' });
     }
-    next(err);
+    // Catch-all: filesystem errors, permission errors, etc.
+    log.error('Upload error', { error: err.message, code: err.code, path: req.path });
+    res.status(500).json({ error: `Error al subir archivo: ${err.message}` });
 }
 
 // ─── Voice Upload ────────────────────────────────────────────────────────────
