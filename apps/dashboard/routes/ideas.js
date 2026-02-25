@@ -427,7 +427,7 @@ router.post('/:id/complete', blockConsultor, async (req, res) => {
 
         if (idea.parent_idea_id) {
             const remaining = await get(
-                'SELECT count(*) as cnt FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0')',
+                `SELECT count(*) as cnt FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0')`,
                 [idea.parent_idea_id]
             );
             if (remaining.cnt === 0) {
@@ -435,12 +435,12 @@ router.post('/:id/complete', blockConsultor, async (req, res) => {
                     code_stage = 'expressed' WHERE id = ?`, [idea.parent_idea_id]);
             } else {
                 const nextTask = await get(
-                    'SELECT id FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0') ORDER BY id ASC LIMIT 1',
+                    `SELECT id FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0') ORDER BY id ASC LIMIT 1`,
                     [idea.parent_idea_id]
                 );
                 if (nextTask) {
-                    await run('UPDATE ideas SET proxima_accion = '0' WHERE parent_idea_id = ?', [idea.parent_idea_id]);
-                    await run('UPDATE ideas SET proxima_accion = '1' WHERE id = ?', [nextTask.id]);
+                    await run(`UPDATE ideas SET proxima_accion = '0' WHERE parent_idea_id = ?`, [idea.parent_idea_id]);
+                    await run(`UPDATE ideas SET proxima_accion = '1' WHERE id = ?`, [nextTask.id]);
                 }
             }
         }
@@ -456,7 +456,7 @@ router.post('/:id/reopen', blockConsultor, async (req, res) => {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
 
-        await run('UPDATE ideas SET completada = '0', fecha_finalizacion = NULL WHERE id = ?', [req.params.id]);
+        await run(`UPDATE ideas SET completada = '0', fecha_finalizacion = NULL WHERE id = ?`, [req.params.id]);
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to reopen task' });
