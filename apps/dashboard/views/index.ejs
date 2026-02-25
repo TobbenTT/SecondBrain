@@ -36,7 +36,7 @@
                 <span class="nav-label">Principal</span>
                 <a href="#home" class="nav-link active" data-section="home">
                     <span class="nav-icon">🏠</span>
-                    Panel Ejecutivo
+                    Inicio
                 </a>
                 <a href="#overview" class="nav-link" data-section="overview">
                     <span class="nav-icon">📊</span>
@@ -242,169 +242,133 @@
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section active" id="section-home">
 
-            <!-- Compact Hero Banner -->
-            <div class="exec-hero">
-                <div class="exec-hero-left">
-                    <p class="exec-hero-label">VALUE STRATEGY CONSULTING</p>
-                    <h2 class="exec-hero-title">Panel Ejecutivo</h2>
-                    <p class="exec-hero-greeting" id="homeGreeting"></p>
-                </div>
-                <div class="exec-hero-right">
-                    <div class="exec-hero-date" id="execDate"></div>
-                </div>
-            </div>
-
-            <!-- KPI Cards Row -->
-            <div class="exec-kpi-row" id="execKpiRow">
-                <div class="exec-kpi-card exec-kpi-blue" onclick="switchSection('projects')">
-                    <div class="exec-kpi-top">
-                        <span class="exec-kpi-icon">🚀</span>
-                        <span class="exec-kpi-trend" id="kpiProjectsTrend"></span>
-                    </div>
-                    <div class="exec-kpi-value" id="kpiProjectsActive">—</div>
-                    <div class="exec-kpi-label">Proyectos Activos</div>
-                    <div class="exec-kpi-bar-wrap">
-                        <div class="exec-kpi-bar" id="kpiProjectsBar" style="width:0%"></div>
-                    </div>
-                    <div class="exec-kpi-sub" id="kpiProjectsSub">— completados de — totales</div>
-                </div>
-                <div class="exec-kpi-card exec-kpi-amber" onclick="switchSection('ideas')">
-                    <div class="exec-kpi-top">
-                        <span class="exec-kpi-icon">💡</span>
-                        <span class="exec-kpi-trend" id="kpiIdeasTrend"></span>
-                    </div>
-                    <div class="exec-kpi-value" id="kpiIdeasTotal">—</div>
-                    <div class="exec-kpi-label">Ideas Totales</div>
-                    <div class="exec-kpi-bar-wrap">
-                        <div class="exec-kpi-bar" id="kpiIdeasBar" style="width:0%"></div>
-                    </div>
-                    <div class="exec-kpi-sub" id="kpiIdeasSub">— procesadas</div>
-                </div>
-                <div class="exec-kpi-card exec-kpi-red" onclick="switchSection('waiting')">
-                    <div class="exec-kpi-top">
-                        <span class="exec-kpi-icon">📋</span>
-                    </div>
-                    <div class="exec-kpi-value" id="kpiCompromisos">—</div>
-                    <div class="exec-kpi-label">Compromisos Abiertos</div>
-                    <div class="exec-kpi-bar-wrap">
-                        <div class="exec-kpi-bar" id="kpiCompromisosBar" style="width:0%"></div>
-                    </div>
-                    <div class="exec-kpi-sub" id="kpiCompromisosSub">— de esta semana</div>
-                </div>
-                <div class="exec-kpi-card exec-kpi-green" onclick="switchSection('reuniones')">
-                    <div class="exec-kpi-top">
-                        <span class="exec-kpi-icon">📅</span>
-                    </div>
-                    <div class="exec-kpi-value" id="kpiReuniones">—</div>
-                    <div class="exec-kpi-label">Reuniones (7d)</div>
-                    <div class="exec-kpi-bar-wrap">
-                        <div class="exec-kpi-bar" id="kpiReunionesBar" style="width:0%"></div>
-                    </div>
-                    <div class="exec-kpi-sub" id="kpiReunionesSub">— totales</div>
+            <!-- Hero -->
+            <div class="home-hero">
+                <div class="home-hero-bg"></div>
+                <div class="home-hero-content">
+                    <p class="home-hero-label">VALUE STRATEGY CONSULTING</p>
+                    <h2 class="home-hero-title">Hub Interno de<br>Operaciones</h2>
+                    <p class="home-hero-greeting" id="homeGreeting"></p>
+                    <div class="home-hero-divider"></div>
+                    <p class="home-hero-tagline">
+                        Plataforma centralizada para gestionar proyectos, documentacion,
+                        metodologias y herramientas del equipo.
+                    </p>
                 </div>
             </div>
 
-            <!-- Two-column layout: Charts + Activity -->
-            <div class="exec-main-grid">
-                <!-- Left: Charts -->
-                <div class="exec-col-left">
-                    <!-- Project Status Chart -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Estado de Proyectos</h4>
-                            <button class="panel-action" onclick="switchSection('projects')">Ver todos →</button>
-                        </div>
-                        <div class="exec-panel-body">
-                            <div class="exec-chart-wrap" style="height:180px;"><canvas id="execChartProjects"></canvas></div>
-                        </div>
-                    </div>
-                    <!-- Ideas Pipeline -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Pipeline de Ideas (CODE)</h4>
-                            <button class="panel-action" onclick="switchSection('ideas')">Ver todas →</button>
-                        </div>
-                        <div class="exec-panel-body">
-                            <div class="exec-pipeline" id="execPipeline"></div>
-                        </div>
-                    </div>
-                    <!-- Top Active Projects -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Proyectos Prioritarios</h4>
-                        </div>
-                        <div class="exec-panel-body">
-                            <div id="execTopProjects" class="exec-top-projects">
-                                <div class="loading-sm"><div class="spinner-sm"></div></div>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Stats Strip -->
+            <div class="home-stats-strip">
+                <div class="hss-item hss-clickable" onclick="switchSection('projects')">
+                    <span class="hss-num" id="homeStatProjects">—</span>
+                    <span class="hss-label">Proyectos</span>
                 </div>
-                <!-- Right: Personal Dashboard + Activity -->
-                <div class="exec-col-right">
-                    <!-- My Tasks -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Mis Tareas</h4>
+                <div class="hss-divider"></div>
+                <div class="hss-item hss-clickable" onclick="switchSection('archivos')">
+                    <span class="hss-num" id="homeStatDocs">—</span>
+                    <span class="hss-label">Documentos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item hss-clickable" onclick="switchSection('ideas')">
+                    <span class="hss-num" id="homeStatIdeas">—</span>
+                    <span class="hss-label">Ideas Capturadas</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item hss-clickable" onclick="switchSection('areas')">
+                    <span class="hss-num" id="homeStatAreas">—</span>
+                    <span class="hss-label">Areas Activas</span>
+                </div>
+            </div>
+
+            <!-- Personal Dashboard -->
+            <div class="home-personal" id="homePersonal">
+                <div class="hp-grid">
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Mis Tareas</h4>
                             <div class="hp-task-summary" id="hpTaskSummary"></div>
                         </div>
-                        <div class="exec-panel-body exec-scroll" id="hpTaskList">
+                        <div class="hp-card-body" id="hpTaskList">
                             <div class="loading-sm"><div class="spinner-sm"></div></div>
                         </div>
-                        <div class="exec-panel-footer">
+                        <div class="hp-card-footer">
                             <a href="#ideas" onclick="switchSection('ideas')" class="hp-link">Ver todas →</a>
                         </div>
                     </div>
-                    <!-- Delegations -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Delegaciones Pendientes</h4>
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Delegaciones Pendientes</h4>
                         </div>
-                        <div class="exec-panel-body exec-scroll" id="hpDelegations">
+                        <div class="hp-card-body" id="hpDelegations">
                             <div class="loading-sm"><div class="spinner-sm"></div></div>
                         </div>
-                        <div class="exec-panel-footer">
+                        <div class="hp-card-footer">
                             <a href="#waiting" onclick="switchSection('waiting')" class="hp-link">Ver delegaciones →</a>
                         </div>
                     </div>
-                    <!-- Activity Feed -->
-                    <div class="exec-panel">
-                        <div class="exec-panel-header">
-                            <h4>Actividad Reciente</h4>
+                    <div class="hp-card">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Reuniones Recientes</h4>
                         </div>
-                        <div class="exec-panel-body exec-scroll" id="hpActivity">
+                        <div class="hp-card-body" id="hpReuniones">
+                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+                        </div>
+                        <div class="hp-card-footer">
+                            <a href="#reuniones" onclick="switchSection('reuniones')" class="hp-link">Ver reuniones →</a>
+                        </div>
+                    </div>
+                    <div class="hp-card hp-card-wide">
+                        <div class="hp-card-header">
+                            <h4 class="hp-card-title">Actividad Reciente</h4>
+                        </div>
+                        <div class="hp-card-body" id="hpActivity">
                             <div class="loading-sm"><div class="spinner-sm"></div></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Bottom row: Reuniones + Team + Quick Capture -->
-            <div class="exec-bottom-row">
-                <!-- Recent Reuniones -->
-                <div class="exec-panel">
-                    <div class="exec-panel-header">
-                        <h4>Reuniones Recientes</h4>
-                        <button class="panel-action" onclick="switchSection('reuniones')">Ver todas →</button>
-                    </div>
-                    <div class="exec-panel-body exec-scroll" id="hpReuniones">
-                        <div class="loading-sm"><div class="spinner-sm"></div></div>
-                    </div>
+            <!-- Team -->
+            <div class="home-team-section">
+                <h3 class="home-section-title">Nuestro Equipo</h3>
+                <div class="home-team-grid" id="homeTeamGrid">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
                 </div>
-                <!-- Team -->
-                <div class="exec-panel">
-                    <div class="exec-panel-header">
-                        <h4>Equipo</h4>
-                    </div>
-                    <div class="exec-panel-body">
-                        <div class="home-team-grid" id="homeTeamGrid">
-                            <div class="loading-sm"><div class="spinner-sm"></div></div>
+            </div>
+
+            <!-- Gallery -->
+            <div class="home-gallery-section" id="homeGallerySection">
+                <div class="home-gallery-header">
+                    <h3 class="home-section-title">Galeria</h3>
+                    <% if (user && (user.role === 'admin' || user.role === 'ceo' || user.role === 'manager')) { %>
+                    <button class="btn btn-sm" onclick="openGalleryUpload()">+ Subir Foto</button>
+                    <% } %>
+                </div>
+                <div class="home-gallery-grid" id="homeGalleryGrid"></div>
+                <div id="galleryUploadForm" style="display:none;margin-top:12px;">
+                    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Foto</label>
+                            <input type="file" id="galleryFileInput" accept="image/*" class="search-input-sm" style="width:100%;">
                         </div>
+                        <div style="flex:1;min-width:150px;">
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Descripcion</label>
+                            <input type="text" id="galleryCaptionInput" placeholder="Descripcion..." class="search-input-sm" style="width:100%;">
+                        </div>
+                        <select id="galleryCategoryInput" class="gtd-filter-select">
+                            <option value="general">General</option>
+                            <option value="equipo">Equipo</option>
+                            <option value="evento">Evento</option>
+                            <option value="reunion">Reunion</option>
+                            <option value="oficina">Oficina</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="uploadGalleryPhoto()">Subir</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('galleryUploadForm').style.display='none'">Cancelar</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Quick Capture Bar -->
+            <!-- Quick Capture -->
             <div class="quick-capture-bar" id="quickCaptureBar">
                 <div class="quick-capture-inner">
                     <span class="quick-capture-icon">🎤</span>
@@ -429,15 +393,100 @@
         </section>
 
         <!-- ══════════════════════════════════════════════════════
-             SECTION: OVERVIEW
+             SECTION: OVERVIEW (Dashboard General + Panel Ejecutivo)
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-overview">
+
+            <!-- Executive KPI Cards -->
+            <div class="exec-kpi-row" id="execKpiRow">
+                <div class="exec-kpi-card exec-kpi-blue" onclick="switchSection('projects')">
+                    <div class="exec-kpi-top">
+                        <span class="exec-kpi-icon">🚀</span>
+                        <span class="exec-kpi-trend" id="kpiProjectsTrend"></span>
+                    </div>
+                    <div class="exec-kpi-value" id="kpiProjectsActive">—</div>
+                    <div class="exec-kpi-label">Proyectos Activos</div>
+                    <div class="exec-kpi-bar-wrap">
+                        <div class="exec-kpi-bar" id="kpiProjectsBar" style="width:0%"></div>
+                    </div>
+                    <div class="exec-kpi-sub" id="kpiProjectsSub"></div>
+                </div>
+                <div class="exec-kpi-card exec-kpi-amber" onclick="switchSection('ideas')">
+                    <div class="exec-kpi-top">
+                        <span class="exec-kpi-icon">💡</span>
+                        <span class="exec-kpi-trend" id="kpiIdeasTrend"></span>
+                    </div>
+                    <div class="exec-kpi-value" id="kpiIdeasTotal">—</div>
+                    <div class="exec-kpi-label">Ideas Totales</div>
+                    <div class="exec-kpi-bar-wrap">
+                        <div class="exec-kpi-bar" id="kpiIdeasBar" style="width:0%"></div>
+                    </div>
+                    <div class="exec-kpi-sub" id="kpiIdeasSub"></div>
+                </div>
+                <div class="exec-kpi-card exec-kpi-red" onclick="switchSection('waiting')">
+                    <div class="exec-kpi-top">
+                        <span class="exec-kpi-icon">📋</span>
+                    </div>
+                    <div class="exec-kpi-value" id="kpiCompromisos">—</div>
+                    <div class="exec-kpi-label">Compromisos Abiertos</div>
+                    <div class="exec-kpi-bar-wrap">
+                        <div class="exec-kpi-bar" id="kpiCompromisosBar" style="width:0%"></div>
+                    </div>
+                    <div class="exec-kpi-sub" id="kpiCompromisosSub"></div>
+                </div>
+                <div class="exec-kpi-card exec-kpi-green" onclick="switchSection('reuniones')">
+                    <div class="exec-kpi-top">
+                        <span class="exec-kpi-icon">📅</span>
+                    </div>
+                    <div class="exec-kpi-value" id="kpiReuniones">—</div>
+                    <div class="exec-kpi-label">Reuniones (7d)</div>
+                    <div class="exec-kpi-bar-wrap">
+                        <div class="exec-kpi-bar" id="kpiReunionesBar" style="width:0%"></div>
+                    </div>
+                    <div class="exec-kpi-sub" id="kpiReunionesSub"></div>
+                </div>
+            </div>
+
+            <!-- Executive Charts Row -->
+            <div class="exec-main-grid" style="margin-bottom:16px;">
+                <div class="exec-panel">
+                    <div class="exec-panel-header">
+                        <h4>Estado de Proyectos</h4>
+                        <button class="panel-action" onclick="switchSection('projects')">Ver todos →</button>
+                    </div>
+                    <div class="exec-panel-body">
+                        <div class="exec-chart-wrap" style="height:180px;"><canvas id="execChartProjects"></canvas></div>
+                    </div>
+                </div>
+                <div class="exec-panel">
+                    <div class="exec-panel-header">
+                        <h4>Pipeline de Ideas</h4>
+                        <button class="panel-action" onclick="switchSection('ideas')">Ver todas →</button>
+                    </div>
+                    <div class="exec-panel-body">
+                        <div class="exec-pipeline" id="execPipeline"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proyectos Prioritarios -->
+            <div class="exec-panel" style="margin:0 24px 16px;">
+                <div class="exec-panel-header">
+                    <h4>Proyectos Prioritarios</h4>
+                    <button class="panel-action" onclick="switchSection('projects')">Ver todos →</button>
+                </div>
+                <div class="exec-panel-body">
+                    <div id="execTopProjects" class="exec-top-projects">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Processing Pipeline -->
             <div class="ov-pipeline-panel">
                 <div class="ov-pipeline-header">
-                    <h2>Dashboard General</h2>
-                    <span>Flujo de procesamiento de ideas — desde captura hasta entregable</span>
+                    <h2>Flujo de Procesamiento</h2>
+                    <span>Pipeline de ideas — desde captura hasta entregable</span>
                 </div>
                 <div class="ov-pipeline-track">
                     <div class="ov-pipeline-line"></div>

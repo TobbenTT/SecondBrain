@@ -93,7 +93,7 @@ function invalidateUsersCache() {
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
 const SECTION_META = {
-    home: { title: 'Panel Ejecutivo', subtitle: 'Resumen estrategico de la operacion' },
+    home: { title: 'Bienvenido', subtitle: 'Hub Interno de Operaciones' },
     overview: { title: 'Dashboard General', subtitle: 'Resumen ejecutivo — Proyectos, indicadores y flujo de trabajo' },
     projects: { title: 'Proyectos', subtitle: 'Iniciativas activas con plazos y responsables asignados' },
     areas: { title: 'Areas de Responsabilidad', subtitle: 'Departamentos y funciones continuas de la organizacion' },
@@ -249,16 +249,25 @@ function initHomeGreeting() {
     el.textContent = greeting + ' Bienvenido al Hub.';
 }
 
-// ─── Home Data (Executive Panel) ────────────────────────────────────────────
+// ─── Home Data ──────────────────────────────────────────────────────────────
 async function initHomeData() {
-    // Set date
-    const dateEl = document.getElementById('execDate');
-    if (dateEl) {
-        dateEl.textContent = new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Load basic stats for home stats strip
+    try {
+        const [projRes, archRes, ideasRes, areasRes] = await Promise.all([
+            fetch('/api/projects'), fetch('/api/archivos'),
+            fetch('/api/ideas'),    fetch('/api/areas')
+        ]);
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        if (projRes.ok) { const d = await projRes.json(); set('homeStatProjects', Array.isArray(d) ? d.length : 0); }
+        if (archRes.ok) { const d = await archRes.json(); set('homeStatDocs', Array.isArray(d) ? d.length : 0); }
+        if (ideasRes.ok) { const d = await ideasRes.json(); set('homeStatIdeas', Array.isArray(d) ? d.length : 0); }
+        if (areasRes.ok) { const d = await areasRes.json(); set('homeStatAreas', Array.isArray(d) ? d.length : 0); }
+    } catch (err) {
+        console.error('Home stats error:', err);
     }
-    // Load all home data in parallel
-    loadExecutiveSummary();
+    // Load team, gallery, and personal dashboard in parallel
     loadHomeTeam();
+    loadHomeGallery();
     loadMyDashboard();
 }
 
@@ -3489,7 +3498,8 @@ async function initOverviewStats() {
         console.error('Error loading overview stats:', err);
     }
 
-    // Load team summary and recent reuniones for overview
+    // Load executive KPIs, team summary, and recent reuniones for overview
+    loadExecutiveSummary();
     loadOverviewTeamSummary();
     loadOverviewReuniones();
 }
