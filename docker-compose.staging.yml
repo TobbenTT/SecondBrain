@@ -52,6 +52,9 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - staging-data:/app/data
+      - staging-avatars:/app/public/avatars
+      - staging-gallery:/app/public/gallery
+      - staging-voicenotes:/app/public/voice-notes
       - ./knowledge-staging:/knowledge
       - ./core/skills:/core/skills
     healthcheck:
@@ -117,5 +120,8 @@ services:
 
 volumes:
   staging-data:
+  staging-avatars:
+  staging-gallery:
+  staging-voicenotes:
   staging-correos-data:
   staging-pg-data:

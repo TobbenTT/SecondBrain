@@ -19,6 +19,9 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - sb-data:/app/data
+      - sb-avatars:/app/public/avatars
+      - sb-gallery:/app/public/gallery
+      - sb-voicenotes:/app/public/voice-notes
       - ./knowledge:/knowledge
       - ./core/skills:/core/skills
     healthcheck:
@@ -82,4 +85,7 @@ services:
 
 volumes:
   sb-data:
+  sb-avatars:
+  sb-gallery:
+  sb-voicenotes:
   correos-data:
