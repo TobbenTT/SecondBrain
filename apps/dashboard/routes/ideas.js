@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
             objetivo, notas, completada, fecha_finalizacion,
             parent_idea_id, is_project
             FROM ideas`;
-        const conditions = [];
+        const conditions = ['deleted_at IS NULL'];
         const params = [];
 
         if (code_stage) { conditions.push('code_stage = ?'); params.push(code_stage); }
@@ -164,9 +164,8 @@ router.delete('/', blockConsultor, async (req, res) => {
 router.delete('/:id', blockConsultor, ideaOwnerOrAdmin, async (req, res) => {
     try {
         const id = req.params.id;
-        await run('DELETE FROM daily_checklist WHERE idea_id = ?', [id]);
-        await run('DELETE FROM ideas WHERE parent_idea_id = ?', [id]);
-        await run('DELETE FROM ideas WHERE id = ?', [id]);
+        await run('UPDATE ideas SET deleted_at = NOW() WHERE id = ?', [id]);
+        await run('UPDATE ideas SET deleted_at = NOW() WHERE parent_idea_id = ?', [id]);
         res.json({ deleted: true });
     } catch (err) {
         log.error('Ideas DB error', { error: err.message, path: req.path });
@@ -468,7 +467,7 @@ router.get('/:id/subtasks', async (req, res) => {
         const subtasks = await all(
             `SELECT id, text, ai_summary, assigned_to, contexto, energia, estimated_time,
              priority, proxima_accion, completada, fecha_finalizacion, tipo_compromiso, code_stage
-             FROM ideas WHERE parent_idea_id = ? ORDER BY proxima_accion DESC, id ASC`,
+             FROM ideas WHERE parent_idea_id = ? AND deleted_at IS NULL ORDER BY proxima_accion DESC, id ASC`,
             [req.params.id]
         );
         res.json(subtasks);
@@ -527,7 +526,7 @@ router.post('/:id/decompose', blockConsultor, async (req, res) => {
 // ─── Get single idea by ID (MUST be after all /:id/sub-routes) ──────────────
 router.get('/:id', async (req, res) => {
     try {
-        const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
+        const idea = await get('SELECT * FROM ideas WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
         res.json(idea);
     } catch (err) {

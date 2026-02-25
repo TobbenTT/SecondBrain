@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS ideas (
     fecha_finalizacion TEXT,
     parent_idea_id INTEGER,
     is_project TEXT,
-    source_reunion_id TEXT
+    source_reunion_id TEXT,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Context Items ────────────────────────────────────────────────────────────
@@ -120,7 +121,8 @@ CREATE TABLE IF NOT EXISTS projects (
     deadline TEXT,
     project_type TEXT,
     client_name TEXT,
-    geography TEXT
+    geography TEXT,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Skills ───────────────────────────────────────────────────────────────────
@@ -276,7 +278,8 @@ CREATE TABLE IF NOT EXISTS reuniones (
     proxima_reunion TEXT,
     nivel_analisis TEXT,
     temas_detectados TEXT DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Reuniones Notifications ──────────────────────────────────────────────────
@@ -310,7 +313,8 @@ CREATE TABLE IF NOT EXISTS feedback (
     admin_response TEXT,
     responded_by TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    resolved_at TIMESTAMP
+    resolved_at TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Feedback Attachments ─────────────────────────────────────────────────────
@@ -372,7 +376,8 @@ CREATE TABLE IF NOT EXISTS okrs (
     unit TEXT,
     status TEXT DEFAULT 'active',
     period TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── OKR Links ────────────────────────────────────────────────────────────────
@@ -449,3 +454,10 @@ CREATE INDEX IF NOT EXISTS idx_okr_links_okr ON okr_links(okr_id);
 CREATE INDEX IF NOT EXISTS idx_okr_links_target ON okr_links(link_type, link_id);
 CREATE INDEX IF NOT EXISTS idx_reuniones_analisis_fecha ON reuniones_analisis(fecha);
 CREATE INDEX IF NOT EXISTS idx_reuniones_analisis_titulo ON reuniones_analisis(titulo);
+
+-- Soft-delete indexes (partial — only non-null for fast trash queries)
+CREATE INDEX IF NOT EXISTS idx_ideas_deleted ON ideas(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_projects_deleted ON projects(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_feedback_deleted ON feedback(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_reuniones_deleted ON reuniones(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_okrs_deleted ON okrs(deleted_at) WHERE deleted_at IS NOT NULL;

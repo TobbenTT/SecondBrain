@@ -42,6 +42,7 @@ router.get('/', async (req, res) => {
                     (SELECT COUNT(*) FROM feedback_attachments fa WHERE fa.feedback_id = f.id) as attachment_count
              FROM feedback f
              LEFT JOIN users u ON f.username = u.username
+             WHERE f.deleted_at IS NULL
              ORDER BY f.created_at DESC`
         );
         res.json(feedback);
@@ -58,6 +59,7 @@ router.get('/export', async (req, res) => {
             `SELECT f.*,
                     (SELECT COUNT(*) FROM feedback_attachments fa WHERE fa.feedback_id = f.id) as attachment_count
              FROM feedback f
+             WHERE f.deleted_at IS NULL
              ORDER BY f.created_at DESC`
         );
         const date = new Date().toISOString().slice(0, 10);
@@ -355,15 +357,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Can only delete your own feedback' });
         }
 
-        // Delete attachment files from disk
-        const attachments = await all('SELECT filename FROM feedback_attachments WHERE feedback_id = ?', [req.params.id]);
-        for (const att of attachments) {
-            const filePath = path.join(FEEDBACK_UPLOADS, att.filename);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
-
-        await run('DELETE FROM feedback_attachments WHERE feedback_id = ?', [req.params.id]);
-        await run('DELETE FROM feedback WHERE id = ?', [req.params.id]);
+        await run('UPDATE feedback SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ deleted: true });
     } catch (err) {
         log.error('Feedback delete error', { error: err.message });

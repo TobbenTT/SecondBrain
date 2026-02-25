@@ -83,6 +83,7 @@ async function initDatabase() {
         await seedGtdContexts();
         await seedConsultor();
         await migrateContextToPara();
+        await migrateAddSoftDelete();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -223,6 +224,13 @@ async function migrateContextToPara() {
 
     await pool.query("UPDATE ideas SET code_stage = 'captured' WHERE code_stage IS NULL AND status = 'inbox'");
     await pool.query("UPDATE ideas SET code_stage = 'organized' WHERE code_stage IS NULL AND status = 'processed'");
+}
+
+async function migrateAddSoftDelete() {
+    const tables = ['ideas', 'projects', 'feedback', 'reuniones', 'okrs'];
+    for (const table of tables) {
+        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+    }
 }
 
 // Start initialization

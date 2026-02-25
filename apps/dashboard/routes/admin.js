@@ -275,6 +275,7 @@ router.get('/projects', async (req, res) => {
             SELECT p.*, a.name as area_name
             FROM projects p
             LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT)
+            WHERE p.deleted_at IS NULL
             ORDER BY p.created_at DESC`);
         const formatted = projects.map(p => ({
             ...p,
@@ -351,7 +352,7 @@ router.put('/projects/:id', blockConsultor, async (req, res) => {
 
 router.delete('/projects/:id', blockConsultor, requireAdmin, async (req, res) => {
     try {
-        await run('DELETE FROM projects WHERE id = ?', [req.params.id]);
+        await run('UPDATE projects SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ deleted: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to delete project' });
@@ -1648,6 +1649,58 @@ router.delete('/herramientas/:id', requireAdmin, async (req, res) => {
     } catch (err) {
         log.error('Herramienta delete error', { error: err.message });
         res.status(500).json({ error: 'Failed to delete herramienta' });
+    }
+});
+
+// ─── Trash / Soft-Delete Recovery (admin only) ──────────────────────────────
+
+router.get('/trash', requireAdmin, async (req, res) => {
+    try {
+        const [ideas, projects, feedback, reuniones, okrs] = await Promise.all([
+            all("SELECT id, text, created_by, deleted_at FROM ideas WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50"),
+            all("SELECT id, name, icon, status, deleted_at FROM projects WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50"),
+            all("SELECT id, title, username, category, deleted_at FROM feedback WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50"),
+            all("SELECT id, titulo, fecha, deleted_at FROM reuniones WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50"),
+            all("SELECT id, title, type, deleted_at FROM okrs WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50")
+        ]);
+        res.json({ ideas, projects, feedback, reuniones, okrs });
+    } catch (err) {
+        log.error('Trash fetch error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch trash' });
+    }
+});
+
+router.put('/trash/restore', requireAdmin, async (req, res) => {
+    const { table, id } = req.body;
+    const allowed = ['ideas', 'projects', 'feedback', 'reuniones', 'okrs'];
+    if (!allowed.includes(table) || !id) {
+        return res.status(400).json({ error: 'Invalid table or id' });
+    }
+    try {
+        await run(`UPDATE ${table} SET deleted_at = NULL WHERE id = ?`, [id]);
+        // Also restore child ideas if restoring a parent
+        if (table === 'ideas') {
+            await run('UPDATE ideas SET deleted_at = NULL WHERE parent_idea_id = ?', [id]);
+        }
+        res.json({ restored: true });
+    } catch (err) {
+        log.error('Trash restore error', { error: err.message });
+        res.status(500).json({ error: 'Failed to restore item' });
+    }
+});
+
+router.delete('/trash/:table/:id', requireAdmin, async (req, res) => {
+    const { table, id } = req.params;
+    const allowed = ['ideas', 'projects', 'feedback', 'reuniones', 'okrs'];
+    if (!allowed.includes(table)) {
+        return res.status(400).json({ error: 'Invalid table' });
+    }
+    try {
+        await run(`DELETE FROM ${table} WHERE id = ? AND deleted_at IS NOT NULL`, [id]);
+        res.json({ purged: true });
+    } catch (err) {
+        log.error('Trash purge error', { error: err.message });
+        res.status(500).json({ error: 'Failed to purge item' });
     }
 });
 

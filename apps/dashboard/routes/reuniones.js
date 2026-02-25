@@ -331,10 +331,10 @@ router.delete('/reuniones/email-recipients/:id', async (req, res) => {
 router.get('/reuniones/stats/summary', async (req, res) => {
     try {
         const [total, thisWeek, withCompromisos, allCompromisos] = await Promise.all([
-            get('SELECT COUNT(*) as count FROM reuniones'),
-            get("SELECT COUNT(*) as count FROM reuniones WHERE fecha >= (CURRENT_DATE - INTERVAL '7 days')::text"),
-            get("SELECT COUNT(*) as count FROM reuniones WHERE compromisos != '[]'"),
-            all("SELECT compromisos FROM reuniones WHERE compromisos != '[]'")
+            get('SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL'),
+            get("SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL AND fecha >= (CURRENT_DATE - INTERVAL '7 days')::text"),
+            get("SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL AND compromisos != '[]'"),
+            all("SELECT compromisos FROM reuniones WHERE deleted_at IS NULL AND compromisos != '[]'")
         ]);
 
         let compromisosCount = 0;
@@ -360,7 +360,7 @@ router.get('/reuniones', async (req, res) => {
     try {
         const { page = 1, limit = 20, search, participant, from, to } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
-        const where = [];
+        const where = ['deleted_at IS NULL'];
         const params = [];
 
         if (search) {
@@ -433,10 +433,9 @@ router.delete('/reuniones/:id', async (req, res) => {
         const reunion = await get('SELECT id, titulo FROM reuniones WHERE id = ?', [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
 
-        await run('DELETE FROM reuniones_notifications WHERE reunion_id = ?', [req.params.id]);
-        await run('DELETE FROM reuniones WHERE id = ?', [req.params.id]);
+        await run('UPDATE reuniones SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
 
-        log.info('Meeting deleted', { id: req.params.id, titulo: reunion.titulo, by: req.session.user.username });
+        log.info('Meeting soft-deleted', { id: req.params.id, titulo: reunion.titulo, by: req.session.user.username });
         res.json({ success: true });
     } catch (err) {
         log.error('Meeting delete error', { error: err.message });

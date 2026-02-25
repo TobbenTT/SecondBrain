@@ -23,21 +23,21 @@ router.get('/gtd/daily-report', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        const ideas = await all("SELECT * FROM ideas WHERE created_at::date = ? ORDER BY created_at DESC", [today]);
+        const ideas = await all("SELECT * FROM ideas WHERE created_at::date = ? AND deleted_at IS NULL ORDER BY created_at DESC", [today]);
         const projects = await all(`
             SELECT i.id, i.text as name, i.ai_summary, i.assigned_to,
-                (SELECT count(*) FROM ideas sub WHERE sub.parent_idea_id = i.id) as sub_count,
-                (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = '1' LIMIT 1) as next_action
-            FROM ideas i WHERE i.is_project = '1' AND (i.completada IS NULL OR i.completada = '0')
+                (SELECT count(*) FROM ideas sub WHERE sub.parent_idea_id = i.id AND sub.deleted_at IS NULL) as sub_count,
+                (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = '1' AND sub2.deleted_at IS NULL LIMIT 1) as next_action
+            FROM ideas i WHERE i.is_project = '1' AND (i.completada IS NULL OR i.completada = '0') AND i.deleted_at IS NULL
         `);
         const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
-        const completedToday = await all("SELECT * FROM ideas WHERE fecha_finalizacion::date = ?", [today]);
+        const completedToday = await all("SELECT * FROM ideas WHERE fecha_finalizacion::date = ? AND deleted_at IS NULL", [today]);
 
         const users = await all('SELECT username FROM users');
         const userStats = [];
         for (const u of users) {
-            const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = '0')", [u.username]);
-            const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND fecha_finalizacion::date = ?", [u.username, today]);
+            const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = '0') AND deleted_at IS NULL", [u.username]);
+            const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND fecha_finalizacion::date = ? AND deleted_at IS NULL", [u.username, today]);
             userStats.push({ username: u.username, pending: pending.cnt, completed_today: done.cnt });
         }
 
@@ -85,20 +85,20 @@ router.get('/gtd/daily-report', async (req, res) => {
 router.get('/gtd/effectiveness', async (req, res) => {
     try {
         const byContext = await all(`SELECT contexto, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = '0') AND contexto IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND contexto IS NOT NULL AND deleted_at IS NULL
             GROUP BY contexto ORDER BY count DESC`);
         const byEnergy = await all(`SELECT energia, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = '0') AND energia IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND energia IS NOT NULL AND deleted_at IS NULL
             GROUP BY energia`);
         const byCompromiso = await all(`SELECT tipo_compromiso, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = '0') AND tipo_compromiso IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND tipo_compromiso IS NOT NULL AND deleted_at IS NULL
             GROUP BY tipo_compromiso`);
         const byAssignee = await all(`SELECT assigned_to, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = '0') AND assigned_to IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND assigned_to IS NOT NULL AND deleted_at IS NULL
             GROUP BY assigned_to ORDER BY count DESC`);
-        const projectsActive = await get(`SELECT count(*) as count FROM ideas WHERE is_project = '1' AND (completada IS NULL OR completada = '0')`);
+        const projectsActive = await get(`SELECT count(*) as count FROM ideas WHERE is_project = '1' AND (completada IS NULL OR completada = '0') AND deleted_at IS NULL`);
         const nextActions = await all(`SELECT id, text, assigned_to, contexto, energia, estimated_time
-            FROM ideas WHERE proxima_accion = '1' AND (completada IS NULL OR completada = '0')
+            FROM ideas WHERE proxima_accion = '1' AND (completada IS NULL OR completada = '0') AND deleted_at IS NULL
             ORDER BY priority DESC LIMIT 20`);
 
         res.json({ byContext, byEnergy, byCompromiso, byAssignee, activeProjects: projectsActive.count, nextActions });
@@ -380,7 +380,7 @@ router.get('/okrs', async (req, res) => {
                     (SELECT count(*) FROM okr_links WHERE okr_id = o.id) as link_count
              FROM okrs o
              LEFT JOIN users u ON o.owner = u.username
-             WHERE o.type = 'objective' AND o.status != 'archived'
+             WHERE o.type = 'objective' AND o.status != 'archived' AND o.deleted_at IS NULL
              ORDER BY o.created_at DESC`
         );
         for (const obj of objectives) {
@@ -440,7 +440,7 @@ router.put('/okrs/:id', async (req, res) => {
 
 router.delete('/okrs/:id', async (req, res) => {
     try {
-        await run('DELETE FROM okrs WHERE id = ?', [req.params.id]);
+        await run('UPDATE okrs SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (err) {
         log.error('OKR delete error', { error: err.message });
