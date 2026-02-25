@@ -201,7 +201,10 @@ function findDynamicPage(filename, dinamicsDir) {
         const fileWords = base.split(/[\s\-_]+/).filter(w => w.length > 3);
         const overlap = dirWords.filter(w => fileWords.some(fw => fw.includes(w) || w.includes(fw)));
 
-        if (overlap.length >= 2) {
+        // Require that most words from the shorter set match (>=75%), minimum 2
+        const shorter = Math.min(dirWords.length, fileWords.length);
+        const threshold = Math.max(2, Math.ceil(shorter * 0.75));
+        if (overlap.length >= threshold) {
             const folderPath = path.join(dinamicsDir, dir.name);
             const htmlFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.html'));
             if (htmlFiles.length > 0) {
