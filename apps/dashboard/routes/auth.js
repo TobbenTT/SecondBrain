@@ -6,6 +6,7 @@ const multer = require('multer');
 const { get, run } = require('../database');
 const log = require('../helpers/logger');
 const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
+const tfa = require('../services/twoFactor');
 
 const router = express.Router();
 
@@ -119,6 +120,41 @@ router.post('/login', async (req, res) => {
         const user = await get('SELECT * FROM users WHERE username = ?', [identifier.toLowerCase()]);
 
         if (user && await bcrypt.compare(password, user.password_hash)) {
+            const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+            const userAgent = req.headers['user-agent'] || '';
+
+            // ─── 2FA check ───
+            if (await tfa.is2FAEnabled(user.id)) {
+                const trustToken = req.cookies?.sb_trust;
+                const trusted = await tfa.checkTrustedDevice(user.id, trustToken);
+                const { score, reasons } = await tfa.calculateRiskScore(user.id, {
+                    ip: clientIP, userAgent, hour: new Date().getHours()
+                });
+
+                if (trusted && score < 50) {
+                    // Trusted device + low risk → direct login
+                    await tfa.logLogin(user.id, { ip: clientIP, userAgent, success: true, twoFaRequired: false, riskScore: score });
+                } else {
+                    // Needs 2FA verification
+                    req.session.pendingTwoFa = {
+                        userId: user.id,
+                        username: user.username,
+                        role: user.role,
+                        department: user.department || '',
+                        expertise: user.expertise || '',
+                        avatar: user.avatar || null,
+                        riskScore: score,
+                        riskReasons: reasons
+                    };
+                    await tfa.logLogin(user.id, { ip: clientIP, userAgent, success: true, twoFaRequired: true, riskScore: score });
+                    return res.redirect('/login/verify-2fa');
+                }
+            } else {
+                // No 2FA — log login for history
+                const clientIP2 = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+                await tfa.logLogin(user.id, { ip: clientIP2, userAgent, success: true, twoFaRequired: false, riskScore: 0 });
+            }
+
             req.session.user = {
                 id: user.id,
                 username: user.username,
@@ -130,6 +166,11 @@ router.post('/login', async (req, res) => {
             req.session.authenticated = true;
             res.redirect('/');
         } else {
+            // Log failed attempt if user exists
+            if (user) {
+                const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+                await tfa.logLogin(user.id, { ip: clientIP, userAgent: req.headers['user-agent'], success: false, riskScore: 0 }).catch(() => {});
+            }
             res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
         }
     } catch (err) {

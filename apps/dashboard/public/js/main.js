@@ -7639,6 +7639,7 @@ async function openProfileModal() {
         if (preview) preview.innerHTML = _avatarHtml(p.avatar, p.username, 96);
 
         modal.style.display = 'block';
+        load2FAStatus();
     } catch (err) {
         showToast('Error al cargar perfil', 'error');
     }
@@ -7724,6 +7725,172 @@ async function changeOwnPassword() {
         }
     } catch (err) {
         showToast('Error al cambiar contraseña', 'error');
+    }
+}
+
+// ─── 2FA Management ─────────────────────────────────────────────────────────
+
+async function load2FAStatus() {
+    const loading = document.getElementById('twoFaLoading');
+    const offEl = document.getElementById('twoFaOff');
+    const onEl = document.getElementById('twoFaOn');
+    const setupEl = document.getElementById('twoFaSetup');
+    const codesEl = document.getElementById('twoFaBackupCodes');
+    if (!loading) return;
+
+    try {
+        const res = await fetch('/api/2fa/status');
+        const data = await res.json();
+        loading.style.display = 'none';
+        setupEl.style.display = 'none';
+        codesEl.style.display = 'none';
+
+        if (data.enabled) {
+            offEl.style.display = 'none';
+            onEl.style.display = 'block';
+            document.getElementById('twoFaBackupInfo').textContent =
+                `${data.backupCodesLeft} codigos de respaldo disponibles`;
+
+            // Render trusted devices
+            const devDiv = document.getElementById('twoFaDevices');
+            if (data.devices && data.devices.length > 0) {
+                devDiv.innerHTML = '<p style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:6px; font-weight:600;">Dispositivos de confianza:</p>' +
+                    data.devices.map(d =>
+                        `<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:0.8rem;">
+                            <span style="color:var(--text-primary);">${escapeHtml(d.device_name || 'Desconocido')}</span>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="color:var(--text-muted); font-size:0.72rem;">${d.ip_address}</span>
+                                <button onclick="revokeDevice(${d.id})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.75rem; font-weight:600;">Revocar</button>
+                            </div>
+                        </div>`
+                    ).join('');
+            } else {
+                devDiv.innerHTML = '';
+            }
+        } else {
+            offEl.style.display = 'block';
+            onEl.style.display = 'none';
+        }
+    } catch (err) {
+        loading.textContent = 'Error al cargar estado 2FA';
+    }
+}
+
+async function setup2FA() {
+    try {
+        const res = await fetch('/api/2fa/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error', 'error'); return; }
+
+        document.getElementById('twoFaOff').style.display = 'none';
+        document.getElementById('twoFaSetup').style.display = 'block';
+        document.getElementById('twoFaQR').innerHTML = `<img src="${data.qrDataUrl}" alt="QR Code" style="max-width:200px; border-radius:8px;">`;
+        document.getElementById('twoFaManualKey').textContent = data.secret;
+        document.getElementById('twoFaSetupCode').value = '';
+        document.getElementById('twoFaSetupCode').focus();
+    } catch (err) {
+        showToast('Error al iniciar configuracion 2FA', 'error');
+    }
+}
+
+async function verifySetup2FA() {
+    const code = document.getElementById('twoFaSetupCode').value.trim();
+    if (!code || code.length !== 6) {
+        showToast('Ingresa un codigo de 6 digitos', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/2fa/verify-setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: code })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Codigo invalido', 'error'); return; }
+
+        showToast('2FA activado exitosamente', 'success');
+
+        // Show backup codes
+        document.getElementById('twoFaSetup').style.display = 'none';
+        document.getElementById('twoFaBackupCodes').style.display = 'block';
+        const grid = document.getElementById('twoFaCodesGrid');
+        grid.innerHTML = data.backupCodes.map(c =>
+            `<span style="padding:4px 8px; background:var(--bg-card); border-radius:4px; text-align:center;">${c}</span>`
+        ).join('');
+    } catch (err) {
+        showToast('Error al verificar codigo', 'error');
+    }
+}
+
+function cancelSetup2FA() {
+    document.getElementById('twoFaSetup').style.display = 'none';
+    document.getElementById('twoFaOff').style.display = 'block';
+}
+
+function closeTwoFaBackup() {
+    document.getElementById('twoFaBackupCodes').style.display = 'none';
+    load2FAStatus();
+}
+
+async function regenerateBackupCodes() {
+    const ok = await showCustomModal({
+        title: 'Regenerar Codigos de Respaldo',
+        message: 'Los codigos anteriores dejaran de funcionar. Los nuevos se mostraran una sola vez.',
+        isConfirm: true
+    });
+    if (!ok) return;
+
+    try {
+        const res = await fetch('/api/2fa/backup-codes/regenerate', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error', 'error'); return; }
+
+        document.getElementById('twoFaOn').style.display = 'none';
+        document.getElementById('twoFaBackupCodes').style.display = 'block';
+        const grid = document.getElementById('twoFaCodesGrid');
+        grid.innerHTML = data.backupCodes.map(c =>
+            `<span style="padding:4px 8px; background:var(--bg-card); border-radius:4px; text-align:center;">${c}</span>`
+        ).join('');
+        showToast('Codigos regenerados', 'success');
+    } catch (err) {
+        showToast('Error al regenerar codigos', 'error');
+    }
+}
+
+async function disable2FA() {
+    const password = await showCustomModal({
+        title: 'Desactivar 2FA',
+        message: 'Ingresa tu contrasena actual para confirmar:',
+        inputPlaceholder: 'Contrasena actual'
+    });
+    if (!password) return;
+
+    try {
+        const res = await fetch('/api/2fa/disable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error', 'error'); return; }
+
+        showToast('2FA desactivado', 'success');
+        load2FAStatus();
+    } catch (err) {
+        showToast('Error al desactivar 2FA', 'error');
+    }
+}
+
+async function revokeDevice(id) {
+    try {
+        const res = await fetch(`/api/2fa/devices/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Dispositivo revocado', 'success');
+            load2FAStatus();
+        }
+    } catch (err) {
+        showToast('Error', 'error');
     }
 }
 

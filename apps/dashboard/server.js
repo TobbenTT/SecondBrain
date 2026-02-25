@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 const log = require('./helpers/logger');
 
 // Database
@@ -33,6 +34,8 @@ const reviewRoutes = require('./routes/review');
 const reunionesRoutes = require('./routes/reuniones');
 const feedbackRoutes = require('./routes/feedback');
 const uploadRoutes = require('./routes/upload');
+const twoFactorRoutes = require('./routes/twoFactor');
+const tfa = require('./services/twoFactor');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -150,6 +153,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.use('/dinamicas', express.static(DINAMICAS_DIR, { maxAge: '7d' }));
 app.use('/voice-notes', express.static(VOICE_DIR, { maxAge: '1d' }));
+app.use(cookieParser());
 
 // Session (hardened) — Redis if REDIS_HOST configured, else MemoryStore
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -248,6 +252,99 @@ app.post('/webhook/fireflies', async (req, res) => {
 app.use('/login', loginLimiter);
 app.use(authRoutes);
 
+// ─── 2FA Verification (public — user has password-authenticated but not 2FA) ─
+app.get('/login/verify-2fa', (req, res) => {
+    if (!req.session?.pendingTwoFa) return res.redirect('/login');
+    const { riskScore, riskReasons } = req.session.pendingTwoFa;
+    res.render('verify-2fa', { error: null, riskScore: riskScore || 0, riskReasons: riskReasons || [] });
+});
+
+app.post('/login/verify-2fa', async (req, res) => {
+    const pending = req.session?.pendingTwoFa;
+    if (!pending) return res.redirect('/login');
+
+    const { token, backupCode, trustDevice } = req.body;
+    const userId = pending.userId;
+
+    try {
+        const secret = await tfa.getSecret(userId);
+        if (!secret) {
+            delete req.session.pendingTwoFa;
+            return res.redirect('/login');
+        }
+
+        let verified = false;
+        let method = null;
+
+        // Try TOTP token first
+        if (token && token.length === 6) {
+            verified = tfa.verifyToken(secret, token);
+            method = 'totp';
+        }
+
+        // Try backup code if TOTP failed or not provided
+        if (!verified && backupCode && backupCode.length >= 6) {
+            verified = await tfa.verifyBackupCode(userId, backupCode);
+            method = 'backup_code';
+        }
+
+        if (!verified) {
+            const { riskScore, riskReasons } = pending;
+            return res.render('verify-2fa', {
+                error: 'Codigo invalido. Intenta de nuevo.',
+                riskScore: riskScore || 0,
+                riskReasons: riskReasons || []
+            });
+        }
+
+        // 2FA verified — complete login
+        const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+        const userAgent = req.headers['user-agent'] || '';
+
+        // Trust device if requested
+        if (trustDevice) {
+            const trustToken = await tfa.createTrustedDevice(userId, { ip: clientIP, userAgent });
+            res.cookie('sb_trust', trustToken, {
+                maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: false
+            });
+        }
+
+        await tfa.logLogin(userId, {
+            ip: clientIP,
+            userAgent,
+            success: true,
+            twoFaRequired: true,
+            twoFaMethod: method,
+            riskScore: pending.riskScore || 0
+        });
+
+        // Set full session
+        req.session.user = {
+            id: pending.userId,
+            username: pending.username,
+            role: pending.role,
+            department: pending.department,
+            expertise: pending.expertise,
+            avatar: pending.avatar
+        };
+        req.session.authenticated = true;
+        delete req.session.pendingTwoFa;
+
+        log.info('2FA login complete', { userId, method });
+        res.redirect('/');
+    } catch (err) {
+        log.error('2FA verification error', { error: err.message });
+        res.render('verify-2fa', {
+            error: 'Error del sistema',
+            riskScore: pending.riskScore || 0,
+            riskReasons: pending.riskReasons || []
+        });
+    }
+});
+
 // ─── CSRF Protection for API routes ─────────────────────────────────────────
 // HTML forms can only submit GET/POST. For POST, we require application/json
 // (which triggers CORS preflight cross-origin), blocking form-based CSRF.
@@ -287,6 +384,7 @@ app.use('/api', adminRoutes);     // /api/users, /api/projects, /api/search, /ap
 app.use('/api/comments', commentsRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 
 // ─── Error Page Helper ──────────────────────────────────────────────────────
 const ERROR_META = {

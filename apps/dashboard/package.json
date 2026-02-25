@@ -29,6 +29,7 @@
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "connect-redis": "^9.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "ejs": "^4.0.1",
@@ -39,8 +40,10 @@
     "helmet": "^8.1.0",
     "marked": "^15.0.7",
     "multer": "^2.0.2",
+    "otplib": "^13.3.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.18.0",
+    "qrcode": "^1.5.4",
     "redis": "^5.11.0",
     "simple-git": "^3.32.2",
     "winston": "^3.19.0"

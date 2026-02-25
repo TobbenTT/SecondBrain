@@ -1928,6 +1928,67 @@
                             <button type="button" class="btn btn-sm" onclick="changeOwnPassword()">Actualizar Contraseña</button>
                         </div>
                     </details>
+
+                    <!-- 2FA Section -->
+                    <details class="profile-2fa-details" style="margin-top: 16px;">
+                        <summary style="cursor:pointer; font-weight:600; color: var(--text-primary); padding: 10px 0;">Autenticacion de Dos Factores (2FA)</summary>
+                        <div id="twoFaSection" style="padding: 16px 0;">
+                            <div id="twoFaLoading" style="color: var(--text-secondary); font-size: 0.85rem;">Cargando...</div>
+
+                            <!-- Status: Not enabled -->
+                            <div id="twoFaOff" style="display:none;">
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">
+                                    2FA no esta activado. Agrega una capa extra de seguridad a tu cuenta.
+                                </p>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="setup2FA()">Activar 2FA</button>
+                            </div>
+
+                            <!-- Status: Enabled -->
+                            <div id="twoFaOn" style="display:none;">
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                                    <span style="color: var(--success); font-size:1.2rem;">&#10003;</span>
+                                    <span style="color: var(--success); font-weight:600; font-size:0.9rem;">2FA Activado</span>
+                                </div>
+                                <p id="twoFaBackupInfo" style="color: var(--text-secondary); font-size: 0.82rem; margin-bottom: 12px;"></p>
+
+                                <!-- Trusted devices list -->
+                                <div id="twoFaDevices" style="margin-bottom: 12px;"></div>
+
+                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-sm" onclick="regenerateBackupCodes()" style="font-size:0.8rem;">Regenerar Codigos</button>
+                                    <button type="button" class="btn btn-sm" onclick="disable2FA()" style="font-size:0.8rem; color: var(--danger);">Desactivar 2FA</button>
+                                </div>
+                            </div>
+
+                            <!-- Setup flow: QR code -->
+                            <div id="twoFaSetup" style="display:none;">
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">
+                                    Escanea este codigo QR con tu app autenticadora:
+                                </p>
+                                <div id="twoFaQR" style="text-align:center; margin-bottom: 16px;"></div>
+                                <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 12px;">
+                                    O ingresa manualmente: <code id="twoFaManualKey" style="background: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"></code>
+                                </p>
+                                <div class="form-group" style="margin-bottom: 12px;">
+                                    <label style="font-size:0.75rem; color: var(--text-secondary);">Codigo de verificacion</label>
+                                    <input type="text" id="twoFaSetupCode" class="form-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" style="text-align:center; font-size:1.2rem; letter-spacing:6px; max-width:200px;">
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="verifySetup2FA()">Confirmar</button>
+                                    <button type="button" class="btn btn-sm" onclick="cancelSetup2FA()">Cancelar</button>
+                                </div>
+                            </div>
+
+                            <!-- Backup codes display -->
+                            <div id="twoFaBackupCodes" style="display:none;">
+                                <p style="color: var(--warning); font-weight:600; font-size:0.85rem; margin-bottom: 8px;">
+                                    &#9888; Guarda estos codigos de respaldo en un lugar seguro. Solo se muestran una vez.
+                                </p>
+                                <div id="twoFaCodesGrid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; margin-bottom:12px; background: var(--bg-input); padding:12px; border-radius:8px; font-family:monospace; font-size:0.9rem;"></div>
+                                <button type="button" class="btn btn-sm" onclick="closeTwoFaBackup()">Entendido, los guarde</button>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

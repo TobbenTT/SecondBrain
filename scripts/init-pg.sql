@@ -449,3 +449,59 @@ CREATE INDEX IF NOT EXISTS idx_okr_links_okr ON okr_links(okr_id);
 CREATE INDEX IF NOT EXISTS idx_okr_links_target ON okr_links(link_type, link_id);
 CREATE INDEX IF NOT EXISTS idx_reuniones_analisis_fecha ON reuniones_analisis(fecha);
 CREATE INDEX IF NOT EXISTS idx_reuniones_analisis_titulo ON reuniones_analisis(titulo);
+
+-- ─── 2FA: TOTP secrets ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS totp_secrets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    secret TEXT NOT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+
+-- ─── 2FA: Backup codes ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS backup_codes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ─── 2FA: Trusted devices ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS trusted_devices (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_fingerprint TEXT NOT NULL,
+    device_name TEXT,
+    ip_address TEXT NOT NULL,
+    user_agent TEXT,
+    trust_token TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_token ON trusted_devices(trust_token);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_user ON trusted_devices(user_id);
+
+-- ─── 2FA: Login history (risk scoring) ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS login_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ip_address TEXT NOT NULL,
+    user_agent TEXT,
+    device_fingerprint TEXT,
+    login_hour INTEGER,
+    success BOOLEAN DEFAULT TRUE,
+    two_fa_required BOOLEAN DEFAULT FALSE,
+    two_fa_method TEXT,
+    risk_score INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_history_user ON login_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id, used);
