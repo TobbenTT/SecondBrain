@@ -7,6 +7,7 @@ const { run, get, all } = require('../database');
 const { formatFileSize, loadTags, saveTags } = require('../helpers/utils');
 const { processAndSaveIdea } = require('../helpers/ideaProcessor');
 const { denyRole } = require('../middleware/authorize');
+const ai = require('../services/ai');
 
 const blockConsultor = denyRole('consultor');
 const router = express.Router();
@@ -15,8 +16,38 @@ const router = express.Router();
 const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 const VOICE_DIR = path.join(__dirname, '..', 'public', 'voice-notes');
 const ARCHIVOS_DIR = UPLOADS_DIR;
+const DINAMICAS_DIR = path.join(UPLOADS_DIR, 'dinamicas');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
+
+// ─── Auto-generate dynamic page from PDF ────────────────────────────────────
+async function generateDynamicFromPdf(filePath, basename) {
+    try {
+        const pdfParse = require('pdf-parse');
+        const buffer = fs.readFileSync(filePath);
+        const { text } = await pdfParse(buffer);
+
+        if (!text || text.trim().length < 100) {
+            log.info('PDF too short for dynamic page', { pdf: basename });
+            return;
+        }
+
+        const html = await ai.generateDynamicPage(text, basename);
+        if (!html) {
+            log.warn('AI returned no HTML for dynamic page', { pdf: basename });
+            return;
+        }
+
+        const dirPath = path.join(DINAMICAS_DIR, basename);
+        if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+
+        const htmlName = basename.toLowerCase().replace(/\s+/g, '') + '.html';
+        fs.writeFileSync(path.join(dirPath, htmlName), html, 'utf-8');
+        log.info('Dynamic page generated from PDF', { pdf: basename, dir: basename, html: htmlName });
+    } catch (err) {
+        log.error('Dynamic page generation failed', { pdf: basename, error: err.message });
+    }
+}
 
 // ─── Multer Config ───────────────────────────────────────────────────────────
 const upload = multer({
@@ -99,12 +130,20 @@ router.post('/api/upload', blockConsultor, upload.single('file'), (req, res) => 
             tags[req.file.filename] = tagList;
             saveTags(TAGS_FILE, tags);
         }
+        const ext = path.extname(req.file.filename).toLowerCase();
         res.json({
             success: true,
             filename: req.file.filename,
             size: formatFileSize(req.file.size),
             tags: tagList
         });
+
+        // Auto-generate interactive page from PDF (fire and forget)
+        if (ext === '.pdf') {
+            const filePath = path.join(ARCHIVOS_DIR, req.file.filename);
+            const basename = path.basename(req.file.filename, ext);
+            generateDynamicFromPdf(filePath, basename);
+        }
     } catch (err) {
         log.error('Upload error', { error: err.message });
         res.status(500).json({ error: 'Upload failed' });

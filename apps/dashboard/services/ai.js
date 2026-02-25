@@ -646,7 +646,52 @@ async function generateDailyReport(data) {
     }
 }
 
+// ─── Generate Dynamic HTML Page from PDF text ───────────────────────────────
+async function generateDynamicPage(pdfText, title) {
+    const prompt = `Eres un diseñador web experto. Convierte el siguiente contenido de un PDF en una página HTML interactiva profesional.
+
+TÍTULO: "${title}"
+
+CONTENIDO DEL PDF:
+${pdfText.substring(0, 30000)}
+
+INSTRUCCIONES DE DISEÑO (OBLIGATORIAS):
+1. HTML5 completo, lang="es", charset UTF-8
+2. Usa Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
+3. Fuente Inter via Google Fonts
+4. Configura Tailwind con colores brand: brand-50:#f0fdfa, brand-100:#ccfbf1, brand-500:#14b8a6, brand-700:#0f766e, brand-900:#134e4a
+5. Sidebar fija a la izquierda (desktop) con navegación por secciones, oculta en mobile
+6. Contenido principal con clase "md:ml-64 p-6 md:p-12 max-w-5xl mx-auto"
+7. Cada sección debe tener un id y clase "scroll-mt-24" para navegación
+8. Usa cards, tablas, badges de colores, listas con iconos
+9. Header con badge de categoría, título grande y resumen
+10. Diseño responsivo: sidebar oculta en mobile
+11. Si hay código, usa bloques con fondo oscuro y botón de copiar
+12. Estilo corporativo de Value Strategy Consulting
+
+RESPONDE SOLO CON EL HTML COMPLETO. Sin explicaciones, sin markdown, sin bloques \`\`\`. Solo el HTML desde <!DOCTYPE html> hasta </html>.`;
+
+    try {
+        if (model) {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            let html = response.text();
+            // Strip markdown code fences if present
+            html = html.replace(/^```(?:html)?\s*/i, '').replace(/```\s*$/g, '').trim();
+            if (html.startsWith('<!DOCTYPE') || html.startsWith('<html')) {
+                return html;
+            }
+            // Try to extract HTML from response
+            const match = html.match(/<!DOCTYPE[\s\S]*<\/html>/i);
+            return match ? match[0] : null;
+        }
+    } catch (err) {
+        log.error('Gemini dynamic page generation failed', { error: err.message });
+    }
+    return null;
+}
+
 // Test helper to clear response cache between tests
 function _clearResponseCache() { _responseCache.clear(); }
 
-module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent, decomposeProject, generateDailyReport, loadSkillsCached, _clearResponseCache };
+module.exports = { generateResponse, processIdea, distillContent, autoAssign, generateDigest, executeWithAgent, decomposeProject, generateDailyReport, generateDynamicPage, loadSkillsCached, _clearResponseCache };
