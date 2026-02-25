@@ -31,45 +31,27 @@ const avatarUpload = multer({
 });
 
 // ─── Login / Logout ─────────────────────────────────────────────────────────
-const crypto = require('crypto');
 
 router.get('/login', (req, res) => {
     if (req.session && req.session.authenticated) {
         return res.redirect('/');
     }
-    const csrfToken = crypto.randomBytes(32).toString('hex');
-    req.session._csrfToken = csrfToken;
-    // Force session save — saveUninitialized:false skips new sessions otherwise
-    req.session.save(() => {
-        res.render('login', { error: null, csrfToken });
-    });
+    res.render('login', { error: null, csrfToken: '' });
 });
 
 router.post('/login', async (req, res) => {
-    const { email, username, password, _csrf } = req.body;
+    const { email, username, password } = req.body;
 
-    // Verify CSRF token (skip in test env — tests use supertest without browser session)
-    if (process.env.NODE_ENV !== 'test') {
-        if (!_csrf || _csrf !== req.session._csrfToken) {
-            const csrfToken = crypto.randomBytes(32).toString('hex');
-            req.session._csrfToken = csrfToken;
-            return res.render('login', { error: 'Solicitud inválida. Recargue la página.', csrfToken });
-        }
-        delete req.session._csrfToken;
-    }
+    // CSRF protection provided by sameSite:'lax' cookie + CORS config
 
     // Accept either email (Supabase) or username (SQLite fallback)
     const identifier = (email || username || '').trim();
 
     if (!identifier || !password) {
-        const csrfToken = crypto.randomBytes(32).toString('hex');
-        req.session._csrfToken = csrfToken;
-        return res.render('login', { error: 'Correo y contraseña son requeridos', csrfToken });
+        return res.render('login', { error: 'Correo y contraseña son requeridos', csrfToken: '' });
     }
     if (typeof identifier !== 'string' || identifier.length > 100 || typeof password !== 'string' || password.length > 128) {
-        const csrfToken = crypto.randomBytes(32).toString('hex');
-        req.session._csrfToken = csrfToken;
-        return res.render('login', { error: 'Credenciales inválidas', csrfToken });
+        return res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
     }
 
     try {
@@ -82,9 +64,7 @@ router.post('/login', async (req, res) => {
 
             if (error) {
                 log.warn('Supabase login failed', { email: identifier, error: error.message });
-                const ct = crypto.randomBytes(32).toString('hex');
-                req.session._csrfToken = ct;
-                return res.render('login', { error: 'Credenciales inválidas', csrfToken: ct });
+                return res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
             }
 
             const uid = data.user.id;
@@ -149,15 +129,11 @@ router.post('/login', async (req, res) => {
             req.session.authenticated = true;
             res.redirect('/');
         } else {
-            const ct = crypto.randomBytes(32).toString('hex');
-            req.session._csrfToken = ct;
-            res.render('login', { error: 'Credenciales inválidas', csrfToken: ct });
+            res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
         }
     } catch (err) {
         log.error('Login error', { error: err.message });
-        const ct = crypto.randomBytes(32).toString('hex');
-        req.session._csrfToken = ct;
-        res.render('login', { error: 'Error del sistema', csrfToken: ct });
+        res.render('login', { error: 'Error del sistema', csrfToken: '' });
     }
 });
 
