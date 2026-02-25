@@ -1182,16 +1182,22 @@ function renderArchivos(files) {
     grid.innerHTML = files.map(file => {
         const cfg = typeConfig[file.type] || typeConfig.other;
         const typeClass = file.type === 'markdown' ? 'md' : file.type === 'pdf' ? 'pdf' : file.type === 'app' ? 'app' : 'other';
-        const href = file.hasDynamic ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
+        // APP type: always use dynamicUrl. MD/PDF: always open the file itself.
+        const isApp = file.type === 'app';
+        const href = isApp ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
         const tagsHtml = (file.tags || []).length > 0
             ? `<div class="arc-tags">${file.tags.map(t => `<span class="arc-tag">#${escapeHtml(t)}</span>`).join('')}</div>`
             : '';
         const downloadBtn = file.type === 'pdf'
             ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Descargar PDF" onclick="event.stopPropagation();">Descargar</a>`
             : '';
-        const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
+        // For MD/PDF that have a linked interactive guide, show an extra button
+        const interactiveBtn = file.hasDynamic && !isApp
+            ? `<a href="${file.dynamicUrl}" class="arc-action arc-download" target="_blank" title="Ver guía interactiva" onclick="event.stopPropagation();">Interactivo</a>`
+            : '';
+        const dynamicBadge = file.hasDynamic && !isApp ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
         const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'manager';
-        const deleteBtn = canDelete && file.type !== 'app'
+        const deleteBtn = canDelete && !isApp
             ? `<button class="arc-delete" title="Eliminar" onclick="event.stopPropagation(); deleteArchivo('${escapeHtml(file.name)}')">✕</button>`
             : '';
 
@@ -1209,7 +1215,8 @@ function renderArchivos(files) {
                     ${tagsHtml}
                 </div>
                 <div class="arc-footer">
-                    <a href="${href}" class="arc-action arc-view" ${file.hasDynamic ? 'target="_blank"' : ''}>Abrir</a>
+                    <a href="${href}" class="arc-action arc-view" ${isApp ? 'target="_blank"' : ''}>Abrir</a>
+                    ${interactiveBtn}
                     ${downloadBtn}
                 </div>
             </div>

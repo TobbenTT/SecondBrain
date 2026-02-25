@@ -1946,109 +1946,109 @@
 
         <!-- Herramienta Modal -->
         <div id="herrModal" class="modal" style="display:none;">
-            <div class="modal-content" style="max-width:550px;">
-                <div class="modal-header">
-                    <h3 id="herrModalTitle">Agregar Herramienta</h3>
-                    <button class="modal-close" onclick="closeHerramientaModal()">&times;</button>
+            <div class="modal-content" style="max-width:620px;">
+                <h3 class="modal-title" id="herrModalTitle">Agregar Herramienta</h3>
+                <span class="close-modal" onclick="closeHerramientaModal()">&times;</span>
+                <div class="modal-body">
+                    <form id="herrForm" onsubmit="saveHerramienta(event)">
+                        <input type="hidden" id="herrId">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre *</label>
+                                <input type="text" id="herrNombre" required placeholder="Ej: Fireflies.ai">
+                            </div>
+                            <div class="form-group">
+                                <label>Proveedor</label>
+                                <input type="text" id="herrProveedor" placeholder="Ej: Fireflies Inc.">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Categoria</label>
+                                <select id="herrCategoria">
+                                    <option value="Productividad">Productividad</option>
+                                    <option value="Infraestructura">Infraestructura</option>
+                                    <option value="Comunicaciones">Comunicaciones</option>
+                                    <option value="Desarrollo">Desarrollo</option>
+                                    <option value="Diseño">Diseño</option>
+                                    <option value="Operaciones">Operaciones</option>
+                                    <option value="RRHH">RRHH</option>
+                                    <option value="Seguridad">Seguridad</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado</label>
+                                <select id="herrEstado">
+                                    <option value="activo">Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                    <option value="cancelado">Cancelado</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row form-row-3col">
+                            <div class="form-group">
+                                <label>Costo</label>
+                                <input type="number" id="herrCosto" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>Frecuencia</label>
+                                <select id="herrFrecuencia">
+                                    <option value="mensual">Mensual</option>
+                                    <option value="anual">Anual</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Moneda</label>
+                                <select id="herrMoneda">
+                                    <option value="USD">USD</option>
+                                    <option value="CLP">CLP</option>
+                                    <option value="EUR">EUR</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row form-row-3col">
+                            <div class="form-group">
+                                <label>Licencias</label>
+                                <input type="number" id="herrLicencias" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Duracion Contrato</label>
+                                <select id="herrDuracion">
+                                    <option value="">Sin especificar</option>
+                                    <option value="1 mes">1 mes</option>
+                                    <option value="3 meses">3 meses</option>
+                                    <option value="6 meses">6 meses</option>
+                                    <option value="1 año">1 año</option>
+                                    <option value="2 años">2 años</option>
+                                    <option value="3 años">3 años</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha Renovacion</label>
+                                <input type="date" id="herrFechaRenovacion">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Fecha Inicio Contrato</label>
+                                <input type="date" id="herrFechaInicio">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha Vencimiento</label>
+                                <input type="date" id="herrFechaVencimiento">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Notas</label>
+                            <textarea id="herrNotas" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        <div class="form-actions" style="justify-content:flex-end; gap:10px;">
+                            <button type="button" class="btn-secondary" onclick="closeHerramientaModal()">Cancelar</button>
+                            <button type="submit" class="btn-primary">Guardar</button>
+                        </div>
+                    </form>
                 </div>
-                <form id="herrForm" onsubmit="saveHerramienta(event)">
-                    <input type="hidden" id="herrId">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Nombre *</label>
-                            <input type="text" id="herrNombre" required placeholder="Ej: Fireflies.ai">
-                        </div>
-                        <div class="form-group">
-                            <label>Proveedor</label>
-                            <input type="text" id="herrProveedor" placeholder="Ej: Fireflies Inc.">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Categoria</label>
-                            <select id="herrCategoria">
-                                <option value="Productividad">Productividad</option>
-                                <option value="Infraestructura">Infraestructura</option>
-                                <option value="Comunicaciones">Comunicaciones</option>
-                                <option value="Desarrollo">Desarrollo</option>
-                                <option value="Diseño">Diseño</option>
-                                <option value="Operaciones">Operaciones</option>
-                                <option value="RRHH">RRHH</option>
-                                <option value="Seguridad">Seguridad</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Estado</label>
-                            <select id="herrEstado">
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                                <option value="cancelado">Cancelado</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Costo</label>
-                            <input type="number" id="herrCosto" step="0.01" min="0" placeholder="0.00">
-                        </div>
-                        <div class="form-group">
-                            <label>Frecuencia</label>
-                            <select id="herrFrecuencia">
-                                <option value="mensual">Mensual</option>
-                                <option value="anual">Anual</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Moneda</label>
-                            <select id="herrMoneda">
-                                <option value="USD">USD</option>
-                                <option value="CLP">CLP</option>
-                                <option value="EUR">EUR</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Licencias</label>
-                            <input type="number" id="herrLicencias" min="1" value="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Duracion Contrato</label>
-                            <select id="herrDuracion">
-                                <option value="">Sin especificar</option>
-                                <option value="1 mes">1 mes</option>
-                                <option value="3 meses">3 meses</option>
-                                <option value="6 meses">6 meses</option>
-                                <option value="1 año">1 año</option>
-                                <option value="2 años">2 años</option>
-                                <option value="3 años">3 años</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha Renovacion</label>
-                            <input type="date" id="herrFechaRenovacion">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Fecha Inicio Contrato</label>
-                            <input type="date" id="herrFechaInicio">
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha Vencimiento</label>
-                            <input type="date" id="herrFechaVencimiento">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notas</label>
-                        <textarea id="herrNotas" rows="2" placeholder="Observaciones..."></textarea>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn-secondary" onclick="closeHerramientaModal()">Cancelar</button>
-                        <button type="submit" class="btn-primary">Guardar</button>
-                    </div>
-                </form>
             </div>
         </div>
 

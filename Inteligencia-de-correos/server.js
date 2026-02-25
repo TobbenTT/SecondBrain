@@ -191,6 +191,83 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Recover missed meetings from Fireflies API (when container was down)
+app.post('/recover-from-fireflies', async (req, res) => {
+    const FIREFLIES_API_KEY = process.env.FIREFLIES_API_KEY;
+    if (!FIREFLIES_API_KEY) {
+        return res.status(400).json({ error: 'FIREFLIES_API_KEY not configured' });
+    }
+
+    try {
+        // 1. Fetch recent transcripts from Fireflies
+        const listQuery = `
+            query {
+                transcripts(limit: 10) {
+                    id
+                    title
+                    date
+                    duration
+                }
+            }
+        `;
+
+        console.log('[RECOVER] Fetching recent transcripts from Fireflies...');
+        const listResponse = await fetch('https://api.fireflies.ai/graphql', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${FIREFLIES_API_KEY}`
+            },
+            body: JSON.stringify({ query: listQuery })
+        });
+
+        const listResult = await listResponse.json();
+        if (listResult.errors) {
+            return res.status(500).json({ error: 'Fireflies API error', details: listResult.errors });
+        }
+
+        const transcripts = listResult.data.transcripts || [];
+        console.log(`[RECOVER] Found ${transcripts.length} recent transcripts in Fireflies`);
+
+        // 2. Check which ones are already in Supabase (by title match)
+        const { pool } = require('./scripts/db');
+        const existing = await pool.query('SELECT titulo FROM reuniones_analisis');
+        const existingTitles = new Set(existing.rows.map(r => r.titulo?.toLowerCase().trim()));
+
+        const missing = transcripts.filter(t => !existingTitles.has(t.title?.toLowerCase().trim()));
+        console.log(`[RECOVER] ${missing.length} transcripts missing from Supabase`);
+
+        if (missing.length === 0) {
+            return res.json({ success: true, message: 'All recent meetings already processed', checked: transcripts.length });
+        }
+
+        // 3. Process each missing transcript
+        let recovered = 0, failed = 0;
+        for (const t of missing) {
+            try {
+                console.log(`[RECOVER] Processing: ${t.title} (${t.id})`);
+                const reunion = await obtenerTranscripcionFireflies(t.id);
+                if (reunion) {
+                    await procesarReunionDiaria(reunion);
+                    recovered++;
+                } else {
+                    console.warn(`[RECOVER] Could not fetch transcript for ${t.id}`);
+                    failed++;
+                }
+            } catch (err) {
+                console.error(`[RECOVER] Error processing ${t.id}: ${err.message}`);
+                failed++;
+            }
+        }
+
+        console.log(`[RECOVER] Done: ${recovered} recovered, ${failed} failed`);
+        res.json({ success: true, checked: transcripts.length, missing: missing.length, recovered, failed });
+    } catch (err) {
+        console.error('[RECOVER] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Sync all meetings from Supabase to Dashboard SQLite
 app.post('/sync-to-dashboard', async (req, res) => {
     const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';

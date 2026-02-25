@@ -4787,8 +4787,13 @@ select option {
     gap: 12px;
 }
 
+.form-row.form-row-3col {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
 @media (max-width: 500px) {
-    .form-row {
+    .form-row,
+    .form-row.form-row-3col {
         grid-template-columns: 1fr;
     }
     .code-pipeline {
