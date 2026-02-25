@@ -7,6 +7,18 @@
 # Knowledge separado: ./knowledge-staging (no toca produccion)
 
 services:
+  redis-staging:
+    image: redis:7-alpine
+    container_name: staging-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - staging-redis-data:/data
+
   postgres-staging:
     image: postgres:16-alpine
     container_name: staging-postgres
@@ -48,6 +60,8 @@ services:
       - OLLAMA_CTX=4096
       - OLLAMA_TEMP=0.3
       - OLLAMA_KEEP_ALIVE=10m
+      - REDIS_HOST=redis-staging
+      - REDIS_PORT=6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -64,6 +78,8 @@ services:
       start_period: 15s
       retries: 3
     depends_on:
+      redis-staging:
+        condition: service_healthy
       postgres-staging:
         condition: service_healthy
       ollama-pull-staging:
@@ -119,6 +135,7 @@ services:
     restart: "no"
 
 volumes:
+  staging-redis-data:
   staging-data:
   staging-avatars:
   staging-gallery:

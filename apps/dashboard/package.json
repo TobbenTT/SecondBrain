@@ -28,6 +28,7 @@
     "@supabase/supabase-js": "^2.97.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
+    "connect-redis": "^9.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "ejs": "^4.0.1",
@@ -39,8 +40,9 @@
     "marked": "^15.0.7",
     "multer": "^2.0.2",
     "pdf-parse": "^2.4.5",
-    "simple-git": "^3.32.2",
     "pg": "^8.18.0",
+    "redis": "^5.11.0",
+    "simple-git": "^3.32.2",
     "winston": "^3.19.0"
   },
   "devDependencies": {

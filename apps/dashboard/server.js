@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const session = require('express-session');
+const { createClient: createRedisClient } = require('redis');
+const RedisStore = require('connect-redis').default;
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
@@ -149,9 +151,28 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.use('/dinamicas', express.static(DINAMICAS_DIR, { maxAge: '7d' }));
 app.use('/voice-notes', express.static(VOICE_DIR, { maxAge: '1d' }));
 
-// Session (hardened)
+// Session (hardened) — Redis if REDIS_HOST configured, else MemoryStore
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+let sessionStore;
+let redisClient;
+if (process.env.REDIS_HOST) {
+    redisClient = createRedisClient({
+        socket: {
+            host: process.env.REDIS_HOST,
+            port: parseInt(process.env.REDIS_PORT || '6379'),
+        }
+    });
+    redisClient.connect().catch(err => {
+        log.error('Redis connection failed', { error: err.message });
+    });
+    redisClient.on('error', err => log.error('Redis error', { error: err.message }));
+    redisClient.on('connect', () => log.info('Redis connected', { host: process.env.REDIS_HOST }));
+    sessionStore = new RedisStore({ client: redisClient });
+} else {
+    log.info('No REDIS_HOST configured — using MemoryStore for sessions');
+}
 app.use(session({
+    store: sessionStore,
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -176,7 +197,11 @@ app.use((req, res, next) => {
 app.get('/health', async (req, res) => {
     try {
         await get('SELECT 1');
-        res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString(), build: BUILD_ID });
+        let redisOk = null;
+        if (redisClient) {
+            try { redisOk = (await redisClient.ping()) === 'PONG'; } catch { redisOk = false; }
+        }
+        res.json({ status: 'ok', redis: redisOk, uptime: process.uptime(), timestamp: new Date().toISOString(), build: BUILD_ID });
     } catch (_err) {
         res.status(503).json({ status: 'error', error: 'Database unavailable' });
     }
