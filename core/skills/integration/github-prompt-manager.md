@@ -309,7 +309,7 @@ Command: github-prompt-manager deploy --prompt agent-operations --target windsur
 Process:
   1. Pull latest from prompts repo
   2. Read prompts/agent-operations/system-prompt.md (v1.3.0)
-  3. Load variables/production.yaml: { project_name: "Lithium Plant", client_name: "SQM" }
+  3. Load variables/production.yaml: { project_name: "Lithium Plant", client_name: "{client_name}" }
   4. Resolve {{project_name}} -> "Lithium Plant" in prompt
   5. Validate: token count 4200 (pass), no secrets (pass), all vars resolved (pass)
   6. Push to Windsurf: /projects/or-system/agents/operations/CLAUDE.md

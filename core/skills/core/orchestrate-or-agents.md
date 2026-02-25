@@ -173,7 +173,7 @@ skill_groups:
 ```yaml
 project:
   name: "Lithium Plant OR Program"
-  client: "SQM"
+  client: "{client_name}"
   phase: "Detailed Engineering"
   timeline:
     or_start: "2025-06-01"

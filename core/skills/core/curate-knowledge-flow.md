@@ -539,7 +539,7 @@ Results Returned:
   Most Relevant:
   1. KC-0145: "Shift Handover Protocol for Continuous Operations" — Relevance: high
      Summary: Structured handover protocol with checklist, 15-minute overlap minimum
-  2. KC-0167: "Lessons from SQM Shift Handover Failures" — Relevance: high
+  2. KC-0167: "Lessons from ClienteX Shift Handover Failures" — Relevance: high
      Summary: Three incidents traced to poor handover, root causes and fixes
   3. KC-0189: "Digital Shift Handover Tools Comparison" — Relevance: medium
      Summary: Comparison of CMMS-based vs standalone handover tools

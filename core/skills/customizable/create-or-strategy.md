@@ -59,7 +59,7 @@ Generate a comprehensive OR (Operational Readiness) Strategy document that defin
 ```yaml
 project:
   name: "Lithium Plant"
-  client: "SQM"
+  client: "{client_name}"
   location: "Atacama, Chile"
   technology: "Lithium carbonate extraction and purification"
   capacity: "100,000 tonnes per year"

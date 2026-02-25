@@ -281,7 +281,7 @@ Output: "OR_Monthly_Mar2025_enhanced.pptx" (38 slides, fully formatted)
 
 **Example 2: Client Presentation Review Only**
 ```
-Command: genspark-pptx-enhancer review --file "Client_Presentation_SQM.pptx"
+Command: genspark-pptx-enhancer review --file "Client_Presentation_ClienteX.pptx"
 
 Review Summary:
   Issues Found: 12

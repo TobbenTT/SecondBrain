@@ -376,25 +376,25 @@ Given the following raw content captured from {source_type}:
 ```
 Trigger: User reacts with :brain: to a Slack message in #or-system
 
-Slack Message: "Talked to SQM today. They mentioned their CMMS migration from SAP-PM
+Slack Message: "Talked to ClienteX today. They mentioned their CMMS migration from SAP-PM
 to Maximo took 18 months and they wish they had done parallel running for 3 months
 instead of just 1 month. Key lesson for our CMMS strategy."
 
 Quick Capture (5 seconds):
-  KC-0234: SQM CMMS Migration Lesson
+  KC-0234: ClienteX CMMS Migration Lesson
   Source: Slack #or-system | User: @carlos
-  Quick Note: "SQM CMMS migration SAP-PM to Maximo, 18 months, parallel running 3 months recommended"
-  Auto-Tags: CMMS, migration, SAP-PM, Maximo, SQM
+  Quick Note: "ClienteX CMMS migration SAP-PM to Maximo, 18 months, parallel running 3 months recommended"
+  Auto-Tags: CMMS, migration, SAP-PM, Maximo, ClienteX
   Status: Pending Enrichment
 
 Enriched Card (45 seconds later):
-  KC-0234: SQM CMMS Migration - Parallel Running Duration Lesson
+  KC-0234: ClienteX CMMS Migration - Parallel Running Duration Lesson
   Domain: Operations
   Sub-domain: CMMS Strategy
-  Tags: CMMS, migration, SAP-PM, Maximo, SQM, parallel-running, lessons-learned
+  Tags: CMMS, migration, SAP-PM, Maximo, ClienteX, parallel-running, lessons-learned
   Actionability: Insight
   Urgency: This Week
-  Key Insight: "SQM's SAP-PM to Maximo migration took 18 months. They recommend 3 months
+  Key Insight: "ClienteX's SAP-PM to Maximo migration took 18 months. They recommend 3 months
     of parallel running instead of 1 month. Directly relevant to our CMMS strategy."
   Connections:
     - Related: KC-0178 "CMMS Selection Criteria for Lithium Plants"

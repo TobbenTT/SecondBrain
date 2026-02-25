@@ -1,7 +1,7 @@
-# Skill: Clasificar Idea (GTD Triage)
+# Skill: Clasificar Idea (GTD Triage) — VSC Second Brain
 
 ## Proposito
-Determinar rapidamente QUE es una entrada nueva al sistema y DONDE debe ir.
+Determinar rapidamente QUE es una entrada nueva al sistema y DONDE debe ir, asignando un **score de confianza** para activar el filtro Bouncer del Second Brain.
 
 ## Preguntas de Clasificacion (en orden)
 
@@ -43,5 +43,42 @@ Para cada elemento clasificado:
 - Si es estrategico/vision/direccion → Direccion → jose
 - Si es tecnico/desarrollo/codigo → Desarrollo → david
 
+## Score de Confianza (Bouncer)
+
+Asignar un valor `confianza` entre 0.0 y 1.0 que indica que tan seguro esta el clasificador:
+
+| Rango | Significado | Accion del sistema |
+|-------|-------------|-------------------|
+| 0.8 - 1.0 | Alta confianza — clasificacion clara | Clasificar automaticamente |
+| 0.5 - 0.79 | Media — ambiguo pero razonable | Clasificar pero marcar para revision |
+| 0.0 - 0.49 | Baja — no se puede determinar | NO clasificar, pedir aclaracion al usuario |
+
+Factores que reducen la confianza:
+- Texto muy corto o vago (ej: "eso que dijimos")
+- Multiples categorias posibles
+- Sin contexto de quien habla o para que
+- Mezcla temas distintos en una sola entrada
+
 ## Output Esperado
-JSON con todos los campos de clasificacion GTD completos.
+
+JSON con TODOS los campos de clasificacion GTD completos. Ejemplo:
+
+```json
+{
+  "tipo": "tarea",
+  "nombre": "Revisar contrato de Fireflies.ai antes de renovacion",
+  "resumen": "Verificar terminos y costo antes de la renovacion automatica del 15 de marzo",
+  "contexto_gtd": "@computador",
+  "energia": "media",
+  "tiempo_estimado": "30 min",
+  "compromiso": "esta_semana",
+  "urgencia": "media",
+  "area": "Operaciones",
+  "responsable": "jose",
+  "delegacion": null,
+  "siguiente_accion": "Abrir portal de Fireflies y revisar plan actual vs alternativas",
+  "confianza": 0.92
+}
+```
+
+IMPORTANTE: El campo `confianza` es OBLIGATORIO. Sin el, el sistema no puede decidir si clasificar automaticamente o pedir revision humana.

@@ -402,19 +402,19 @@ Output: "2025-04-executive-summary.pptx" (6 slides, enhanced)
 
 **Example 3: Custom Report with Filters**
 ```
-Command: airtable-report-generator generate --report custom --query "Client='SQM' AND Status!='Cancelled'" --template client_history --format pdf
+Command: airtable-report-generator generate --report custom --query "Client='ClienteX' AND Status!='Cancelled'" --template client_history --format pdf
 
 Process:
-  1. Query Opportunities filtered by Client=SQM, excluding Cancelled -> 15 records
-  2. Query Projects for SQM -> 3 projects
+  1. Query Opportunities filtered by Client=ClienteX, excluding Cancelled -> 15 records
+  2. Query Projects for ClienteX -> 3 projects
   3. Calculate client-specific metrics:
      - Total lifetime value: $4.2M
      - Active pipeline: $1.8M
-     - Win rate with SQM: 72%
+     - Win rate with ClienteX: 72%
      - Average deal size: $280K
   4. Render client_history template
   5. Convert to PDF
-  6. Save: /reports/custom/2025-04-SQM-client-history.pdf
+  6. Save: /reports/custom/2025-04-ClienteX-client-history.pdf
 
-Output: Custom SQM client history report generated. 15 opportunities, $4.2M lifetime value.
+Output: Custom ClienteX client history report generated. 15 opportunities, $4.2M lifetime value.
 ```
