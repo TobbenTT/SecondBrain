@@ -34,7 +34,7 @@ const uploadRoutes = require('./routes/upload');
 
 const app = express();
 app.set('trust proxy', 1);
-const PORT = process.argv.includes('-p') ? parseInt(process.argv[process.argv.indexOf('-p') + 1]) : 3000;
+const PORT = process.env.PORT || (process.argv.includes('-p') ? parseInt(process.argv[process.argv.indexOf('-p') + 1]) : 3000);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const BUILD_ID = Date.now().toString(36); // unique per server start — used for update detection
 
