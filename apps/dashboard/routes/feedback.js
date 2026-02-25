@@ -74,6 +74,57 @@ router.get('/export', async (req, res) => {
     }
 });
 
+// ─── Import feedback from JSON export ────────────────────────────────────────
+router.post('/import', async (req, res) => {
+    const user = req.session?.user;
+    if (!user || !['admin', 'ceo'].includes(user.role)) {
+        return res.status(403).json({ error: 'Admin only' });
+    }
+
+    try {
+        const data = req.body;
+        const items = data.feedback || data;
+        if (!Array.isArray(items)) {
+            return res.status(400).json({ error: 'Expected {"feedback":[...]} or [...]' });
+        }
+
+        let imported = 0;
+        for (const item of items) {
+            if (!item.title || !item.content || !item.username) continue;
+            // Skip duplicates by title + username
+            const exists = await get(
+                'SELECT id FROM feedback WHERE title = ? AND username = ?',
+                [item.title, item.username]
+            );
+            if (exists) continue;
+
+            await run(
+                `INSERT INTO feedback (username, title, content, category, priority, status, admin_response, responded_by, created_at, resolved_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    item.username,
+                    item.title,
+                    item.content,
+                    item.category || 'mejora',
+                    item.priority || 'media',
+                    item.status || 'abierto',
+                    item.admin_response || null,
+                    item.responded_by || null,
+                    item.created_at || new Date().toISOString(),
+                    item.resolved_at || null
+                ]
+            );
+            imported++;
+        }
+
+        const total = await get('SELECT count(*) as c FROM feedback');
+        res.json({ imported, skipped: items.length - imported, total: total.c });
+    } catch (err) {
+        log.error('Feedback import error', { error: err.message });
+        res.status(500).json({ error: 'Import failed: ' + err.message });
+    }
+});
+
 // ─── Create feedback (with optional attachments) ────────────────────────────
 router.post('/', upload.array('attachments', 5), async (req, res) => {
     const user = req.session?.user;

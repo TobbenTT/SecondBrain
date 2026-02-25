@@ -116,5 +116,6 @@ localhost
 # Legacy folders (removed from repo)
 General/
 agents/
-scripts/
-!Inteligencia-de-correos/scripts/
+
+# Database backups (local only, not in repo)
+backups/
