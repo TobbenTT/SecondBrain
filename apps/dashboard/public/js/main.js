@@ -42,6 +42,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // initInboxTriage → on 'inbox' section
     // initOKRs → on 'okrs' section
     // initNextActions → on 'gtd-board' section
+
+    // ─── Auto-refresh: recarga datos de la sección activa cada 5 min ─────
+    setInterval(() => {
+        const active = document.querySelector('.nav-link.active');
+        if (!active) return;
+        const section = active.dataset.section;
+        if (section === 'home') { initHomeData(); }
+        else if (section === 'overview') { initOverviewStats(); }
+        else if (section === 'reportability') { initReportability(); }
+        else if (section === 'analytics') { loadAnalytics(); }
+        else if (section === 'feedback') { loadFeedback(); }
+        else if (section === 'reuniones') { loadReuniones(); }
+        else if (section === 'inbox') { loadInboxTriage(); }
+        invalidateUsersCache();
+    }, 5 * 60 * 1000);
 });
 
 // ─── Global Users Cache (eliminates 11 duplicate /api/users fetches) ──────────
@@ -79,30 +94,30 @@ function invalidateUsersCache() {
 // ─── Section titles mapping ────────────────────────────────────────────────────
 const SECTION_META = {
     home: { title: 'Bienvenido', subtitle: 'Hub Interno de Operaciones' },
-    overview: { title: 'Dashboard CODE/PARA', subtitle: 'Pipeline de trabajo y distribución organizativa' },
-    projects: { title: 'Proyectos', subtitle: 'Iniciativas con deadline — PARA: Projects' },
-    areas: { title: 'Áreas de Responsabilidad', subtitle: 'Responsabilidades continuas — PARA: Areas (Horizonte H2)' },
-    archivos: { title: 'Recursos & Documentación', subtitle: 'Material de referencia — PARA: Resources' },
-    methodologies: { title: 'Metodologías de Trabajo', subtitle: 'CODE + PARA + GTD — Frameworks operativos' },
-    ideas: { title: 'Captura — CODE', subtitle: 'Captura ideas sin filtrar → Organizar → Destilar → Expresar' },
-    skills: { title: 'Biblioteca de Habilidades', subtitle: 'Conocimiento estático y procedimientos (SOPs)' },
-    context: { title: 'Memoria PARA', subtitle: 'Gestión del conocimiento organizado por Proyectos, Áreas, Recursos y Archivo' },
-    waiting: { title: 'A la Espera', subtitle: 'Delegaciones y seguimiento — GTD: Waiting For' },
-    reportability: { title: 'Reportabilidad', subtitle: 'Checklist diario y actividad por consultor — Dashboard del equipo' },
-    analytics: { title: 'Analytics', subtitle: 'Tendencias, graficos y metricas del equipo — Data-driven decisions' },
-    agents: { title: 'Agentes', subtitle: 'Agentes especializados de negocio y ejecucion OpenClaw' },
-    openclaw: { title: 'Monitor OpenClaw', subtitle: 'Pipeline multi-agente — PM → DEV → BUILDER → QA / Consulting → Reviewer' },
-    inbox: { title: 'Bandeja de Entrada', subtitle: 'Triage inteligente — Items pendientes de clasificacion y revision' },
-    okrs: { title: 'OKRs', subtitle: 'Objetivos y Key Results — Vincular proyectos a metas estrategicas' },
-    'gtd-board': { title: 'Proximas Acciones GTD', subtitle: 'Tus tareas filtradas por contexto, energia, persona o compromiso' },
-    'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos descompuestos en sub-tareas con proxima accion' },
-    'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del dia generado por IA — que paso, que falta, quien tiene que' },
-    'revision': { title: 'Revision', subtitle: 'Cola de revision de Skills y Outputs para el equipo consultor' },
-    'reuniones': { title: 'Reuniones', subtitle: 'Inteligencia de reuniones — Analisis automatizado de Fireflies.ai' },
-    'feedback': { title: 'Feedback', subtitle: 'Sugerencias y mejoras del equipo' },
-    'admin-users': { title: 'Gestion de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
-    'graph-view': { title: 'Vista Gráfica', subtitle: 'Mapa interactivo de conexiones — Proyectos, Áreas, Reuniones, Ideas, Skills' },
-    'herramientas': { title: 'Herramientas Contratadas', subtitle: 'Suscripciones y licencias de software — Contexto para Finance Agent' }
+    overview: { title: 'Dashboard General', subtitle: 'Resumen ejecutivo — Proyectos, indicadores y flujo de trabajo' },
+    projects: { title: 'Proyectos', subtitle: 'Iniciativas activas con plazos y responsables asignados' },
+    areas: { title: 'Áreas de Responsabilidad', subtitle: 'Departamentos y funciones continuas de la organización' },
+    archivos: { title: 'Recursos y Documentación', subtitle: 'Documentos, archivos y material de referencia del equipo' },
+    methodologies: { title: 'Metodologías de Trabajo', subtitle: 'Frameworks operativos: CODE, PARA y GTD' },
+    ideas: { title: 'Ideas Capturadas (CODE)', subtitle: 'Registro de ideas — Capturar, Organizar, Destilar y Expresar' },
+    skills: { title: 'Habilidades y SOPs', subtitle: 'Procedimientos, conocimiento técnico y buenas prácticas' },
+    context: { title: 'Base de Conocimiento', subtitle: 'Información organizada por Proyectos, Áreas, Recursos y Archivo' },
+    waiting: { title: 'Delegaciones y Seguimiento', subtitle: 'Tareas delegadas pendientes de respuesta o acción de terceros' },
+    reportability: { title: 'Avance del Equipo', subtitle: 'Checklist diario y progreso por consultor' },
+    analytics: { title: 'Indicadores y Métricas', subtitle: 'Tendencias, gráficos y estadísticas del equipo' },
+    agents: { title: 'Agentes IA', subtitle: 'Agentes especializados para automatizar tareas de negocio' },
+    openclaw: { title: 'Monitor de Procesos IA', subtitle: 'Pipeline multi-agente — Seguimiento de tareas automatizadas' },
+    inbox: { title: 'Bandeja de Ideas', subtitle: 'Ideas pendientes de clasificar — Revisa, confirma y organiza' },
+    okrs: { title: 'OKRs', subtitle: 'Objetivos y Resultados Clave — Vincular proyectos a metas estratégicas' },
+    'gtd-board': { title: 'Próximas Acciones (GTD)', subtitle: 'Tareas pendientes filtradas por contexto, energía y responsable' },
+    'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos desglosados en sub-tareas con próxima acción definida' },
+    'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del día generado por IA — qué pasó, qué falta, quién debe actuar' },
+    'revision': { title: 'Revisión de Entregables', subtitle: 'Cola de revisión de Skills y Outputs del equipo consultor' },
+    'reuniones': { title: 'Reuniones', subtitle: 'Análisis automatizado de reuniones — Compromisos y participantes' },
+    'feedback': { title: 'Sugerencias y Mejoras', subtitle: 'Observaciones del equipo sobre la plataforma' },
+    'admin-users': { title: 'Gestión de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
+    'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas y Skills' },
+    'herramientas': { title: 'Herramientas y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' }
 };
 
 

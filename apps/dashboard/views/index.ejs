@@ -40,7 +40,7 @@
                 </a>
                 <a href="#overview" class="nav-link" data-section="overview">
                     <span class="nav-icon">📊</span>
-                    Dashboard CODE/PARA
+                    Dashboard General
                 </a>
                 <a href="#reuniones" class="nav-link" data-section="reuniones">
                     <span class="nav-icon">📅</span>
@@ -63,7 +63,7 @@
                 </a>
                 <a href="#skills" class="nav-link" data-section="skills">
                     <span class="nav-icon">📚</span>
-                    Habilidades
+                    Habilidades y SOPs
                 </a>
                 <a href="#methodologies" class="nav-link" data-section="methodologies">
                     <span class="nav-icon">📐</span>
@@ -71,42 +71,42 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Captura & Procesamiento</span>
+                <span class="nav-label">Captura y Gestión de Ideas</span>
                 <a href="#inbox" class="nav-link" data-section="inbox">
                     <span class="nav-icon">📥</span>
-                    Bandeja de Entrada
+                    Bandeja de Ideas
                     <span class="inbox-badge" id="inboxBadge" style="display:none;"></span>
                 </a>
                 <a href="#ideas" class="nav-link" data-section="ideas">
                     <span class="nav-icon">💡</span>
-                    Ideas (Captura)
+                    Ideas Capturadas (CODE)
                 </a>
                 <a href="#context" class="nav-link" data-section="context">
                     <span class="nav-icon">🧠</span>
-                    Memoria PARA
+                    Base de Conocimiento
                 </a>
                 <a href="#waiting" class="nav-link" data-section="waiting">
                     <span class="nav-icon">⏳</span>
-                    Delegaciones
+                    Delegaciones y Seguimiento
                 </a>
                 <a href="#reportability" class="nav-link" data-section="reportability">
                     <span class="nav-icon">📋</span>
-                    Reportabilidad
+                    Avance del Equipo
                 </a>
                 <a href="#analytics" class="nav-link" data-section="analytics">
                     <span class="nav-icon">📈</span>
-                    Analytics
+                    Indicadores y Métricas
                 </a>
             </div>
             <div class="nav-section nav-section-revision">
                 <span class="nav-label">Equipo</span>
                 <a href="#revision" class="nav-link" data-section="revision">
                     <span class="nav-icon">📝</span>
-                    Revisión
+                    Revisión de Entregables
                 </a>
                 <a href="#feedback" class="nav-link" data-section="feedback">
                     <span class="nav-icon">💬</span>
-                    Feedback
+                    Sugerencias y Mejoras
                 </a>
             </div>
             <div class="nav-section">
@@ -117,14 +117,14 @@
                 </a>
                 <a href="#openclaw" class="nav-link" data-section="openclaw">
                     <span class="nav-icon">🦞</span>
-                    Monitor Pipeline
+                    Monitor de Procesos IA
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Planificación GTD</span>
+                <span class="nav-label">Planificación y Tareas</span>
                 <a href="#gtd-board" class="nav-link" data-section="gtd-board">
                     <span class="nav-icon">🎯</span>
-                    Próximas Acciones
+                    Próximas Acciones (GTD)
                 </a>
                 <a href="#gtd-projects" class="nav-link" data-section="gtd-projects">
                     <span class="nav-icon">📂</span>
@@ -148,11 +148,11 @@
                 </a>
                 <a href="#graph-view" class="nav-link" data-section="graph-view">
                     <span class="nav-icon">🕸️</span>
-                    Vista Gráfica
+                    Mapa de Conexiones
                 </a>
                 <a href="#herramientas" class="nav-link" data-section="herramientas">
                     <span class="nav-icon">🛠️</span>
-                    Herramientas
+                    Herramientas y Licencias
                 </a>
             </div>
             <% } %>
@@ -302,8 +302,8 @@
                     <div class="hex-card hex-card-green">
                         <div class="hex-icon">✅</div>
                         <div class="hex-value" id="hexExpressed">—</div>
-                        <div class="hex-label">Expresadas (CODE)</div>
-                        <div class="hex-sub">Ideas completadas</div>
+                        <div class="hex-label">Ideas Completadas</div>
+                        <div class="hex-sub">Expresadas y finalizadas</div>
                     </div>
                 </div>
             </div>
@@ -455,8 +455,8 @@
             <!-- CODE Pipeline — Hero -->
             <div class="ov-pipeline-panel">
                 <div class="ov-pipeline-header">
-                    <h2>Dashboard Operativo</h2>
-                    <span>Pipeline CODE + Métricas PARA — Vista general del flujo de trabajo</span>
+                    <h2>Dashboard General</h2>
+                    <span>Resumen ejecutivo — Proyectos, indicadores y flujo de trabajo</span>
                 </div>
                 <div class="ov-pipeline-track">
                     <div class="ov-pipeline-line"></div>
@@ -504,7 +504,7 @@
                         <div class="ov-metric-icon ov-icon-purple">🧠</div>
                         <div class="ov-metric-data">
                             <span class="ov-metric-num" id="statContext">--</span>
-                            <span class="ov-metric-label">Memoria</span>
+                            <span class="ov-metric-label">Conocimiento</span>
                         </div>
                     </div>
                     <div class="ov-metric" onclick="switchSection('waiting')">
@@ -519,15 +519,15 @@
                     <h4 class="ov-actions-title">Acciones Rapidas</h4>
                     <button class="ov-action-btn" id="btnDeepResearch" title="Analizar un tema complejo">
                         <span class="ov-action-icon">🕵️</span>
-                        <div class="ov-action-text"><strong>Deep Research</strong><span>Investigar un tema a fondo</span></div>
+                        <div class="ov-action-text"><strong>Investigación Profunda</strong><span>Analizar un tema a fondo con IA</span></div>
                     </button>
                     <button class="ov-action-btn" id="btnWeeklyReview" title="Generar plan semanal">
                         <span class="ov-action-icon">📅</span>
-                        <div class="ov-action-text"><strong>Weekly Review</strong><span>Planificar la semana</span></div>
+                        <div class="ov-action-text"><strong>Revisión Semanal</strong><span>Planificar la semana</span></div>
                     </button>
                     <button class="ov-action-btn" id="btnDigest" title="Generar resumen diario del equipo">
                         <span class="ov-action-icon">📬</span>
-                        <div class="ov-action-text"><strong>Digest</strong><span>Resumen del equipo</span></div>
+                        <div class="ov-action-text"><strong>Resumen Diario</strong><span>Resumen de actividad del equipo</span></div>
                     </button>
                 </div>
             </div>
@@ -536,7 +536,7 @@
             <div class="ov-bottom-row">
                 <div class="panel ov-inbox-panel">
                     <div class="panel-header">
-                        <h2 class="panel-title">📬 Inbox Log</h2>
+                        <h2 class="panel-title">📬 Registro de Ideas</h2>
                         <span class="inbox-log-count" id="inboxLogCount">0 entradas</span>
                     </div>
                     <div class="panel-body">
@@ -551,7 +551,7 @@
                     </div>
                 </div>
                 <div class="ov-para-panel">
-                    <h4 class="ov-para-title">Distribucion PARA</h4>
+                    <h4 class="ov-para-title">Distribución Organizativa</h4>
                     <div class="ov-para-grid">
                         <div class="ov-para-card ov-para-projects" onclick="switchSection('projects')">
                             <span class="ov-para-icon">🚀</span>
