@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Semanal de Proyectos</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            line-height: 1.5;
+            color: #334155;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-top: 8px solid #1e293b;
+        }
+
+        h1 {
+            color: #0f172a;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .summary-box {
+            background-color: #f1f5f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .section {
+            margin-bottom: 35px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .traffic-light {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .green {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .yellow {
+            background-color: #fef9c3;
+            color: #854d0e;
+        }
+
+        .red {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .owner-group {
+            margin-bottom: 20px;
+        }
+
+        .owner-name {
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .task-item {
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .conflict-box {
+            background-color: #fff7ed;
+            border: 1px solid #ffedd5;
+            padding: 15px;
+            border-radius: 8px;
+            color: #9a3412;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📊 Reporte Semanal de Ejecución</h1>
+        <p class="subtitle">Periodo: {{rango_fechas}} | Generado automáticamente para Gerencia</p>
+
+        <div class="summary-box">
+            <strong>Resumen Ejecutivo:</strong><br>
+            {{resumen_semanal}}
+        </div>
+
+        <div class="section">
+            <span class="section-title">🚦 Semáforo de Estatus</span>
+            <div class="traffic-light {{status_color}}">{{status_label}}</div>
+            <p><small>{{status_justificacion}}</small></p>
+        </div>
+
+        <div class="section">
+            <span class="section-title">👤 Compromisos por Responsable</span>
+            {{#each responsables}}
+            <div class="owner-group">
+                <span class="owner-name">{{this.nombre}}</span>
+                <div class="task-list">
+                    {{#each this.tareas}}
+                    <div class="task-item">
+                        • {{this.descripcion}} <br>
+                        <small>📅 Meta: {{this.fecha}}</small>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{/each}}
+        </div>
+
+        {{#if contradicciones}}
+        <div class="section">
+            <span class="section-title">⚠️ Alerta de Coherencia</span>
+            <div class="conflict-box">
+                {{contradicciones}}
+            </div>
+        </div>
+        {{/if}}
+
+        <div class="footer">
+            Este reporte consolida el análisis de {{total_reuniones}} reuniones procesadas esta semana.
+            <br>Confidencial - Uso Interno.
+        </div>
+    </div>
+</body>
+
+</html>

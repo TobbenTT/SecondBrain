@@ -31,6 +31,29 @@ services:
       ollama-pull:
         condition: service_completed_successfully
 
+  # Email intelligence service: processes Fireflies webhooks, sends reports
+  inteligencia-correos:
+    build: ./Inteligencia-de-correos
+    container_name: secondbrain-correos
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./Inteligencia-de-correos/.env
+    environment:
+      - DASHBOARD_URL=http://dashboard:3000
+    volumes:
+      - correos-data:/app/repositorio_reuniones
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      dashboard:
+        condition: service_healthy
+
   # One-shot service: pulls the Ollama model if not already present
   ollama-pull:
     image: curlimages/curl:latest
@@ -59,3 +82,4 @@ services:
 
 volumes:
   sb-data:
+  correos-data:

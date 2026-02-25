@@ -62,8 +62,12 @@ _BACKUP_*/
 # Uploaded skill documents (user uploads)
 knowledge/skill-docs/
 
-# Inteligencia-de-correos (repo independiente con su propio .git)
-Inteligencia-de-correos/
+# Inteligencia-de-correos: included in monorepo for Docker deployment
+# Ignore its node_modules and logs but include source
+Inteligencia-de-correos/node_modules/
+Inteligencia-de-correos/*.log
+Inteligencia-de-correos/_debug*
+Inteligencia-de-correos/dns_debug*
 
 # Documentos personales/temporales en raiz
 *.docx

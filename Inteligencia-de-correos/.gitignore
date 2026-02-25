@@ -1,0 +1,11 @@
+node_modules/
+.env
+*.log
+repositorio_reuniones/
+_debug_*.txt
+*_debug*.txt
+*_debug*.log
+validation_*.log
+connection_debug.log
+ngrok.log
+server.log

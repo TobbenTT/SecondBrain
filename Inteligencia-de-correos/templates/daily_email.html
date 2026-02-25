@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen de Reunión Diaria</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-top: 5px solid #2ecc71;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .date-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #34495e;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: block;
+            border-left: 3px solid #2ecc71;
+            padding-left: 10px;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin-top: 5px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .attendees {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .commitment-card {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            list-style: none;
+        }
+
+        .owner {
+            font-weight: bold;
+            color: #2980b9;
+        }
+
+        .date {
+            color: #e67e22;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .priority {
+            float: right;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: #eee;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #bdc3c7;
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>{{titulo}}</h1>
+        <div class="date-badge">📅 {{fecha}}</div>
+
+        <div class="attendees">
+            <strong>Asistentes:</strong> {{#join asistentes ", "}}{{this}}{{/join}}
+        </div>
+
+        <div class="section">
+            <span class="section-title">Resumen Ejecutivo</span>
+            <p>{{resumen}}</p>
+        </div>
+
+        {{#if acuerdos.length}}
+        <div class="section">
+            <span class="section-title">Acuerdos & Decisiones</span>
+            <ul>
+                {{#each acuerdos}}
+                <li>✅ {{this}}</li>
+                {{/each}}
+            </ul>
+        </div>
+        {{/if}}
+
+        <div class="section">
+            <span class="section-title">Compromisos (Tareas)</span>
+            {{#each compromisos}}
+            <div class="commitment-card">
+                <span class="priority">{{prioridad}}</span>
+                <span class="owner">{{quien}}</span>: {{tarea}}
+                <br>
+                <span class="date">📅 Límite: {{cuando}}</span>
+            </div>
+            {{/each}}
+        </div>
+
+        {{#if proxima_reunion}}
+        <div class="section">
+            <span class="section-title">Próxima Reunión</span>
+            <p>Programada para el <strong>{{proxima_reunion}}</strong></p>
+        </div>
+        {{/if}}
+
+        <div class="footer">
+            Este es un reporte diario automatizado de seguimiento industrial.
+        </div>
+    </div>
+</body>
+
+</html>

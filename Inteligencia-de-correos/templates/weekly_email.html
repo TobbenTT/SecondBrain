@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .header {
+            background-color: #0052cc;
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section-title {
+            color: #172b4d;
+            border-bottom: 2px solid #0052cc;
+            padding-bottom: 8px;
+            margin-top: 30px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .meeting-block {
+            background-color: #ffffff;
+            border: 1px solid #dfe1e6;
+            border-left: 4px solid #0052cc;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .meeting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .meeting-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #172b4d;
+            margin: 0;
+        }
+
+        .meeting-date {
+            font-size: 12px;
+            color: #5e6c84;
+            background: #ebecf0;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .meeting-summary {
+            font-size: 13px;
+            color: #42526e;
+            margin-bottom: 12px;
+            margin-top: 5px;
+            font-style: italic;
+            border-left: 2px solid #0052cc;
+            padding-left: 10px;
+        }
+
+        .commitment-card {
+            background-color: #f4f5f7;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .priority-Alta {
+            color: #de350b;
+            font-weight: bold;
+        }
+
+        .priority-Media {
+            color: #ff991f;
+            font-weight: bold;
+        }
+
+        .priority-Baja {
+            color: #006644;
+            font-weight: bold;
+        }
+
+        .owner {
+            font-weight: 600;
+            color: #172b4d;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #a5adba;
+            background-color: #fafbfc;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Resumen Semanal de Compromisos</h1>
+            <p>Del {{inicio_semana}} al {{fin_semana}}</p>
+        </div>
+
+        <div class="content">
+            <p>Hola equipo,</p>
+            <p>A continuación se presenta de forma automatizada el consolidado con todas las tareas y responsabilidades
+                extraídas por Inteligencia Artificial de nuestras reuniones operativas de los últimos 7 días.</p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                style="background-color: #f4f5f7; border-radius: 6px; margin-bottom: 25px;">
+                <tr>
+                    <td align="center" width="50%" style="padding: 15px 10px;">
+                        <h3 style="margin: 0; font-size: 24px; color: #0052cc;">{{total_reuniones}}</h3>
+                        <p
+                            style="margin: 5px 0 0 0; font-size: 12px; color: #666; text-transform: uppercase; font-weight: 600;">
+                            Reuniones Analizadas</p>
+                    </td>
+                    <td align="center" width="50%" style="padding: 15px 10px;">
+                        <h3 style="margin: 0; font-size: 24px; color: #0052cc;">{{total_compromisos}}</h3>
+                        <p
+                            style="margin: 5px 0 0 0; font-size: 12px; color: #666; text-transform: uppercase; font-weight: 600;">
+                            Compromisos Totales</p>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="section-title">Detalle de Compromisos por Reunión</h2>
+
+            {{bloque_reuniones}}
+
+        </div>
+
+        <div class="footer">
+            Generado automáticamente por Inteligencia de Correos (IA Pipeline)
+        </div>
+    </div>
+</body>
+
+</html>
