@@ -568,7 +568,13 @@ router.get('/notifications/check', async (req, res) => {
             [dismissUser]
         )).filter(m => !(dismissedMap.meeting_ready && dismissedMap.meeting_ready.has(m.id)));
 
-        const total = urgentTasks.length + overdueDelegations.length + staleCaptures.length + needsReview.length + meetingReady.length;
+        // User-directed notifications (feedback fixed, etc.)
+        const userNotifs = dismissUser !== '_system' ? await all(
+            `SELECT * FROM user_notifications WHERE username = ? AND read = 0 ORDER BY created_at DESC LIMIT 10`,
+            [dismissUser]
+        ) : [];
+
+        const total = urgentTasks.length + overdueDelegations.length + staleCaptures.length + needsReview.length + meetingReady.length + userNotifs.length;
 
         res.json({
             total,
@@ -576,7 +582,8 @@ router.get('/notifications/check', async (req, res) => {
             overdue_delegations: overdueDelegations,
             stale_captures: staleCaptures,
             needs_review: needsReview,
-            meeting_ready: meetingReady
+            meeting_ready: meetingReady,
+            user_notifications: userNotifs
         });
     } catch (err) {
         log.error('Notifications error', { error: err.message });
@@ -590,14 +597,18 @@ router.post('/notifications/:id/dismiss', async (req, res) => {
         const { id } = req.params;
         const { type } = req.body;
         const username = req.session.user ? req.session.user.username : '_system';
-        const validTypes = ['urgent_task', 'overdue_delegation', 'stale_capture', 'needs_review', 'meeting_ready'];
+        const validTypes = ['urgent_task', 'overdue_delegation', 'stale_capture', 'needs_review', 'meeting_ready', 'user_notification'];
         if (!validTypes.includes(type)) {
             return res.status(400).json({ error: 'Invalid notification type' });
         }
-        await run(
-            `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
-            [username, type, parseInt(id)]
-        );
+        if (type === 'user_notification') {
+            await run('UPDATE user_notifications SET read = 1 WHERE id = ? AND username = ?', [parseInt(id), username]);
+        } else {
+            await run(
+                `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
+                [username, type, parseInt(id)]
+            );
+        }
         res.json({ success: true });
     } catch (err) {
         log.error('Dismiss notification error', { error: err.message });

@@ -196,19 +196,32 @@ router.put('/:id/status', async (req, res) => {
     }
 
     const { status } = req.body;
-    const validStatuses = ['abierto', 'en_progreso', 'resuelto', 'descartado'];
+    const validStatuses = ['abierto', 'en_progreso', 'resuelto', 'descartado', 'corregido'];
     if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
 
     try {
-        const resolvedAt = ['resuelto', 'descartado'].includes(status)
+        const resolvedAt = ['resuelto', 'descartado', 'corregido'].includes(status)
             ? new Date().toISOString()
             : null;
         await run(
             'UPDATE feedback SET status = ?, resolved_at = ? WHERE id = ?',
             [status, resolvedAt, req.params.id]
         );
+
+        // When marked as "corregido", notify the original reporter
+        if (status === 'corregido') {
+            const fb = await get('SELECT username, title FROM feedback WHERE id = ?', [req.params.id]);
+            if (fb && fb.username) {
+                await run(
+                    `INSERT INTO user_notifications (username, type, title, message, link_section, link_id)
+                     VALUES (?, 'feedback_fixed', ?, ?, 'feedback', ?)`,
+                    [fb.username, 'Feedback corregido', `Tu feedback "${fb.title}" fue marcado como corregido. Por favor verifica que funcione correctamente.`, req.params.id]
+                );
+            }
+        }
+
         res.json({ success: true });
     } catch (err) {
         log.error('Feedback status update error', { error: err.message });

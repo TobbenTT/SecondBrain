@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initVoiceCommands();
         initSkills();
         initVersionCheck();
+        initInactivityLogout();
     });
 
     // ─── Lazy (loaded on section switch — see _applySectionSwitch) ──────
@@ -4215,6 +4216,15 @@ async function checkNotifications() {
                     </div>`
                 ).join('');
             }
+            if (data.user_notifications && data.user_notifications.length > 0) {
+                html += data.user_notifications.map(n =>
+                    `<div class="notification-item info" onclick="switchSection('${n.link_section || 'feedback'}')" style="cursor:pointer;">
+                        <span class="notif-icon">🔔</span>
+                        <span class="notif-text">${escapeHtml((n.message || n.title || '').substring(0, 80))}</span>
+                        <button class="notif-dismiss" onclick="dismissNotification(event, ${n.id}, 'user_notification')" title="Descartar">✕</button>
+                    </div>`
+                ).join('');
+            }
             if (data.total === 0) {
                 html = '<div class="notification-empty">Sin notificaciones pendientes</div>';
             }
@@ -7119,6 +7129,7 @@ let _fbPendingFiles = []; // Files queued for upload
 const FB_STATUS_LABELS = {
     abierto: { label: 'Abierto', color: '#3b82f6' },
     en_progreso: { label: 'En Progreso', color: '#f59e0b' },
+    corregido: { label: 'Corregido', color: '#8b5cf6' },
     resuelto: { label: 'Resuelto', color: '#10b981' },
     descartado: { label: 'Descartado', color: '#6b7280' }
 };
@@ -7225,12 +7236,13 @@ async function loadFeedback() {
         const res = await fetch('/api/feedback');
         _allFeedback = await res.json();
 
-        const counts = { all: _allFeedback.length, abierto: 0, en_progreso: 0, resuelto: 0 };
+        const counts = { all: _allFeedback.length, abierto: 0, en_progreso: 0, corregido: 0, resuelto: 0 };
         _allFeedback.forEach(fb => { if (counts[fb.status] !== undefined) counts[fb.status]++; });
         const setC = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
         setC('fbCountAll', counts.all);
         setC('fbCountOpen', counts.abierto);
         setC('fbCountProgress', counts.en_progreso);
+        setC('fbCountFixed', counts.corregido);
         setC('fbCountResolved', counts.resuelto);
 
         renderFeedback();
@@ -7308,6 +7320,7 @@ function renderFeedback() {
                 <select class="fb-status-select" onchange="updateFeedbackStatus(${fb.id}, this.value)">
                     <option value="abierto" ${fb.status === 'abierto' ? 'selected' : ''}>Abierto</option>
                     <option value="en_progreso" ${fb.status === 'en_progreso' ? 'selected' : ''}>En Progreso</option>
+                    <option value="corregido" ${fb.status === 'corregido' ? 'selected' : ''}>Corregido ✓</option>
                     <option value="resuelto" ${fb.status === 'resuelto' ? 'selected' : ''}>Resuelto</option>
                     <option value="descartado" ${fb.status === 'descartado' ? 'selected' : ''}>Descartado</option>
                 </select>
@@ -9019,6 +9032,54 @@ function initVersionCheck() {
     // Check every 30 seconds
     checkVersion();
     setInterval(checkVersion, 30000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INACTIVITY LOGOUT — Auto-logout after 10 minutes of no activity
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initInactivityLogout() {
+    const IDLE_LIMIT = 10 * 60 * 1000;   // 10 minutes
+    const WARNING_AT = 9 * 60 * 1000;    // show warning at 9 minutes
+    let idleTimer = null;
+    let warningTimer = null;
+    let warningShown = false;
+
+    function resetIdle() {
+        clearTimeout(idleTimer);
+        clearTimeout(warningTimer);
+        if (warningShown) {
+            const banner = document.getElementById('idleWarningBanner');
+            if (banner) banner.remove();
+            warningShown = false;
+        }
+        warningTimer = setTimeout(showIdleWarning, WARNING_AT);
+        idleTimer = setTimeout(doLogout, IDLE_LIMIT);
+    }
+
+    function showIdleWarning() {
+        if (document.getElementById('idleWarningBanner')) return;
+        warningShown = true;
+        const banner = document.createElement('div');
+        banner.id = 'idleWarningBanner';
+        banner.innerHTML = `
+            <div class="idle-warning-banner">
+                <span>⏰ Tu sesión se cerrará en 1 minuto por inactividad</span>
+                <button onclick="document.getElementById('idleWarningBanner').remove()">Seguir trabajando</button>
+            </div>
+        `;
+        document.body.prepend(banner);
+    }
+
+    function doLogout() {
+        window.location.href = '/logout';
+    }
+
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, resetIdle, { passive: true });
+    });
+
+    resetIdle();
 }
 
 function showUpdateBanner() {

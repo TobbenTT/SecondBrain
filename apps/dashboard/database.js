@@ -416,6 +416,20 @@ function initTables() {
         )`);
         db.run('CREATE INDEX IF NOT EXISTS idx_fb_attach_feedback ON feedback_attachments(feedback_id)');
 
+        // User Notifications (directed notifications per user)
+        db.run(`CREATE TABLE IF NOT EXISTS user_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT,
+            link_section TEXT,
+            link_id INTEGER,
+            read INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_user_notif_user ON user_notifications(username, read)');
+
         // Gallery Photos (corporate intranet imagery)
         db.run(`CREATE TABLE IF NOT EXISTS gallery_photos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
