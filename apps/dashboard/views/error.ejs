@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error <%= statusCode %> | ValueStrategy Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* LEFT SIDE - ERROR INFO */
+        .left-panel {
+            flex: 1.2;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 80px;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        /* Color by error type */
+        .left-panel.error-404 {
+            background-color: #0052cc;
+        }
+
+        .left-panel.error-500 {
+            background-color: #dc2626;
+        }
+
+        .left-panel.error-502 {
+            background-color: #d97706;
+        }
+
+        .left-panel.error-503 {
+            background-color: #7c3aed;
+        }
+
+        .left-panel.error-default {
+            background-color: #475569;
+        }
+
+        /* Decorative Circles */
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+        }
+
+        .left-panel::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: -50px;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+
+        .brand-header {
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-header .vsc-badge {
+            font-size: 0.8rem;
+            font-weight: 800;
+            opacity: 0.8;
+        }
+
+        .error-content {
+            z-index: 2;
+        }
+
+        .error-code {
+            font-size: 8rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .error-title {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .error-description {
+            font-size: 1.05rem;
+            opacity: 0.8;
+            font-weight: 400;
+            max-width: 420px;
+            line-height: 1.6;
+        }
+
+        .brand-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* RIGHT SIDE - ACTIONS */
+        .right-panel {
+            flex: 1;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .action-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+        }
+
+        .action-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .action-icon.icon-404 {
+            background: #dbeafe;
+        }
+
+        .action-icon.icon-500 {
+            background: #fee2e2;
+        }
+
+        .action-icon.icon-502 {
+            background: #fef3c7;
+        }
+
+        .action-icon.icon-503 {
+            background: #ede9fe;
+        }
+
+        .action-icon.icon-default {
+            background: #f1f5f9;
+        }
+
+        .action-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 12px;
+        }
+
+        .action-text {
+            font-size: 0.95rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background-color: #0047BA;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            background-color: #003a9a;
+        }
+
+        .btn-secondary {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+
+        .status-info {
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .status-row span:last-child {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+        }
+
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .pulse-dot.red {
+            background: #ef4444;
+        }
+
+        .pulse-dot.yellow {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Auto-refresh countdown */
+        .auto-refresh {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+                overflow-y: auto;
+            }
+
+            .left-panel {
+                padding: 40px;
+                min-height: 250px;
+                flex: none;
+                align-items: center;
+                text-align: center;
+            }
+
+            .brand-header {
+                position: static;
+                margin-bottom: 20px;
+            }
+
+            .brand-footer {
+                display: none;
+            }
+
+            .error-code {
+                font-size: 5rem;
+            }
+
+            .error-title {
+                font-size: 1.5rem;
+            }
+
+            .right-panel {
+                padding: 40px 20px;
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- LEFT PANEL -->
+        <div class="left-panel error-<%= [404, 500, 502, 503].includes(statusCode) ? statusCode : 'default' %>">
+            <div class="brand-header">
+                ValueStrategy Consulting <span class="vsc-badge">vsc</span>
+            </div>
+            <div class="error-content">
+                <div class="error-code"><%= statusCode %></div>
+                <h1 class="error-title"><%= title %></h1>
+                <p class="error-description"><%= message %></p>
+            </div>
+            <div class="brand-footer">
+                VALUESTRATEGY CONSULTING &copy; 2025
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="right-panel">
+            <div class="action-box">
+                <div class="action-icon icon-<%= [404, 500, 502, 503].includes(statusCode) ? statusCode : 'default' %>">
+                    <% if (statusCode === 404) { %>
+                        &#x1F50D;
+                    <% } else if (statusCode === 500) { %>
+                        &#x26A0;
+                    <% } else if (statusCode === 502) { %>
+                        &#x1F50C;
+                    <% } else if (statusCode === 503) { %>
+                        &#x1F6E0;
+                    <% } else { %>
+                        &#x2753;
+                    <% } %>
+                </div>
+
+                <% if (statusCode === 404) { %>
+                    <h2 class="action-title">Recurso no encontrado</h2>
+                    <p class="action-text">La pagina o recurso que buscas no existe o fue movido. Verifica la URL o regresa al inicio.</p>
+                <% } else if (statusCode === 500) { %>
+                    <h2 class="action-title">Error interno</h2>
+                    <p class="action-text">Algo salio mal en el servidor. El equipo tecnico ha sido notificado automaticamente.</p>
+                <% } else if (statusCode === 502) { %>
+                    <h2 class="action-title">Servicio no disponible</h2>
+                    <p class="action-text">El servidor no esta respondiendo. Puede estar en mantenimiento o reiniciandose.</p>
+                <% } else if (statusCode === 503) { %>
+                    <h2 class="action-title">En mantenimiento</h2>
+                    <p class="action-text">Estamos realizando mejoras en el sistema. Volvera a estar disponible pronto.</p>
+                <% } else { %>
+                    <h2 class="action-title">Error inesperado</h2>
+                    <p class="action-text">Se produjo un error inesperado. Si el problema persiste, contacte a soporte.</p>
+                <% } %>
+
+                <div class="action-buttons">
+                    <a href="/" class="btn-primary">Ir al Inicio</a>
+                    <a href="javascript:history.back()" class="btn-secondary">Volver a la pagina anterior</a>
+                </div>
+
+                <div class="status-info">
+                    <div class="status-row">
+                        <span>Estado del sistema</span>
+                        <span>
+                            <% if (statusCode >= 500) { %>
+                                <span class="pulse-dot red"></span> Problema detectado
+                            <% } else { %>
+                                <span class="pulse-dot yellow"></span> Parcialmente operativo
+                            <% } %>
+                        </span>
+                    </div>
+                    <div class="status-row">
+                        <span>Codigo de error</span>
+                        <span><%= statusCode %></span>
+                    </div>
+                    <div class="status-row">
+                        <span>Hora del incidente</span>
+                        <span><%= new Date().toLocaleString('es-ES', { timeZone: 'America/Bogota' }) %></span>
+                    </div>
+                </div>
+
+                <% if (statusCode >= 500) { %>
+                    <div class="auto-refresh">
+                        Reintentando automaticamente en <span id="countdown">30</span>s
+                    </div>
+                    <script>
+                        let seconds = 30;
+                        const el = document.getElementById('countdown');
+                        setInterval(() => {
+                            seconds--;
+                            if (el) el.textContent = seconds;
+                            if (seconds <= 0) location.reload();
+                        }, 1000);
+                    </script>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

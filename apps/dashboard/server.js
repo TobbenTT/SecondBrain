@@ -262,11 +262,35 @@ app.use('/api/comments', commentsRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/feedback', feedbackRoutes);
 
+// ─── Error Page Helper ──────────────────────────────────────────────────────
+const ERROR_META = {
+    400: { title: 'Solicitud Invalida', message: 'La solicitud no pudo ser procesada. Verifica los datos enviados.' },
+    401: { title: 'No Autorizado', message: 'Necesitas iniciar sesion para acceder a este recurso.' },
+    403: { title: 'Acceso Denegado', message: 'No tienes permisos para acceder a este recurso.' },
+    404: { title: 'Pagina No Encontrada', message: 'El recurso que buscas no existe o fue movido a otra ubicacion.' },
+    500: { title: 'Error del Servidor', message: 'Ocurrio un error interno. El equipo tecnico ha sido notificado.' },
+    502: { title: 'Bad Gateway', message: 'El servidor no pudo obtener una respuesta valida. Puede estar reiniciandose.' },
+    503: { title: 'Servicio en Mantenimiento', message: 'El sistema esta temporalmente fuera de servicio. Volvera pronto.' },
+};
+
+function renderError(req, res, statusCode, customMessage) {
+    const meta = ERROR_META[statusCode] || { title: 'Error', message: 'Se produjo un error inesperado.' };
+    // API requests get JSON, browser requests get HTML page
+    if (req.path.startsWith('/api/') || req.xhr || (req.headers.accept && !req.headers.accept.includes('text/html'))) {
+        return res.status(statusCode).json({ error: customMessage || meta.message });
+    }
+    res.status(statusCode).render('error', {
+        statusCode,
+        title: meta.title,
+        message: customMessage || meta.message,
+    });
+}
+
 // ─── 404 Catch-All ──────────────────────────────────────────────────────────
 app.use((req, res) => {
     const msg = `Not found: ${req.method} ${req.path}`;
     log.warn(msg);
-    res.status(404).json({ error: 'Not found' });
+    renderError(req, res, 404);
 });
 
 // ─── Centralized Error Handler ───────────────────────────────────────────────
@@ -274,11 +298,14 @@ const AppError = require('./helpers/AppError');
 app.use((err, req, res, _next) => {
     if (err instanceof AppError && err.isOperational) {
         log.warn(err.message, { code: err.code, status: err.statusCode, path: req.path });
-        return res.status(err.statusCode).json({ error: err.message, code: err.code });
+        if (req.path.startsWith('/api/')) {
+            return res.status(err.statusCode).json({ error: err.message, code: err.code });
+        }
+        return renderError(req, res, err.statusCode, err.message);
     }
     const sanitizedStack = NODE_ENV === 'production' ? undefined : err.stack;
     log.error('Unhandled error', { error: err.message, stack: sanitizedStack, path: req.path, method: req.method });
-    res.status(500).json({ error: NODE_ENV === 'production' ? 'Internal server error' : err.message });
+    renderError(req, res, 500, NODE_ENV === 'production' ? undefined : err.message);
 });
 
 // ─── Server Start + Graceful Shutdown ────────────────────────────────────────
