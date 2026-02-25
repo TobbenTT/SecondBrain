@@ -36,6 +36,7 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.argv.includes('-p') ? parseInt(process.argv[process.argv.indexOf('-p') + 1]) : 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const BUILD_ID = Date.now().toString(36); // unique per server start — used for update detection
 
 // ─── Directories ─────────────────────────────────────────────────────────────
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'knowledge');
@@ -175,7 +176,7 @@ app.use((req, res, next) => {
 app.get('/health', async (req, res) => {
     try {
         await get('SELECT 1');
-        res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+        res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString(), build: BUILD_ID });
     } catch (_err) {
         res.status(503).json({ status: 'error', error: 'Database unavailable' });
     }

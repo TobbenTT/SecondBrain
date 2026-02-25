@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initExportImport();
         initVoiceCommands();
         initSkills();
+        initVersionCheck();
     });
 
     // ─── Lazy (loaded on section switch — see _applySectionSwitch) ──────
@@ -8926,5 +8927,50 @@ async function deleteHerramienta(id, nombre) {
     } catch (err) {
         showToast('Error al eliminar herramienta', 'error');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VERSION CHECK — Detect server restarts and prompt user to reload
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initVersionCheck() {
+    let knownBuild = null;
+
+    async function checkVersion() {
+        try {
+            const res = await fetch('/health', { signal: AbortSignal.timeout(5000) });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.build) return;
+
+            if (knownBuild === null) {
+                knownBuild = data.build;
+                return;
+            }
+
+            if (data.build !== knownBuild) {
+                showUpdateBanner();
+            }
+        } catch (_) { /* offline or timeout — skip */ }
+    }
+
+    // Check every 30 seconds
+    checkVersion();
+    setInterval(checkVersion, 30000);
+}
+
+function showUpdateBanner() {
+    if (document.getElementById('updateBanner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'updateBanner';
+    banner.innerHTML = `
+        <div class="update-banner">
+            <span>🔄 Nueva versión disponible</span>
+            <button onclick="location.reload()">Recargar ahora</button>
+            <button class="update-dismiss" onclick="this.closest('.update-banner').remove()">&times;</button>
+        </div>
+    `;
+    document.body.prepend(banner);
 }
 
