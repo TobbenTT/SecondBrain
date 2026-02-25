@@ -44,7 +44,7 @@ router.post('/login', async (req, res) => {
 
     // CSRF protection provided by sameSite:'lax' cookie + CORS config
 
-    // Accept either email (Supabase) or username (SQLite fallback)
+    // Accept either email (Supabase) or username (local auth)
     const identifier = (email || username || '').trim();
 
     if (!identifier || !password) {
@@ -114,7 +114,7 @@ router.post('/login', async (req, res) => {
             return res.redirect('/');
         }
 
-        // ─── SQLite fallback (tests / dev without Supabase) ──────────
+        // ─── Local auth (PostgreSQL — staging / dev without Supabase) ─
         const user = await get('SELECT * FROM users WHERE username = ?', [identifier.toLowerCase()]);
 
         if (user && await bcrypt.compare(password, user.password_hash)) {
@@ -243,7 +243,7 @@ router.put('/api/profile/password', async (req, res) => {
             return res.json({ success: true });
         }
 
-        // ─── SQLite fallback ───
+        // ─── Local auth fallback ───
         const row = await get('SELECT password_hash FROM users WHERE id = ?', [user.id]);
         if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
             return res.status(403).json({ error: 'Current password is incorrect' });

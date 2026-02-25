@@ -24,7 +24,7 @@ const supabaseAdmin = (isSupabaseConfigured() && SUPABASE_SERVICE_ROLE_KEY)
 if (isSupabaseConfigured()) {
     log.info('Supabase configured', { url: SUPABASE_URL, adminEnabled: !!supabaseAdmin });
 } else if (process.env.NODE_ENV !== 'test') {
-    log.warn('Supabase not configured — using SQLite auth fallback');
+    log.warn('Supabase not configured — using local PostgreSQL auth');
 }
 
 module.exports = { supabase, supabaseAdmin, isSupabaseConfigured };
