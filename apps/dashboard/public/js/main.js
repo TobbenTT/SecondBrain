@@ -7787,7 +7787,7 @@ window.closeFbLightbox = closeFbLightbox;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function _avatarHtml(avatar, username, size = 40) {
-    const src = avatar || '/avatars/vsc.png';
+    const src = avatar || '/img/vsc.png';
     return `<img src="${src}" alt="${username || '?'}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
 }
 
