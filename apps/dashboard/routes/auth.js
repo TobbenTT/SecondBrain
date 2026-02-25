@@ -41,6 +41,7 @@ router.get('/login', (req, res) => {
 
 router.post('/login', async (req, res) => {
     const { email, username, password } = req.body;
+    const useLocalAuth = !isSupabaseConfigured();
 
     // CSRF protection provided by sameSite:'lax' cookie + CORS config
 
@@ -48,10 +49,10 @@ router.post('/login', async (req, res) => {
     const identifier = (email || username || '').trim();
 
     if (!identifier || !password) {
-        return res.render('login', { error: 'Correo y contraseña son requeridos', csrfToken: '' });
+        return res.render('login', { error: 'Correo y contraseña son requeridos', csrfToken: '', useLocalAuth });
     }
     if (typeof identifier !== 'string' || identifier.length > 100 || typeof password !== 'string' || password.length > 128) {
-        return res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
+        return res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
     }
 
     try {
@@ -64,7 +65,7 @@ router.post('/login', async (req, res) => {
 
             if (error) {
                 log.warn('Supabase login failed', { email: identifier, error: error.message });
-                return res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
+                return res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
             }
 
             const uid = data.user.id;
@@ -129,11 +130,11 @@ router.post('/login', async (req, res) => {
             req.session.authenticated = true;
             res.redirect('/');
         } else {
-            res.render('login', { error: 'Credenciales inválidas', csrfToken: '' });
+            res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
         }
     } catch (err) {
         log.error('Login error', { error: err.message });
-        res.render('login', { error: 'Error del sistema', csrfToken: '' });
+        res.render('login', { error: 'Error del sistema', csrfToken: '', useLocalAuth });
     }
 });
 
