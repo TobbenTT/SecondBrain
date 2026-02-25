@@ -72,8 +72,6 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      ollama-pull:
-        condition: service_completed_successfully
 
   # Email intelligence service: processes Fireflies webhooks, sends reports
   inteligencia-correos:
