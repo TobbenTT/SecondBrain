@@ -259,13 +259,13 @@ router.post('/:id/execute', blockConsultor, requireAuth, async (req, res) => {
             const herramientas = await all("SELECT * FROM herramientas_contratadas WHERE estado = 'activo' ORDER BY categoria, nombre");
             if (herramientas.length > 0) {
                 contextString += '\n\nHERRAMIENTAS Y SUSCRIPCIONES CONTRATADAS (datos reales):\n';
-                contextString += '| Herramienta | Proveedor | Categoría | Costo | Frecuencia | Licencias | Renovación |\n';
-                contextString += '|---|---|---|---|---|---|---|\n';
+                contextString += '| Herramienta | Proveedor | Categoría | Costo | Frecuencia | Licencias | Duración Contrato | Vencimiento | Renovación |\n';
+                contextString += '|---|---|---|---|---|---|---|---|---|\n';
                 let totalMensual = 0;
                 herramientas.forEach(h => {
                     const costo = (h.costo_mensual || 0) * (h.num_licencias || 1);
                     totalMensual += h.frecuencia === 'anual' ? costo / 12 : costo;
-                    contextString += `| ${h.nombre} | ${h.proveedor || '-'} | ${h.categoria} | ${h.costo_mensual} ${h.moneda}/${h.frecuencia} | ${h.frecuencia} | ${h.num_licencias} | ${h.fecha_renovacion || '-'} |\n`;
+                    contextString += `| ${h.nombre} | ${h.proveedor || '-'} | ${h.categoria} | ${h.costo_mensual} ${h.moneda}/${h.frecuencia} | ${h.frecuencia} | ${h.num_licencias} | ${h.duracion_contrato || '-'} | ${h.fecha_vencimiento || '-'} | ${h.fecha_renovacion || '-'} |\n`;
                 });
                 contextString += `\nTOTAL MENSUAL ESTIMADO: $${totalMensual.toFixed(2)}\nTOTAL ANUAL ESTIMADO: $${(totalMensual * 12).toFixed(2)}\n`;
             }

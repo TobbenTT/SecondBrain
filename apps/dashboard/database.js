@@ -227,12 +227,17 @@ function initTables() {
             frecuencia TEXT DEFAULT 'mensual',
             fecha_inicio TEXT,
             fecha_renovacion TEXT,
+            duracion_contrato TEXT,
+            fecha_vencimiento TEXT,
             num_licencias INTEGER DEFAULT 1,
             estado TEXT DEFAULT 'activo',
             notas TEXT,
             created_by TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+        // Migrations for herramientas
+        db.run(`ALTER TABLE herramientas_contratadas ADD COLUMN duracion_contrato TEXT`, (_err) => {});
+        db.run(`ALTER TABLE herramientas_contratadas ADD COLUMN fecha_vencimiento TEXT`, (_err) => {});
 
         // Daily Checklist Table (per-consultant task tracking)
         db.run(`CREATE TABLE IF NOT EXISTS daily_checklist (

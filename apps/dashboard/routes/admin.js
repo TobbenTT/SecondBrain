@@ -1599,13 +1599,13 @@ router.get('/herramientas/resumen', async (req, res) => {
 });
 
 router.post('/herramientas', requireAdmin, async (req, res) => {
-    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, notas } = req.body;
+    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, duracion_contrato, fecha_vencimiento, num_licencias, notas } = req.body;
     if (!nombre) return res.status(400).json({ error: 'Nombre es requerido' });
     try {
         const result = await run(
-            `INSERT INTO herramientas_contratadas (nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, notas, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [nombre, proveedor || null, categoria || 'General', costo_mensual || 0, moneda || 'USD', frecuencia || 'mensual', fecha_inicio || null, fecha_renovacion || null, num_licencias || 1, notas || null, req.session.user.username]
+            `INSERT INTO herramientas_contratadas (nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, duracion_contrato, fecha_vencimiento, num_licencias, notas, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nombre, proveedor || null, categoria || 'General', costo_mensual || 0, moneda || 'USD', frecuencia || 'mensual', fecha_inicio || null, fecha_renovacion || null, duracion_contrato || null, fecha_vencimiento || null, num_licencias || 1, notas || null, req.session.user.username]
         );
         log.info('Herramienta added', { id: result.lastID, nombre, by: req.session.user.username });
         res.json({ success: true, id: result.lastID });
@@ -1616,11 +1616,11 @@ router.post('/herramientas', requireAdmin, async (req, res) => {
 });
 
 router.put('/herramientas/:id', requireAdmin, async (req, res) => {
-    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, estado, notas } = req.body;
+    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, duracion_contrato, fecha_vencimiento, num_licencias, estado, notas } = req.body;
     try {
         await run(
-            `UPDATE herramientas_contratadas SET nombre=?, proveedor=?, categoria=?, costo_mensual=?, moneda=?, frecuencia=?, fecha_inicio=?, fecha_renovacion=?, num_licencias=?, estado=?, notas=? WHERE id=?`,
-            [nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, estado, notas, req.params.id]
+            `UPDATE herramientas_contratadas SET nombre=?, proveedor=?, categoria=?, costo_mensual=?, moneda=?, frecuencia=?, fecha_inicio=?, fecha_renovacion=?, duracion_contrato=?, fecha_vencimiento=?, num_licencias=?, estado=?, notas=? WHERE id=?`,
+            [nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, duracion_contrato, fecha_vencimiento, num_licencias, estado, notas, req.params.id]
         );
         res.json({ success: true });
     } catch (err) {

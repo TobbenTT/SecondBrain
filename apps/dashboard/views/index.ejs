@@ -1932,6 +1932,8 @@
                             <th>Categoria</th>
                             <th>Costo</th>
                             <th>Licencias</th>
+                            <th>Duracion</th>
+                            <th>Vencimiento</th>
                             <th>Renovacion</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -2012,12 +2014,30 @@
                             <input type="number" id="herrLicencias" min="1" value="1">
                         </div>
                         <div class="form-group">
-                            <label>Fecha Inicio</label>
-                            <input type="date" id="herrFechaInicio">
+                            <label>Duracion Contrato</label>
+                            <select id="herrDuracion">
+                                <option value="">Sin especificar</option>
+                                <option value="1 mes">1 mes</option>
+                                <option value="3 meses">3 meses</option>
+                                <option value="6 meses">6 meses</option>
+                                <option value="1 año">1 año</option>
+                                <option value="2 años">2 años</option>
+                                <option value="3 años">3 años</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Fecha Renovacion</label>
                             <input type="date" id="herrFechaRenovacion">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fecha Inicio Contrato</label>
+                            <input type="date" id="herrFechaInicio">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Vencimiento</label>
+                            <input type="date" id="herrFechaVencimiento">
                         </div>
                     </div>
                     <div class="form-group">

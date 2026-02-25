@@ -8753,7 +8753,7 @@ async function loadHerramientas() {
         const tbody = document.getElementById('herrTableBody');
         if (!tbody) return;
         if (!herramientas || herramientas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay herramientas registradas. Agrega la primera.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay herramientas registradas. Agrega la primera.</td></tr>';
             return;
         }
         tbody.innerHTML = herramientas.map(h => {
@@ -8767,12 +8767,27 @@ async function loadHerramientas() {
                 ? new Date(h.fecha_renovacion).toLocaleDateString('es-ES')
                 : '-';
             const costoLabel = `$${(h.costo_mensual || 0).toLocaleString()} ${h.moneda || 'USD'}/${h.frecuencia === 'anual' ? 'año' : 'mes'}`;
+            const duracion = h.duracion_contrato || '-';
+            let vencimiento = '-';
+            if (h.fecha_vencimiento) {
+                const vDate = new Date(h.fecha_vencimiento);
+                const hoy = new Date();
+                const diasRestantes = Math.ceil((vDate - hoy) / (1000 * 60 * 60 * 24));
+                vencimiento = vDate.toLocaleDateString('es-ES');
+                if (diasRestantes < 0) {
+                    vencimiento = `<span style="color:#ef4444;font-weight:600">${vencimiento} (Vencido)</span>`;
+                } else if (diasRestantes <= 30) {
+                    vencimiento = `<span style="color:#f59e0b;font-weight:600">${vencimiento} (${diasRestantes}d)</span>`;
+                }
+            }
             return `<tr class="${h.estado !== 'activo' ? 'herr-row-inactive' : ''}">
                 <td><strong>${escapeHtml(h.nombre)}</strong></td>
                 <td>${escapeHtml(h.proveedor || '-')}</td>
                 <td><span class="herr-cat-badge" style="background:${catColor}20;color:${catColor};border:1px solid ${catColor}40">${escapeHtml(h.categoria)}</span></td>
                 <td>${costoLabel}</td>
                 <td style="text-align:center">${h.num_licencias || 1}</td>
+                <td>${escapeHtml(duracion)}</td>
+                <td>${vencimiento}</td>
                 <td>${renovacion}</td>
                 <td>${estadoBadge}</td>
                 <td>
@@ -8814,6 +8829,8 @@ async function openHerramientaModal(id) {
                 document.getElementById('herrLicencias').value = h.num_licencias || 1;
                 document.getElementById('herrFechaInicio').value = h.fecha_inicio || '';
                 document.getElementById('herrFechaRenovacion').value = h.fecha_renovacion || '';
+                document.getElementById('herrDuracion').value = h.duracion_contrato || '';
+                document.getElementById('herrFechaVencimiento').value = h.fecha_vencimiento || '';
                 document.getElementById('herrEstado').value = h.estado || 'activo';
                 document.getElementById('herrNotas').value = h.notas || '';
             }
@@ -8842,6 +8859,8 @@ async function saveHerramienta(e) {
         num_licencias: parseInt(document.getElementById('herrLicencias').value) || 1,
         fecha_inicio: document.getElementById('herrFechaInicio').value || null,
         fecha_renovacion: document.getElementById('herrFechaRenovacion').value || null,
+        duracion_contrato: document.getElementById('herrDuracion').value || null,
+        fecha_vencimiento: document.getElementById('herrFechaVencimiento').value || null,
         estado: document.getElementById('herrEstado').value,
         notas: document.getElementById('herrNotas').value.trim()
     };
