@@ -1,8 +1,11 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { get, all } = require('../database');
 const log = require('../helpers/logger');
 
 const router = express.Router();
+const KNOWLEDGE_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 
 // ─── In-memory cache (TTL-based) ────────────────────────────────────────────
 
@@ -32,13 +35,19 @@ router.get('/home-counts', cached('home-counts', 30000, async () => {
         SELECT
             (SELECT count(*) FROM projects WHERE status != 'cancelled') as projects,
             (SELECT count(*) FROM ideas) as ideas,
-            (SELECT count(*) FROM archivos) as archivos,
             (SELECT count(*) FROM areas WHERE status = 'active') as areas
     `);
+    // Archivos are filesystem-based, not in DB
+    let archivos = 0;
+    try {
+        if (fs.existsSync(KNOWLEDGE_DIR)) {
+            archivos = fs.readdirSync(KNOWLEDGE_DIR, { withFileTypes: true }).filter(f => f.isFile()).length;
+        }
+    } catch { /* ignore */ }
     return {
         projects: row.projects || 0,
         ideas: row.ideas || 0,
-        archivos: row.archivos || 0,
+        archivos,
         areas: row.areas || 0
     };
 }));
