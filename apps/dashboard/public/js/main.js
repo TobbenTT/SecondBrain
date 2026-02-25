@@ -6706,11 +6706,27 @@ async function openReunionDetail(id) {
             ? `<h3>Entregables</h3><ul>${r.entregables.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`
             : '';
 
+        const temasHtml = (r.temas_detectados && r.temas_detectados.length > 0)
+            ? `<div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px;">
+                ${r.temas_detectados.map(t => `<span style="background:var(--bg-tertiary);color:var(--text-secondary);padding:3px 10px;border-radius:12px;font-size:0.8rem;">${escapeHtml(t)}</span>`).join('')}
+               </div>`
+            : '';
+
+        const transcripcionHtml = r.transcripcion_raw
+            ? `<details style="margin-top:16px;">
+                <summary style="cursor:pointer;font-weight:600;color:var(--text-secondary);padding:8px 0;">
+                    📜 Ver Transcripcion Completa
+                </summary>
+                <div style="margin-top:8px;padding:16px;background:var(--bg-secondary);border-radius:8px;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-size:0.85rem;line-height:1.6;color:var(--text-secondary);">${escapeHtml(r.transcripcion_raw)}</div>
+               </details>`
+            : '';
+
         document.getElementById('reunionModalContent').innerHTML = `
             <div style="margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;color:var(--text-secondary);">
                 <span><strong>Fecha:</strong> ${fechaFmt}</span>
                 ${r.nivel_analisis ? `<span><strong>Nivel:</strong> ${escapeHtml(r.nivel_analisis)}</span>` : ''}
             </div>
+            ${temasHtml}
             <div style="margin-bottom:16px;">
                 <strong>Participantes:</strong>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
@@ -6736,6 +6752,7 @@ async function openReunionDetail(id) {
                 </button>
                 <small style="color:var(--text-muted);margin-left:8px;">Crea tareas en el inbox desde compromisos, acuerdos y entregables</small>
             </div>
+            ${transcripcionHtml}
             <div class="reunion-links-section" id="reunionLinksSection" data-reunion-id="${id}"></div>
         `;
 
@@ -8530,6 +8547,9 @@ async function generateTasksFromMeeting(reunionId) {
             showToast(`${data.created} tareas creadas en el Inbox`, 'success');
             if (btn) btn.textContent = `✅ ${data.created} tareas creadas`;
             updateInboxBadge();
+        } else if (res.status === 409) {
+            showToast(data.error || 'Las tareas ya fueron generadas', 'warning');
+            if (btn) { btn.disabled = true; btn.textContent = `⚠️ Ya generadas (${data.already_created})`; }
         } else {
             showToast(data.error || 'Error al generar', 'error');
             if (btn) { btn.disabled = false; btn.textContent = '📥 Generar Tareas al Inbox'; }

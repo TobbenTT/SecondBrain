@@ -17,7 +17,8 @@ function parseReunion(r) {
         acuerdos: safeJsonParse(r.acuerdos, []),
         puntos_clave: safeJsonParse(r.puntos_clave, []),
         compromisos: safeJsonParse(r.compromisos, []),
-        entregables: safeJsonParse(r.entregables, [])
+        entregables: safeJsonParse(r.entregables, []),
+        temas_detectados: safeJsonParse(r.temas_detectados, [])
     };
 }
 
@@ -444,13 +445,25 @@ router.delete('/reuniones/:id', async (req, res) => {
 });
 
 // ─── Generate Tasks from Meeting Commitments ────────────────────────────────
-router.post('/:id/generate-tasks', async (req, res) => {
+router.post('/reuniones/:id/generate-tasks', async (req, res) => {
     const user = req.session?.user;
     if (!user) return res.status(401).json({ error: 'Authentication required' });
 
     try {
         const reunion = await get('SELECT * FROM reuniones WHERE id = ?', [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
+
+        // Check if tasks were already generated from this meeting
+        const existing = await get(
+            "SELECT COUNT(*) as count FROM ideas WHERE ai_category LIKE '%Reunión' AND source_reunion_id = ?",
+            [req.params.id]
+        );
+        if (existing && existing.count > 0) {
+            return res.status(409).json({
+                error: `Ya se generaron ${existing.count} tareas de esta reunion. Revisa el Inbox.`,
+                already_created: existing.count
+            });
+        }
 
         const compromisos = safeJsonParse(reunion.compromisos, []);
         const acuerdos = safeJsonParse(reunion.acuerdos, []);
@@ -465,9 +478,9 @@ router.post('/:id/generate-tasks', async (req, res) => {
             if (!text || text.length < 3) continue;
 
             const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, assigned_to, priority, created_by, needs_review)
-                 VALUES (?, 'captured', 'Tarea', 'Compromiso de Reunión', ?, 'media', ?, 1)`,
-                [text.trim(), responsible, user.username]
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, assigned_to, priority, created_by, needs_review, source_reunion_id)
+                 VALUES (?, 'captured', 'Tarea', 'Compromiso de Reunión', ?, 'media', ?, 1, ?)`,
+                [text.trim(), responsible, user.username, req.params.id]
             );
             await run(
                 `INSERT INTO inbox_log (source, input_text, ai_classification, routed_to, needs_review, original_idea_id)
@@ -483,9 +496,9 @@ router.post('/:id/generate-tasks', async (req, res) => {
             if (!text || text.length < 3) continue;
 
             const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review)
-                 VALUES (?, 'captured', 'Tarea', 'Acuerdo de Reunión', ?, 1)`,
-                [text.trim(), user.username]
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
+                 VALUES (?, 'captured', 'Tarea', 'Acuerdo de Reunión', ?, 1, ?)`,
+                [text.trim(), user.username, req.params.id]
             );
             await run(
                 `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
@@ -501,9 +514,9 @@ router.post('/:id/generate-tasks', async (req, res) => {
             if (!text || text.length < 3) continue;
 
             const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review)
-                 VALUES (?, 'captured', 'Tarea', 'Entregable de Reunión', ?, 1)`,
-                [text.trim(), user.username]
+                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
+                 VALUES (?, 'captured', 'Tarea', 'Entregable de Reunión', ?, 1, ?)`,
+                [text.trim(), user.username, req.params.id]
             );
             await run(
                 `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)

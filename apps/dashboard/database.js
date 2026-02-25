@@ -61,7 +61,8 @@ function initTables() {
             'completada',         // 1/0
             'fecha_finalizacion', // DATETIME when completed
             'parent_idea_id',     // FK to parent idea (for project→sub-task decomposition)
-            'is_project'          // 1=project, 0=single task/idea
+            'is_project',         // 1=project, 0=single task/idea
+            'source_reunion_id'   // FK to reuniones.id (tasks generated from meetings)
         ];
         ideasColumnsToAdd.forEach(col => {
             db.run(`ALTER TABLE ideas ADD COLUMN ${col} TEXT`, (_err) => {
