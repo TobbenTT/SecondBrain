@@ -7,7 +7,8 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-RUN mkdir -p data public/voice-notes && chown -R node:node data public/voice-notes
+RUN mkdir -p data logs public/voice-notes public/gallery public/avatars \
+    && chown -R node:node data logs public/voice-notes public/gallery public/avatars
 
 EXPOSE 3000
 
