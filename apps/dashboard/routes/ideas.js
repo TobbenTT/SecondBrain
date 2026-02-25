@@ -74,11 +74,11 @@ router.get('/', async (req, res) => {
         if (contexto) { conditions.push('contexto = ?'); params.push(contexto); }
         if (energia) { conditions.push('energia = ?'); params.push(energia); }
         if (tipo_compromiso) { conditions.push('tipo_compromiso = ?'); params.push(tipo_compromiso); }
-        if (is_project === '1') { conditions.push('is_project = 1'); }
-        if (is_project === '0') { conditions.push('(is_project IS NULL OR is_project = 0)'); }
+        if (is_project === '1') { conditions.push("is_project = '1'"); }
+        if (is_project === '0') { conditions.push("(is_project IS NULL OR is_project = '0')"); }
         if (parent_id) { conditions.push('parent_idea_id = ?'); params.push(parent_id); }
-        if (completada === '1') { conditions.push('completada = 1'); }
-        if (completada === '0') { conditions.push('(completada IS NULL OR completada = 0)'); }
+        if (completada === '1') { conditions.push("completada = '1'"); }
+        if (completada === '0') { conditions.push("(completada IS NULL OR completada = '0')"); }
 
         let countSql = 'SELECT count(*) as total FROM ideas';
         if (conditions.length > 0) {
@@ -422,25 +422,25 @@ router.post('/:id/complete', blockConsultor, async (req, res) => {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
 
-        await run(`UPDATE ideas SET completada = 1, fecha_finalizacion = CURRENT_TIMESTAMP,
+        await run(`UPDATE ideas SET completada = '1', fecha_finalizacion = CURRENT_TIMESTAMP,
             code_stage = 'expressed' WHERE id = ?`, [req.params.id]);
 
         if (idea.parent_idea_id) {
             const remaining = await get(
-                'SELECT count(*) as cnt FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0)',
+                'SELECT count(*) as cnt FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0')',
                 [idea.parent_idea_id]
             );
             if (remaining.cnt === 0) {
-                await run(`UPDATE ideas SET completada = 1, fecha_finalizacion = CURRENT_TIMESTAMP,
+                await run(`UPDATE ideas SET completada = '1', fecha_finalizacion = CURRENT_TIMESTAMP,
                     code_stage = 'expressed' WHERE id = ?`, [idea.parent_idea_id]);
             } else {
                 const nextTask = await get(
-                    'SELECT id FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0) ORDER BY id ASC LIMIT 1',
+                    'SELECT id FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0') ORDER BY id ASC LIMIT 1',
                     [idea.parent_idea_id]
                 );
                 if (nextTask) {
-                    await run('UPDATE ideas SET proxima_accion = 0 WHERE parent_idea_id = ?', [idea.parent_idea_id]);
-                    await run('UPDATE ideas SET proxima_accion = 1 WHERE id = ?', [nextTask.id]);
+                    await run('UPDATE ideas SET proxima_accion = '0' WHERE parent_idea_id = ?', [idea.parent_idea_id]);
+                    await run('UPDATE ideas SET proxima_accion = '1' WHERE id = ?', [nextTask.id]);
                 }
             }
         }
@@ -456,7 +456,7 @@ router.post('/:id/reopen', blockConsultor, async (req, res) => {
         const idea = await get('SELECT * FROM ideas WHERE id = ?', [req.params.id]);
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
 
-        await run('UPDATE ideas SET completada = 0, fecha_finalizacion = NULL WHERE id = ?', [req.params.id]);
+        await run('UPDATE ideas SET completada = '0', fecha_finalizacion = NULL WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to reopen task' });
@@ -485,14 +485,14 @@ router.post('/:id/decompose', blockConsultor, async (req, res) => {
         const contextItems = await all('SELECT key, content FROM context_items');
         const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
         const users = await all('SELECT username, role, department, expertise FROM users');
-        const areas = await all('SELECT name FROM areas WHERE status = "active"');
+        const areas = await all("SELECT name FROM areas WHERE status = 'active'");
 
         const decomp = await aiService.decomposeProject(idea.text, contextString, users, areas);
         if (!decomp || !decomp.sub_tasks) {
             return res.status(500).json({ error: 'Decomposition failed' });
         }
 
-        await run('UPDATE ideas SET is_project = 1 WHERE id = ?', [idea.id]);
+        await run(`UPDATE ideas SET is_project = '1' WHERE id = ?`, [idea.id]);
 
         const createdIds = [];
         for (const sub of decomp.sub_tasks) {

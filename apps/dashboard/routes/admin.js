@@ -274,7 +274,7 @@ router.get('/projects', async (req, res) => {
         const projects = await all(`
             SELECT p.*, a.name as area_name
             FROM projects p
-            LEFT JOIN areas a ON p.related_area_id = a.id
+            LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT)
             ORDER BY p.created_at DESC`);
         const formatted = projects.map(p => ({
             ...p,
@@ -308,7 +308,7 @@ router.post('/projects', blockConsultor, async (req, res) => {
              related_area_id || null, horizon || null, deadline || null]
         );
         const created = await get(`SELECT p.*, a.name as area_name FROM projects p
-            LEFT JOIN areas a ON p.related_area_id = a.id WHERE p.id = ?`, [id]);
+            LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT) WHERE p.id = ?`, [id]);
         res.json({ ...created, tech: created.tech ? created.tech.split(',').filter(t => t) : [] });
     } catch (err) {
         log.error('Create project error', { error: err.message });
@@ -341,7 +341,7 @@ router.put('/projects/:id', blockConsultor, async (req, res) => {
              req.params.id]
         );
         const updated = await get(`SELECT p.*, a.name as area_name FROM projects p
-            LEFT JOIN areas a ON p.related_area_id = a.id WHERE p.id = ?`, [req.params.id]);
+            LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT) WHERE p.id = ?`, [req.params.id]);
         res.json({ ...updated, tech: updated.tech ? updated.tech.split(',').filter(t => t) : [] });
     } catch (err) {
         log.error('Update project error', { error: err.message });
@@ -412,7 +412,7 @@ router.get('/reportability', async (req, res) => {
             const areas = await all("SELECT id, name, icon FROM areas WHERE status = 'active'");
             const byArea = {};
             for (const a of areas) {
-                const areaItems = assigned.filter(i => i.related_area_id === a.id);
+                const areaItems = assigned.filter(i => String(i.related_area_id) === String(a.id));
                 if (areaItems.length > 0) {
                     byArea[a.name] = { icon: a.icon, count: areaItems.length, items: areaItems };
                 }
@@ -456,7 +456,6 @@ router.get('/reportability/team-summary', async (req, res) => {
                 THEN ROUND(CAST(COALESCE(dc.completed_today, 0) AS NUMERIC) / dc.checklist_total * 100)
                 ELSE 0 END as completion_pct
             FROM users u
-            WHERE u.role NOT IN ('usuario', 'cliente')
             LEFT JOIN (
                 SELECT assigned_to,
                     count(*) as total_assigned,
@@ -474,7 +473,8 @@ router.get('/reportability/team-summary', async (req, res) => {
                 SELECT delegated_to, count(*) as pending_waiting
                 FROM waiting_for WHERE status = 'waiting'
                 GROUP BY delegated_to
-            ) wf ON wf.delegated_to = u.username`, [today]);
+            ) wf ON wf.delegated_to = u.username
+            WHERE u.role NOT IN ('usuario', 'cliente')`, [today]);
 
         res.json(summary);
     } catch (err) {
@@ -538,7 +538,7 @@ router.get('/notifications/check', async (req, res) => {
         });
 
         const urgentTasks = (await all(`SELECT i.id, i.text, i.ai_summary, i.priority, i.assigned_to, a.name as area_name
-            FROM ideas i LEFT JOIN areas a ON i.related_area_id = a.id
+            FROM ideas i LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
             WHERE i.priority = 'alta' AND i.code_stage NOT IN ('expressed')
             ${username ? 'AND i.assigned_to = ?' : ''}
             ORDER BY i.created_at DESC LIMIT 10`,
@@ -1361,9 +1361,9 @@ router.get('/my-dashboard', async (req, res) => {
             all(`SELECT i.id, i.text, i.ai_summary, i.priority, i.code_stage, i.fecha_limite,
                         a.name as area_name, p.name as project_name
                  FROM ideas i
-                 LEFT JOIN areas a ON i.related_area_id = a.id
+                 LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
                  LEFT JOIN projects p ON i.project_id = p.id
-                 WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = 0)
+                 WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = '0')
                  ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END, i.created_at DESC
                  LIMIT 10`, [username]),
 
@@ -1385,7 +1385,7 @@ router.get('/my-dashboard', async (req, res) => {
             all(`SELECT i.id, i.text, i.ai_summary, i.assigned_to, i.created_at, i.code_stage,
                         a.name as area_name
                  FROM ideas i
-                 LEFT JOIN areas a ON i.related_area_id = a.id
+                 LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
                  ORDER BY i.created_at DESC LIMIT 8`)
         ]);
 
@@ -1416,7 +1416,7 @@ router.get('/graph', async (req, res) => {
         const [projects, areas, ideas, reuniones, users] = await Promise.all([
             all('SELECT id, name, status, related_area_id, tech FROM projects'),
             all('SELECT id, name, status FROM areas'),
-            all('SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE completada IS NULL OR completada = 0 LIMIT 200'),
+            all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE completada IS NULL OR completada = '0' LIMIT 200`),
             all('SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones ORDER BY fecha DESC LIMIT 50'),
             all('SELECT id, username, role, department FROM users')
         ]);

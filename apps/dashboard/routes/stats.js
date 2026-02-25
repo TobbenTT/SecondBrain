@@ -71,8 +71,8 @@ router.get('/analytics', async (req, res) => {
             GROUP BY date ORDER BY date`);
 
         const activeAreas = await all(`SELECT a.name, a.icon, count(i.id) as idea_count
-            FROM areas a LEFT JOIN ideas i ON i.related_area_id = a.id
-            WHERE a.status = 'active' GROUP BY a.id ORDER BY idea_count DESC`);
+            FROM areas a LEFT JOIN ideas i ON i.related_area_id = CAST(a.id AS TEXT)
+            WHERE a.status = 'active' GROUP BY a.id, a.name, a.icon ORDER BY idea_count DESC`);
 
         const codeFlow = await all(`SELECT code_stage, count(*) as count FROM ideas GROUP BY code_stage`);
         const byType = await all(`SELECT ai_type, count(*) as count FROM ideas WHERE ai_type IS NOT NULL GROUP BY ai_type ORDER BY count DESC`);
@@ -98,16 +98,26 @@ router.get('/executive', async (req, res) => {
         const [
             projectsActive, projectsCompleted, projectsPaused,
             ideasPending, expressed,
-            compromisos, compromisosSemana
+            allCompromisos, weekCompromisos
         ] = await Promise.all([
             get("SELECT count(*) as c FROM projects WHERE status IN ('active','development','beta')"),
             get("SELECT count(*) as c FROM projects WHERE status = 'completed'"),
             get("SELECT count(*) as c FROM projects WHERE status = 'paused'"),
             get("SELECT count(*) as c FROM ideas WHERE code_stage = 'captured' OR code_stage IS NULL"),
             get("SELECT count(*) as c FROM ideas WHERE code_stage = 'expressed'"),
-            get("SELECT count(*) as c FROM reuniones_compromisos WHERE estado != 'cumplido'"),
-            get("SELECT count(*) as c FROM reuniones_compromisos WHERE estado != 'cumplido' AND created_at >= NOW() - INTERVAL '7 days'")
+            all("SELECT compromisos FROM reuniones WHERE compromisos != '[]'"),
+            all("SELECT compromisos FROM reuniones WHERE compromisos != '[]' AND created_at >= NOW() - INTERVAL '7 days'")
         ]);
+
+        // Count individual compromisos from JSON arrays stored in reuniones
+        let compromisosCount = 0;
+        (allCompromisos || []).forEach(r => {
+            try { compromisosCount += JSON.parse(r.compromisos || '[]').length; } catch { /* skip */ }
+        });
+        let compromisosSemanaCount = 0;
+        (weekCompromisos || []).forEach(r => {
+            try { compromisosSemanaCount += JSON.parse(r.compromisos || '[]').length; } catch { /* skip */ }
+        });
 
         res.json({
             projectsActive: projectsActive?.c || 0,
@@ -115,8 +125,8 @@ router.get('/executive', async (req, res) => {
             projectsPaused: projectsPaused?.c || 0,
             ideasPending: ideasPending?.c || 0,
             expressed: expressed?.c || 0,
-            compromisos: compromisos?.c || 0,
-            compromisosSemana: compromisosSemana?.c || 0
+            compromisos: compromisosCount,
+            compromisosSemana: compromisosSemanaCount
         });
     } catch (err) {
         log.error('Executive summary error', { error: err.message });

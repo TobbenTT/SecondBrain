@@ -27,8 +27,8 @@ router.get('/gtd/daily-report', async (req, res) => {
         const projects = await all(`
             SELECT i.id, i.text as name, i.ai_summary, i.assigned_to,
                 (SELECT count(*) FROM ideas sub WHERE sub.parent_idea_id = i.id) as sub_count,
-                (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = 1 LIMIT 1) as next_action
-            FROM ideas i WHERE i.is_project = 1 AND (i.completada IS NULL OR i.completada = 0)
+                (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = '1' LIMIT 1) as next_action
+            FROM ideas i WHERE i.is_project = '1' AND (i.completada IS NULL OR i.completada = '0')
         `);
         const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
         const completedToday = await all("SELECT * FROM ideas WHERE fecha_finalizacion::date = ?", [today]);
@@ -36,7 +36,7 @@ router.get('/gtd/daily-report', async (req, res) => {
         const users = await all('SELECT username FROM users');
         const userStats = [];
         for (const u of users) {
-            const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = 0)", [u.username]);
+            const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = '0')", [u.username]);
             const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND fecha_finalizacion::date = ?", [u.username, today]);
             userStats.push({ username: u.username, pending: pending.cnt, completed_today: done.cnt });
         }
@@ -85,20 +85,20 @@ router.get('/gtd/daily-report', async (req, res) => {
 router.get('/gtd/effectiveness', async (req, res) => {
     try {
         const byContext = await all(`SELECT contexto, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = 0) AND contexto IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND contexto IS NOT NULL
             GROUP BY contexto ORDER BY count DESC`);
         const byEnergy = await all(`SELECT energia, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = 0) AND energia IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND energia IS NOT NULL
             GROUP BY energia`);
         const byCompromiso = await all(`SELECT tipo_compromiso, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = 0) AND tipo_compromiso IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND tipo_compromiso IS NOT NULL
             GROUP BY tipo_compromiso`);
         const byAssignee = await all(`SELECT assigned_to, count(*) as count FROM ideas
-            WHERE (completada IS NULL OR completada = 0) AND assigned_to IS NOT NULL
+            WHERE (completada IS NULL OR completada = '0') AND assigned_to IS NOT NULL
             GROUP BY assigned_to ORDER BY count DESC`);
-        const projectsActive = await get(`SELECT count(*) as count FROM ideas WHERE is_project = 1 AND (completada IS NULL OR completada = 0)`);
+        const projectsActive = await get(`SELECT count(*) as count FROM ideas WHERE is_project = '1' AND (completada IS NULL OR completada = '0')`);
         const nextActions = await all(`SELECT id, text, assigned_to, contexto, energia, estimated_time
-            FROM ideas WHERE proxima_accion = 1 AND (completada IS NULL OR completada = 0)
+            FROM ideas WHERE proxima_accion = '1' AND (completada IS NULL OR completada = '0')
             ORDER BY priority DESC LIMIT 20`);
 
         res.json({ byContext, byEnergy, byCompromiso, byAssignee, activeProjects: projectsActive.count, nextActions });
@@ -210,7 +210,7 @@ router.get('/checklist/:username', async (req, res) => {
                     a.name as area_name, a.icon as area_icon
              FROM daily_checklist dc
              LEFT JOIN ideas i ON dc.idea_id = i.id
-             LEFT JOIN areas a ON i.related_area_id = a.id
+             LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
              WHERE dc.username = ? AND dc.date = ?
              ORDER BY dc.completed ASC,
                       CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 WHEN 'baja' THEN 3 ELSE 4 END`,
@@ -271,7 +271,7 @@ router.get('/inbox/pending', async (req, res) => {
                     il.id as log_id, il.source, il.ai_classification, il.routed_to, il.reviewed
              FROM ideas i
              LEFT JOIN inbox_log il ON il.original_idea_id = i.id
-             WHERE i.code_stage = 'captured' AND (i.completada IS NULL OR i.completada = 0)
+             WHERE i.code_stage = 'captured' AND (i.completada IS NULL OR i.completada = '0')
              ORDER BY i.needs_review DESC, i.ai_confidence ASC, i.created_at DESC`
         );
         const needsReview = items.filter(i => i.needs_review == 1 || (i.ai_confidence !== null && i.ai_confidence < 0.6));
@@ -292,7 +292,7 @@ router.put('/inbox/:id/approve', async (req, res) => {
         if (ai_type) { updates.push('ai_type = ?'); params.push(ai_type); }
         if (assigned_to) { updates.push('assigned_to = ?'); params.push(assigned_to); }
         if (priority) { updates.push('priority = ?'); params.push(priority); }
-        if (is_project !== undefined) { updates.push('is_project = ?'); params.push(is_project ? 1 : 0); }
+        if (is_project !== undefined) { updates.push('is_project = ?'); params.push(is_project ? '1' : '0'); }
         params.push(req.params.id);
         await run(`UPDATE ideas SET ${updates.join(', ')} WHERE id = ?`, params);
         // Mark inbox_log reviewed
@@ -315,9 +315,9 @@ router.get('/next-actions', async (req, res) => {
                     p.text as project_name, a.name as area_name
              FROM ideas i
              LEFT JOIN ideas p ON i.parent_idea_id = p.id
-             LEFT JOIN areas a ON i.related_area_id = a.id
-             WHERE i.proxima_accion = 1
-               AND (i.completada IS NULL OR i.completada = 0)
+             LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
+             WHERE i.proxima_accion = '1'
+               AND (i.completada IS NULL OR i.completada = '0')
              ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 WHEN 'baja' THEN 3 ELSE 4 END,
                       i.created_at DESC`
         );
@@ -336,7 +336,7 @@ router.put('/next-actions/:id/complete', async (req, res) => {
 
         // Mark completed
         await run(
-            `UPDATE ideas SET completada = 1, proxima_accion = 0, fecha_finalizacion = ? WHERE id = ?`,
+            `UPDATE ideas SET completada = '1', proxima_accion = '0', fecha_finalizacion = ? WHERE id = ?`,
             [new Date().toISOString(), req.params.id]
         );
 
@@ -344,21 +344,21 @@ router.put('/next-actions/:id/complete', async (req, res) => {
         if (idea.parent_idea_id) {
             const nextSibling = await get(
                 `SELECT id FROM ideas
-                 WHERE parent_idea_id = ? AND id != ? AND (completada IS NULL OR completada = 0)
+                 WHERE parent_idea_id = ? AND id != ? AND (completada IS NULL OR completada = '0')
                  ORDER BY id ASC LIMIT 1`,
                 [idea.parent_idea_id, req.params.id]
             );
             if (nextSibling) {
-                await run('UPDATE ideas SET proxima_accion = 1 WHERE id = ?', [nextSibling.id]);
+                await run(`UPDATE ideas SET proxima_accion = '1' WHERE id = ?`, [nextSibling.id]);
             }
             // Check if all subtasks complete → complete parent
             const remaining = await get(
-                'SELECT count(*) as c FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = 0)',
+                `SELECT count(*) as c FROM ideas WHERE parent_idea_id = ? AND (completada IS NULL OR completada = '0')`,
                 [idea.parent_idea_id]
             );
             if (remaining.c === 0) {
                 await run(
-                    `UPDATE ideas SET completada = 1, fecha_finalizacion = ? WHERE id = ?`,
+                    `UPDATE ideas SET completada = '1', fecha_finalizacion = ? WHERE id = ?`,
                     [new Date().toISOString(), idea.parent_idea_id]
                 );
             }
@@ -455,8 +455,8 @@ router.get('/okrs/:id/links', async (req, res) => {
             `SELECT ol.*,
                     CASE ol.link_type
                         WHEN 'project' THEN (SELECT name FROM projects WHERE id = ol.link_id)
-                        WHEN 'idea' THEN (SELECT text FROM ideas WHERE id = ol.link_id)
-                        WHEN 'area' THEN (SELECT name FROM areas WHERE id = ol.link_id)
+                        WHEN 'idea' THEN (SELECT text FROM ideas WHERE CAST(id AS TEXT) = ol.link_id)
+                        WHEN 'area' THEN (SELECT name FROM areas WHERE CAST(id AS TEXT) = ol.link_id)
                     END as link_name
              FROM okr_links ol WHERE ol.okr_id = ? ORDER BY ol.link_type`,
             [req.params.id]
@@ -498,7 +498,7 @@ router.get('/gtd/briefing/:username', async (req, res) => {
                     i.fecha_limite, i.parent_idea_id, p.text as project_name
              FROM ideas i
              LEFT JOIN ideas p ON i.parent_idea_id = p.id
-             WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = 0)
+             WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = '0')
              ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END`,
             [username]
         );

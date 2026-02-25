@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
             COALESCE(ic.c, 0) as ideas_count,
             COALESCE(cc.c, 0) as context_count
             FROM areas a
-            LEFT JOIN (SELECT related_area_id, count(*) as c FROM ideas GROUP BY related_area_id) ic ON ic.related_area_id = a.id
-            LEFT JOIN (SELECT related_area_id, count(*) as c FROM context_items GROUP BY related_area_id) cc ON cc.related_area_id = a.id
+            LEFT JOIN (SELECT related_area_id, count(*) as c FROM ideas GROUP BY related_area_id) ic ON ic.related_area_id = CAST(a.id AS TEXT)
+            LEFT JOIN (SELECT related_area_id, count(*) as c FROM context_items GROUP BY related_area_id) cc ON cc.related_area_id = CAST(a.id AS TEXT)
             ORDER BY a.status, a.name`);
         res.json(areas);
     } catch (_err) {
@@ -43,7 +43,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
-        await run('UPDATE areas SET status = "archived" WHERE id = ?', [req.params.id]);
+        await run("UPDATE areas SET status = 'archived' WHERE id = ?", [req.params.id]);
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to archive area' });

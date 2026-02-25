@@ -112,8 +112,8 @@ router.get('/external/digest', async (req, res) => {
         const contextItems = await all('SELECT key, content FROM context_items');
         const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
         const areas = await all(`SELECT a.*,
-            (SELECT count(*) FROM ideas WHERE related_area_id = a.id) as ideas_count,
-            (SELECT count(*) FROM context_items WHERE related_area_id = a.id) as context_count
+            (SELECT count(*) FROM ideas WHERE related_area_id = CAST(a.id AS TEXT)) as ideas_count,
+            (SELECT count(*) FROM context_items WHERE related_area_id = CAST(a.id AS TEXT)) as context_count
             FROM areas a WHERE a.status = 'active'`);
 
         const digest = await aiService.generateDigest(ideas, waitingFor, contextString, areas);
