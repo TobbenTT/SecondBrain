@@ -15,13 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initConsultorUI();
     initPanelActions();
     initHomeData();
+    initChat();
 
     // ─── Deferred (load after first paint) ──────────────────────────────
     requestAnimationFrame(() => {
         initIdeas();
         initUpload();
         initProjects();
-        initChat();
         initAreas();
         initWaitingFor();
         initDigest();

@@ -2363,29 +2363,7 @@
         window.__USER__ = <%- JSON.stringify({ username: user?.username || null, role: user?.role || null, department: user?.department || '', expertise: user?.expertise || '', avatar: user?.avatar || null }) %>;
     </script>
     <script src="/js/main.js?v=<%= Date.now() %>"></script>
-    <script>
-        // Fallback: Ensure AI Widget toggles even if main.js fails
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggle = document.getElementById('aiToggleBtn');
-            const widget = document.getElementById('aiWidget');
-            const close = document.getElementById('closeAiBtn');
-            const input = document.getElementById('chatInput');
-
-            if (toggle && widget) {
-                // Remove existing listeners to avoid duplicates (clone node)
-                const newToggle = toggle.cloneNode(true);
-                toggle.parentNode.replaceChild(newToggle, toggle);
-
-                newToggle.onclick = () => {
-                    widget.classList.toggle('open');
-                    if (widget.classList.contains('open') && input) input.focus();
-                };
-            }
-            if (close && widget) {
-                close.onclick = () => widget.classList.remove('open');
-            }
-        });
-    </script>
+    <!-- AI toggle handled by initChat() in main.js -->
 </body>
 
 </html>
