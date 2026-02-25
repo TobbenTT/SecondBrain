@@ -6723,6 +6723,10 @@ select option {
     background: rgba(231, 76, 60, 0.15);
     color: #e74c3c;
 }
+.profile-role-badge.role-ceo {
+    background: rgba(212, 175, 55, 0.15);
+    color: #d4af37;
+}
 .profile-role-badge.role-manager {
     background: rgba(241, 196, 15, 0.15);
     color: #f1c40f;
@@ -7026,6 +7030,11 @@ select option {
 .au-role-select.role-admin {
     background-color: rgba(231, 76, 60, 0.12);
     color: #e74c3c;
+}
+
+.au-role-select.role-ceo {
+    background-color: rgba(212, 175, 55, 0.12);
+    color: #d4af37;
 }
 
 .au-role-select.role-manager {

@@ -27,7 +27,7 @@ router.get('/users', async (req, res) => {
 
             if (roles && roles.length > 0) {
                 // Map Supabase roles to dashboard roles (user → usuario)
-                const ROLE_MAP = { admin: 'admin', manager: 'manager', analyst: 'analyst', consultor: 'consultor', usuario: 'usuario', cliente: 'cliente', user: 'usuario' };
+                const ROLE_MAP = { admin: 'admin', ceo: 'ceo', manager: 'manager', analyst: 'analyst', consultor: 'consultor', usuario: 'usuario', cliente: 'cliente', user: 'usuario' };
                 const normalizeRole = (r) => ROLE_MAP[r] || 'usuario';
 
                 const roleMap = {};
@@ -103,7 +103,7 @@ router.post('/users', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Password (min 4 chars) required' });
     }
 
-    const validRoles = ['admin', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
+    const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
     const safeRole = validRoles.includes(role) ? role : 'analyst';
 
     try {
@@ -161,7 +161,7 @@ router.post('/users', requireAdmin, async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', requireAdmin, async (req, res) => {
     const { role, department, expertise, newPassword } = req.body;
-    const validRoles = ['admin', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
+    const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
 
     try {
         const user = await get('SELECT * FROM users WHERE id = ?', [req.params.id]);
@@ -363,7 +363,7 @@ router.delete('/projects/:id', blockConsultor, requireAdmin, async (req, res) =>
 router.post('/orchestrator/execute', blockConsultor, async (req, res) => {
     const { command, args } = req.body;
     const user = req.session.user;
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    if (!user || (user.role !== 'admin' && user.role !== 'ceo')) return res.status(403).json({ error: 'Unauthorized' });
 
     try {
         const result = await orchestratorBridge.executeCommand(command, args || []);
@@ -933,7 +933,7 @@ router.get('/export-excel', async (req, res) => {
             });
             row.eachCell(cell => { cell.border = borderThin; });
 
-            const roleColors = { admin: 'FFEF4444', manager: 'FF3B82F6', analyst: 'FF10B981', consultor: 'FFF59E0B' };
+            const roleColors = { admin: 'FFEF4444', ceo: 'FFD4AF37', manager: 'FF3B82F6', analyst: 'FF10B981', consultor: 'FFF59E0B' };
             if (roleColors[u.role]) {
                 row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: roleColors[u.role] } };
                 row.getCell(2).font = { color: { argb: 'FFFFFFFF' }, bold: true };

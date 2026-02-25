@@ -178,7 +178,7 @@ router.get('/reuniones/:id/links', async (req, res) => {
 });
 
 router.post('/reuniones/:id/links', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     const { link_type, link_id } = req.body;
@@ -195,7 +195,7 @@ router.post('/reuniones/:id/links', async (req, res) => {
 });
 
 router.delete('/reuniones/:id/links/:linkId', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     try {
@@ -253,7 +253,7 @@ router.get('/reuniones/email-recipients', async (req, res) => {
 });
 
 router.get('/reuniones/email-recipients/all', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     try {
@@ -268,7 +268,7 @@ router.get('/reuniones/email-recipients/all', async (req, res) => {
 });
 
 router.post('/reuniones/email-recipients', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     const { email, nombre } = req.body;
@@ -292,7 +292,7 @@ router.post('/reuniones/email-recipients', async (req, res) => {
 });
 
 router.put('/reuniones/email-recipients/:id', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     const { email, nombre, activo } = req.body;
@@ -313,7 +313,7 @@ router.put('/reuniones/email-recipients/:id', async (req, res) => {
 });
 
 router.delete('/reuniones/email-recipients/:id', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     try {
@@ -426,7 +426,7 @@ router.get('/reuniones/:id', async (req, res) => {
 // ─── Delete meeting (admin only) ────────────────────────────────────────────
 
 router.delete('/reuniones/:id', async (req, res) => {
-    if (!req.session?.user || req.session.user.role !== 'admin') {
+    if (!req.session?.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'ceo')) {
         return res.status(403).json({ error: 'Admin only' });
     }
     try {

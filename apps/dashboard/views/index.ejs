@@ -139,7 +139,7 @@
                     OKRs
                 </a>
             </div>
-            <% if (user && user.role === 'admin') { %>
+            <% if (user && (user.role === 'admin' || user.role === 'ceo')) { %>
             <div class="nav-section">
                 <span class="nav-label">ADMIN</span>
                 <a href="#admin-users" class="nav-link" data-section="admin-users">
@@ -386,7 +386,7 @@
             <div class="home-gallery-section" id="homeGallerySection">
                 <div class="home-gallery-header">
                     <h3 class="home-section-title">Galeria</h3>
-                    <% if (user && (user.role === 'admin' || user.role === 'manager')) { %>
+                    <% if (user && (user.role === 'admin' || user.role === 'ceo' || user.role === 'manager')) { %>
                     <button class="btn btn-sm" onclick="openGalleryUpload()">+ Subir Foto</button>
                     <% } %>
                 </div>
@@ -438,7 +438,7 @@
                 <span class="home-quote-author">— Value Strategy Consulting</span>
             </div>
 
-            <% if (user && user.role === 'admin') { %>
+            <% if (user && (user.role === 'admin' || user.role === 'ceo')) { %>
             <!-- Admin: Seed Data Button -->
             <div style="text-align:center;margin-top:20px;">
                 <button class="btn btn-sm" id="btnSeedData" onclick="seedDemoData()" style="opacity:0.6;">🌱 Sembrar datos de ejemplo</button>
@@ -1260,7 +1260,7 @@
                                 <button class="btn-clear-filters" onclick="clearGtdFilters()" title="Limpiar filtros">✕</button>
                             </div>
                             <span class="ideas-count" id="ideasCount">0</span>
-                            <% if (user && user.role==='admin' ) { %>
+                            <% if (user && (user.role==='admin' || user.role==='ceo') ) { %>
                                 <button class="btn-icon-danger" id="btnDeleteAllIdeas"
                                     title="Borrar TODAS las ideas (Admin)">🗑️</button>
                                 <% } %>
@@ -1948,6 +1948,7 @@
                 <select id="auFilterRole" class="au-filter-select" onchange="filterAdminUsers()">
                     <option value="">Todos los roles</option>
                     <option value="admin">Admin</option>
+                    <option value="ceo">CEO</option>
                     <option value="manager">Manager</option>
                     <option value="analyst">Analyst</option>
                     <option value="consultor">Consultor</option>
@@ -2184,6 +2185,7 @@
                                 <option value="analyst">Analyst</option>
                                 <option value="consultor">Consultor</option>
                                 <option value="manager">Manager</option>
+                                <option value="ceo">CEO</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>
@@ -2364,7 +2366,7 @@
             </div>
 
             <!-- Email Recipients Management (Admin only) -->
-            <% if (user.role === 'admin') { %>
+            <% if (user.role === 'admin' || user.role === 'ceo') { %>
             <div class="panel" id="emailRecipientsPanel">
                 <div class="panel-header">
                     <h2 class="panel-title">📧 Destinatarios de Reportes</h2>

@@ -2,13 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --production
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
 COPY . .
 
 RUN mkdir -p data public/voice-notes
 
 EXPOSE 3000
+
+USER node
 
 CMD ["node", "server.js"]

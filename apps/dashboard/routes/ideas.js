@@ -148,7 +148,7 @@ router.post('/voice', (req, res, next) => { req._uploadType = 'voice'; next(); }
 
 router.delete('/', blockConsultor, async (req, res) => {
     const user = req.session.user;
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede eliminar todo' });
+    if (!user || (user.role !== 'admin' && user.role !== 'ceo')) return res.status(403).json({ error: 'Solo admin puede eliminar todo' });
     try {
         await run('DELETE FROM daily_checklist');
         await run('DELETE FROM waiting_for');

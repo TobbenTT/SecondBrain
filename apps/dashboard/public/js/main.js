@@ -294,7 +294,7 @@ async function loadHomeTeam() {
             grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
             return;
         }
-        const roleColors = { admin: '#e74c3c', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71', usuario: '#9b59b6', cliente: '#e67e22' };
+        const roleColors = { admin: '#e74c3c', ceo: '#d4af37', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71', usuario: '#9b59b6', cliente: '#e67e22' };
         grid.innerHTML = users.map(u => `
             <div class="home-team-card">
                 <div class="home-team-avatar">${_avatarHtml(u.avatar, u.username, 64)}</div>
@@ -328,7 +328,7 @@ async function loadHomeGallery() {
                     <span>${escapeHtml(p.caption || '')}</span>
                     <span class="gallery-category">${escapeHtml(p.category)}</span>
                 </div>
-                ${window.__USER__?.role === 'admin' ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
+                ${(window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo') ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
             </div>
         `).join('');
     } catch (err) {
@@ -1232,7 +1232,7 @@ function renderArchivos(files) {
             ? `<a href="${file.dynamicUrl}" class="arc-action arc-download" target="_blank" title="Ver guía interactiva" onclick="event.stopPropagation();">Interactivo</a>`
             : '';
         const dynamicBadge = file.hasDynamic && !isApp ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
-        const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'manager';
+        const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo' || window.__USER__?.role === 'manager';
         const deleteBtn = canDelete && !isApp
             ? `<button class="arc-delete" title="Eliminar" onclick="event.stopPropagation(); deleteArchivo('${escapeHtml(file.name)}')">✕</button>`
             : '';
@@ -2609,7 +2609,7 @@ async function viewSkill(filePath, title) {
     const pathInput = document.getElementById('skillModalPath');
 
     if (modalTitle) {
-        const isAdmin = window.__USER__ && window.__USER__.role === 'admin';
+        const isAdmin = window.__USER__ && (window.__USER__.role === 'admin' || window.__USER__.role === 'ceo');
         modalTitle.innerHTML = `
             <span>${title || 'Sin Título'}</span>
             <div class="skill-modal-actions">
@@ -6322,7 +6322,7 @@ function renderCommentsList(container, comments, targetType, targetId) {
 
     container.innerHTML = comments.map(c => {
         const date = new Date(c.created_at).toLocaleString('es-ES');
-        const canDelete = window.__USER__ && (window.__USER__.username === c.username || window.__USER__.role === 'admin');
+        const canDelete = window.__USER__ && (window.__USER__.username === c.username || window.__USER__.role === 'admin' || window.__USER__.role === 'ceo');
         const safeTargetId = escapeHtml(String(targetId));
         const deleteBtn = canDelete ? `<button class="btn-icon-danger" data-comment-id="${c.id}" data-target-type="${escapeHtml(targetType)}" data-target-id="${safeTargetId}" onclick="event.stopPropagation(); deleteComment(this.dataset.commentId, this.dataset.targetType, this.dataset.targetId)" title="Eliminar">🗑️</button>` : '';
         const sectionBadge = c.section ? `<span class="comment-section-badge">${escapeHtml(c.section)}</span>` : '';
@@ -6687,7 +6687,7 @@ const REUNIONES_LIMIT = 20;
 
 async function loadReuniones() {
     // Load email recipients panel if admin
-    if (window.__USER__ && window.__USER__.role === 'admin') loadEmailRecipients();
+    if (window.__USER__ && (window.__USER__.role === 'admin' || window.__USER__.role === 'ceo')) loadEmailRecipients();
     try {
         // Load stats
         const statsRes = await fetch('/api/reuniones/stats/summary');
@@ -6757,7 +6757,7 @@ function renderReuniones(reuniones) {
         const numAcuerdos = (r.acuerdos || []).length;
         const nivel = r.nivel_analisis || '';
 
-        const deleteBtn = window.__USER__?.role === 'admin'
+        const deleteBtn = (window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo')
             ? `<button class="reunion-delete-btn" title="Eliminar reunion" onclick="event.stopPropagation(); deleteReunion(${r.id}, '${escapeHtml(r.titulo).replace(/'/g, "\\'")}')">✕</button>`
             : '';
 
@@ -7739,11 +7739,12 @@ async function loadAdminUsers() {
         // Stats bar
         const statsBar = document.getElementById('auStatsBar');
         if (statsBar) {
-            const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
+            const roleCounts = { admin: 0, ceo: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
             _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             statsBar.innerHTML = `
                 <div class="au-stat"><span class="au-stat-num">${_adminUsers.length}</span><span class="au-stat-label">Total</span></div>
                 <div class="au-stat au-stat-admin"><span class="au-stat-num">${roleCounts.admin}</span><span class="au-stat-label">Admins</span></div>
+                <div class="au-stat au-stat-ceo"><span class="au-stat-num">${roleCounts.ceo}</span><span class="au-stat-label">CEO</span></div>
                 <div class="au-stat au-stat-manager"><span class="au-stat-num">${roleCounts.manager}</span><span class="au-stat-label">Managers</span></div>
                 <div class="au-stat au-stat-analyst"><span class="au-stat-num">${roleCounts.analyst}</span><span class="au-stat-label">Analysts</span></div>
                 <div class="au-stat au-stat-consultor"><span class="au-stat-num">${roleCounts.consultor}</span><span class="au-stat-label">Consultores</span></div>
@@ -7768,7 +7769,7 @@ function renderAdminUsersTable(users) {
         return;
     }
 
-    const roleLabels = { admin: 'Admin', manager: 'Manager', analyst: 'Analyst', consultor: 'Consultor', usuario: 'Usuario', cliente: 'Cliente' };
+    const roleLabels = { admin: 'Admin', ceo: 'CEO', manager: 'Manager', analyst: 'Analyst', consultor: 'Consultor', usuario: 'Usuario', cliente: 'Cliente' };
 
     tbody.innerHTML = users.map(u => {
         const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -7782,7 +7783,7 @@ function renderAdminUsersTable(users) {
             <td><span class="au-cell-text" style="font-size:0.82rem;opacity:0.8">${escapeHtml(u.email || '—')}</span></td>
             <td>
                 <select class="au-role-select role-${escapeHtml(u.role)}" data-user-id="${u.id}" data-original="${escapeHtml(u.role)}" onchange="changeUserRole(this)">
-                    ${['admin','manager','analyst','consultor','usuario','cliente'].map(r =>
+                    ${['admin','ceo','manager','analyst','consultor','usuario','cliente'].map(r =>
                         `<option value="${r}" ${r === u.role ? 'selected' : ''}>${roleLabels[r]}</option>`
                     ).join('')}
                 </select>
@@ -7841,9 +7842,10 @@ async function changeUserRole(select) {
             // Update stats
             const statsBar = document.getElementById('auStatsBar');
             if (statsBar) {
-                const roleCounts = { admin: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
+                const roleCounts = { admin: 0, ceo: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
                 _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
                 statsBar.querySelector('.au-stat-admin .au-stat-num').textContent = roleCounts.admin;
+                statsBar.querySelector('.au-stat-ceo .au-stat-num').textContent = roleCounts.ceo;
                 statsBar.querySelector('.au-stat-manager .au-stat-num').textContent = roleCounts.manager;
                 statsBar.querySelector('.au-stat-analyst .au-stat-num').textContent = roleCounts.analyst;
                 statsBar.querySelector('.au-stat-consultor .au-stat-num').textContent = roleCounts.consultor;

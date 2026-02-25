@@ -16,8 +16,8 @@ function requireOwnerOrAdmin(table, ownerColumn, paramName = 'id') {
         const user = req.session?.user;
         if (!user) return res.status(401).json({ error: 'Authentication required' });
 
-        // Admins can access anything
-        if (user.role === 'admin') return next();
+        // Admins and CEO can access anything
+        if (user.role === 'admin' || user.role === 'ceo') return next();
 
         const id = req.params[paramName];
         if (!id) return res.status(400).json({ error: 'Resource ID required' });
@@ -44,7 +44,7 @@ function requireOwnerOrAdmin(table, ownerColumn, paramName = 'id') {
 function requireAdmin(req, res, next) {
     const user = req.session?.user;
     if (!user) return res.status(401).json({ error: 'Authentication required' });
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    if (user.role !== 'admin' && user.role !== 'ceo') return res.status(403).json({ error: 'Admin access required' });
     next();
 }
 
@@ -54,7 +54,7 @@ function requireAdmin(req, res, next) {
 function requireSelfOrAdmin(req, res, next) {
     const user = req.session?.user;
     if (!user) return res.status(401).json({ error: 'Authentication required' });
-    if (user.role === 'admin') return next();
+    if (user.role === 'admin' || user.role === 'ceo') return next();
 
     const targetUsername = req.params.username;
     if (targetUsername && targetUsername !== user.username) {

@@ -172,7 +172,7 @@ router.delete('/attachment/:id', async (req, res) => {
         );
         if (!att) return res.status(404).json({ error: 'Attachment not found' });
 
-        if (att.fb_author !== user.username && user.role !== 'admin') {
+        if (att.fb_author !== user.username && user.role !== 'admin' && user.role !== 'ceo') {
             return res.status(403).json({ error: 'Only author or admin can delete attachments' });
         }
 
@@ -250,7 +250,7 @@ router.put('/:id/reject-fix', async (req, res) => {
         );
 
         // Notify admins that the fix was rejected
-        const admins = await all("SELECT username FROM users WHERE role IN ('admin', 'manager')");
+        const admins = await all("SELECT username FROM users WHERE role IN ('admin', 'ceo', 'manager')");
         for (const admin of admins) {
             await run(
                 `INSERT INTO user_notifications (username, type, title, message, link_section, link_id)
@@ -300,7 +300,7 @@ router.delete('/:id', async (req, res) => {
         const fb = await get('SELECT * FROM feedback WHERE id = ?', [req.params.id]);
         if (!fb) return res.status(404).json({ error: 'Feedback not found' });
 
-        if (fb.username !== user.username && user.role !== 'admin') {
+        if (fb.username !== user.username && user.role !== 'admin' && user.role !== 'ceo') {
             return res.status(403).json({ error: 'Can only delete your own feedback' });
         }
 

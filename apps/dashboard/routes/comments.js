@@ -65,7 +65,7 @@ router.delete('/:id', async (req, res) => {
         const comment = await get('SELECT * FROM comments WHERE id = ?', [req.params.id]);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
-        if (comment.username !== user.username && user.role !== 'admin') {
+        if (comment.username !== user.username && user.role !== 'admin' && user.role !== 'ceo') {
             return res.status(403).json({ error: 'Can only delete your own comments' });
         }
 
