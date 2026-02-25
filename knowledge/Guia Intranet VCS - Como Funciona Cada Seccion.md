@@ -1,8 +1,8 @@
-# SecondBrain — Guia Completa de Uso
+# Intranet VCS — Guia Completa de Uso
 
-## Que es SecondBrain?
+## Que es la Intranet VCS?
 
-SecondBrain es un hub de productividad corporativa que combina las metodologias **GTD (Getting Things Done)**, **PARA (Projects, Areas, Resources, Archive)** y **CODE (Capture, Organize, Distill, Express)** para gestionar ideas, proyectos, delegaciones y reuniones de forma inteligente.
+La Intranet VCS (Value Strategy Consulting) es la plataforma interna de productividad corporativa de la empresa. Combina las metodologias **GTD (Getting Things Done)**, **PARA (Projects, Areas, Resources, Archive)** y **CODE (Capture, Organize, Distill, Express)** para gestionar ideas, proyectos, delegaciones y reuniones de forma inteligente. Accesible en **aiprowork.com**.
 
 ---
 
