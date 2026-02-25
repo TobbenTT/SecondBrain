@@ -1,5 +1,4 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 require('dotenv').config();
 const cron = require('node-cron');
 const { procesarReunionDiaria } = require('./scripts/main_orchestrator');
@@ -8,8 +7,8 @@ const { enviarReporteSemanal } = require('./scripts/weekly_sender');
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-// Middleware para parsear JSON
-app.use(bodyParser.json());
+// Middleware para parsear JSON (Express 5 built-in)
+app.use(express.json());
 
 // Logger de Depuración: Ver TODAS las peticiones entrantes con su body
 app.use((req, res, next) => {
