@@ -1231,7 +1231,7 @@ async function deleteArchivo(filename) {
         const data = await res.json();
         if (data.success) {
             showToast('Archivo eliminado', 'success');
-            loadArchivos();
+            initArchivos();
         } else {
             showToast(data.error || 'Error al eliminar', 'error');
         }
