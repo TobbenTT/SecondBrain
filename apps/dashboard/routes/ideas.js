@@ -86,7 +86,12 @@ router.get('/', async (req, res) => {
             sql += where;
             countSql += where;
         }
-        sql += ' ORDER BY created_at DESC';
+        const sortParam = req.query.sort;
+        if (sortParam === 'priority') {
+            sql += " ORDER BY CASE priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 WHEN 'baja' THEN 3 ELSE 4 END, created_at DESC";
+        } else {
+            sql += ' ORDER BY created_at DESC';
+        }
 
         const pageNum = Math.max(1, parseInt(page) || 1);
         const limitNum = Math.min(100, Math.max(1, parseInt(lim) || 50));

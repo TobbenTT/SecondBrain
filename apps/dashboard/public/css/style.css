@@ -771,6 +771,14 @@ a:hover {
     gap: 8px;
 }
 
+.section-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 0 24px 12px;
+    margin: 0;
+    line-height: 1.4;
+}
+
 .panel-action {
     background: none;
     border: none;

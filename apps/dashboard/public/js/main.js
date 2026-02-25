@@ -5527,7 +5527,7 @@ async function loadGtdProjects() {
     container.innerHTML = '<div class="loading-sm"><div class="spinner-sm"></div></div>';
 
     try {
-        const res = await fetch('/api/ideas?is_project=1&limit=50');
+        const res = await fetch('/api/ideas?is_project=1&limit=50&sort=priority');
         const data = await res.json();
         const projects = (data.ideas || []);
 
@@ -5569,11 +5569,15 @@ async function loadGtdProjects() {
             } catch (e) { /* ignore subtask errors */ }
 
             const isDone = proj.completada == 1;
-            return `<div class="idea-card ${isDone ? 'completed-project' : ''}" style="opacity:${isDone ? '0.6' : '1'};">
-                <div class="idea-stage-indicator" style="background:${isDone ? '#22c55e' : '#dc2626'}">📂</div>
+            const prioColors = { alta: '#ef4444', media: '#f59e0b', baja: '#3b82f6' };
+            const prioLabels = { alta: 'ALTA', media: 'MEDIA', baja: 'BAJA' };
+            const prioColor = prioColors[proj.priority] || null;
+            return `<div class="idea-card ${isDone ? 'completed-project' : ''}" style="opacity:${isDone ? '0.6' : '1'};${proj.priority === 'alta' && !isDone ? 'border-left:3px solid #ef4444;' : ''}">
+                <div class="idea-stage-indicator" style="background:${isDone ? '#22c55e' : (prioColor || '#dc2626')}">📂</div>
                 <div class="idea-content">
                     <p style="font-weight:600;">${escapeHtml(proj.ai_summary || proj.text)}</p>
                     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
+                        ${prioColor ? `<span class="badge" style="background:${prioColor};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${prioLabels[proj.priority]}</span>` : ''}
                         ${proj.ai_category ? `<span class="badge" style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${proj.ai_category}</span>` : ''}
                         ${proj.assigned_to ? `<span class="badge" style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">👤 ${proj.assigned_to}</span>` : ''}
                         ${isDone ? '<span class="badge" style="background:#22c55e;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">✅ Completado</span>' : ''}
