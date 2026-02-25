@@ -96,17 +96,36 @@ router.get('/analytics', async (req, res) => {
 router.get('/executive', async (req, res) => {
     try {
         const [
-            projectsActive, projectsCompleted, projectsPaused,
-            ideasPending, expressed,
-            allCompromisos, weekCompromisos
+            projectsActive, projectsCompleted, projectsPaused, projectsTotal,
+            ideasTotal, ideasPending, expressed, organized, distilled,
+            allCompromisos, weekCompromisos,
+            waitingOpen, waitingTotal,
+            reunionesWeek, reunionesTotal,
+            areasActive,
+            ideasWeek, ideasLastWeek,
+            projectsOverdue,
+            topProjects
         ] = await Promise.all([
             get("SELECT count(*) as c FROM projects WHERE status IN ('active','development','beta')"),
             get("SELECT count(*) as c FROM projects WHERE status = 'completed'"),
             get("SELECT count(*) as c FROM projects WHERE status = 'paused'"),
+            get("SELECT count(*) as c FROM projects"),
+            get("SELECT count(*) as c FROM ideas"),
             get("SELECT count(*) as c FROM ideas WHERE code_stage = 'captured' OR code_stage IS NULL"),
             get("SELECT count(*) as c FROM ideas WHERE code_stage = 'expressed'"),
+            get("SELECT count(*) as c FROM ideas WHERE code_stage = 'organized'"),
+            get("SELECT count(*) as c FROM ideas WHERE code_stage = 'distilled'"),
             all("SELECT compromisos FROM reuniones WHERE compromisos != '[]'"),
-            all("SELECT compromisos FROM reuniones WHERE compromisos != '[]' AND created_at >= NOW() - INTERVAL '7 days'")
+            all("SELECT compromisos FROM reuniones WHERE compromisos != '[]' AND created_at >= NOW() - INTERVAL '7 days'"),
+            get("SELECT count(*) as c FROM waiting_for WHERE status = 'waiting'"),
+            get("SELECT count(*) as c FROM waiting_for"),
+            get("SELECT count(*) as c FROM reuniones WHERE created_at >= NOW() - INTERVAL '7 days'"),
+            get("SELECT count(*) as c FROM reuniones"),
+            get("SELECT count(*) as c FROM areas WHERE status = 'active'"),
+            get("SELECT count(*) as c FROM ideas WHERE created_at >= NOW() - INTERVAL '7 days'"),
+            get("SELECT count(*) as c FROM ideas WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'"),
+            get(`SELECT count(*) as c FROM projects WHERE deadline IS NOT NULL AND deadline < CURRENT_DATE::text AND status NOT IN ('completed','cancelled')`),
+            all(`SELECT name, icon, status, deadline FROM projects WHERE status IN ('active','development','beta') ORDER BY CASE WHEN deadline IS NOT NULL THEN 0 ELSE 1 END, deadline ASC LIMIT 5`)
         ]);
 
         // Count individual compromisos from JSON arrays stored in reuniones
@@ -119,14 +138,44 @@ router.get('/executive', async (req, res) => {
             try { compromisosSemanaCount += JSON.parse(r.compromisos || '[]').length; } catch { /* skip */ }
         });
 
+        // Calculate trend (ideas this week vs last week)
+        const thisW = ideasWeek?.c || 0;
+        const lastW = ideasLastWeek?.c || 0;
+        const ideasTrend = lastW > 0 ? Math.round(((thisW - lastW) / lastW) * 100) : (thisW > 0 ? 100 : 0);
+
+        // Project completion rate
+        const pTotal = projectsTotal?.c || 0;
+        const pCompleted = projectsCompleted?.c || 0;
+        const projectCompletionRate = pTotal > 0 ? Math.round((pCompleted / pTotal) * 100) : 0;
+
+        // Ideas pipeline progress (how many have advanced past captured)
+        const iTotal = ideasTotal?.c || 0;
+        const iPending = ideasPending?.c || 0;
+        const ideasProgressRate = iTotal > 0 ? Math.round(((iTotal - iPending) / iTotal) * 100) : 0;
+
         res.json({
             projectsActive: projectsActive?.c || 0,
-            projectsCompleted: projectsCompleted?.c || 0,
+            projectsCompleted: pCompleted,
             projectsPaused: projectsPaused?.c || 0,
-            ideasPending: ideasPending?.c || 0,
+            projectsTotal: pTotal,
+            projectsOverdue: projectsOverdue?.c || 0,
+            projectCompletionRate,
+            ideasTotal: iTotal,
+            ideasPending: iPending,
             expressed: expressed?.c || 0,
+            organized: organized?.c || 0,
+            distilled: distilled?.c || 0,
+            ideasProgressRate,
+            ideasWeek: thisW,
+            ideasTrend,
             compromisos: compromisosCount,
-            compromisosSemana: compromisosSemanaCount
+            compromisosSemana: compromisosSemanaCount,
+            waitingOpen: waitingOpen?.c || 0,
+            waitingTotal: waitingTotal?.c || 0,
+            reunionesWeek: reunionesWeek?.c || 0,
+            reunionesTotal: reunionesTotal?.c || 0,
+            areasActive: areasActive?.c || 0,
+            topProjects: topProjects || []
         });
     } catch (err) {
         log.error('Executive summary error', { error: err.message });

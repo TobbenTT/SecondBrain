@@ -93,13 +93,13 @@ function invalidateUsersCache() {
 
 // ─── Section titles mapping ────────────────────────────────────────────────────
 const SECTION_META = {
-    home: { title: 'Bienvenido', subtitle: 'Hub Interno de Operaciones' },
+    home: { title: 'Panel Ejecutivo', subtitle: 'Resumen estrategico de la operacion' },
     overview: { title: 'Dashboard General', subtitle: 'Resumen ejecutivo — Proyectos, indicadores y flujo de trabajo' },
     projects: { title: 'Proyectos', subtitle: 'Iniciativas activas con plazos y responsables asignados' },
-    areas: { title: 'Áreas de Responsabilidad', subtitle: 'Departamentos y funciones continuas de la organización' },
-    archivos: { title: 'Recursos y Documentación', subtitle: 'Documentos, archivos y material de referencia del equipo' },
-    methodologies: { title: 'Metodologías de Trabajo', subtitle: 'Frameworks operativos: CODE, PARA y GTD' },
-    ideas: { title: 'Ideas Capturadas (CODE)', subtitle: 'Registro de ideas — Capturar, Organizar, Destilar y Expresar' },
+    areas: { title: 'Areas de Responsabilidad', subtitle: 'Departamentos y funciones continuas de la organizacion' },
+    archivos: { title: 'Recursos y Documentos', subtitle: 'Documentos, archivos y material de referencia del equipo' },
+    methodologies: { title: 'Metodologias de Trabajo', subtitle: 'Frameworks operativos: CODE, PARA y GTD' },
+    ideas: { title: 'Ideas Capturadas', subtitle: 'Registro de ideas — Capturar, Organizar, Destilar y Expresar' },
     skills: { title: 'Habilidades y SOPs', subtitle: 'Procedimientos, conocimiento técnico y buenas prácticas' },
     context: { title: 'Base de Conocimiento', subtitle: 'Información organizada por Proyectos, Áreas, Recursos y Archivo' },
     waiting: { title: 'Delegaciones y Seguimiento', subtitle: 'Tareas delegadas pendientes de respuesta o acción de terceros' },
@@ -249,36 +249,16 @@ function initHomeGreeting() {
     el.textContent = greeting + ' Bienvenido al Hub.';
 }
 
-// ─── Home Data (stats + projects + docs) ───────────────────────────────────────
+// ─── Home Data (Executive Panel) ────────────────────────────────────────────
 async function initHomeData() {
-    try {
-        const [archRes, ideasRes, projRes, areasRes] = await Promise.all([
-            fetch('/api/archivos'), fetch('/api/ideas'), fetch('/api/projects'), fetch('/api/areas')
-        ]);
-        const archivos = await archRes.json();
-        const ideasData = await ideasRes.json();
-        const projects = await projRes.json();
-        const areas = await areasRes.json();
-
-        // Handle paginated or raw response
-        const ideasCount = ideasData.pagination ? ideasData.pagination.total : (Array.isArray(ideasData) ? ideasData.length : 0);
-        const activeAreas = Array.isArray(areas) ? areas.filter(a => a.status === 'active').length : 0;
-
-        // Update stats
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('homeStatDocs', archivos.length);
-        set('homeStatIdeas', ideasCount);
-        set('homeStatProjects', projects.length);
-        set('homeStatAreas', activeAreas);
-        set('statProjects', projects.length);
-    } catch (err) {
-        console.error('Home data error:', err);
+    // Set date
+    const dateEl = document.getElementById('execDate');
+    if (dateEl) {
+        dateEl.textContent = new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     }
-
-    // Load executive summary, team, gallery, and personal dashboard
+    // Load all home data in parallel
     loadExecutiveSummary();
     loadHomeTeam();
-    loadHomeGallery();
     loadMyDashboard();
 }
 
@@ -288,15 +268,105 @@ async function loadExecutiveSummary() {
         if (!res.ok) return;
         const d = await res.json();
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('hexProjectsActive', d.projectsActive);
-        set('hexIdeasPending', d.ideasPending);
-        set('hexCompromisos', d.compromisos);
-        set('hexExpressed', d.expressed);
-        const sub1 = document.getElementById('hexProjectsSub');
-        if (sub1) sub1.textContent = `${d.projectsCompleted} completados · ${d.projectsPaused} pausados`;
-        const sub2 = document.getElementById('hexCompromisosSub');
-        if (sub2) sub2.textContent = `${d.compromisosSemana} de esta semana`;
-    } catch (_) { /* silent */ }
+
+        // KPI Cards
+        set('kpiProjectsActive', d.projectsActive);
+        set('kpiProjectsSub', `${d.projectsCompleted} completados de ${d.projectsTotal} totales`);
+        const projBar = document.getElementById('kpiProjectsBar');
+        if (projBar) projBar.style.width = d.projectCompletionRate + '%';
+        const projTrend = document.getElementById('kpiProjectsTrend');
+        if (projTrend && d.projectsOverdue > 0) {
+            projTrend.innerHTML = `<span class="exec-trend-down">${d.projectsOverdue} vencidos</span>`;
+        }
+
+        set('kpiIdeasTotal', d.ideasTotal);
+        set('kpiIdeasSub', `${d.ideasProgressRate}% procesadas · ${d.ideasWeek} esta semana`);
+        const ideasBar = document.getElementById('kpiIdeasBar');
+        if (ideasBar) ideasBar.style.width = d.ideasProgressRate + '%';
+        const ideasTrend = document.getElementById('kpiIdeasTrend');
+        if (ideasTrend) {
+            if (d.ideasTrend > 0) ideasTrend.innerHTML = `<span class="exec-trend-up">+${d.ideasTrend}%</span>`;
+            else if (d.ideasTrend < 0) ideasTrend.innerHTML = `<span class="exec-trend-down">${d.ideasTrend}%</span>`;
+        }
+
+        set('kpiCompromisos', d.compromisos);
+        set('kpiCompromisosSub', `${d.compromisosSemana} de esta semana`);
+        const compBar = document.getElementById('kpiCompromisosBar');
+        if (compBar && d.compromisos > 0) compBar.style.width = Math.min(100, Math.round(d.compromisosSemana / Math.max(d.compromisos, 1) * 100)) + '%';
+
+        set('kpiReuniones', d.reunionesWeek);
+        set('kpiReunionesSub', `${d.reunionesTotal} totales`);
+        const reunBar = document.getElementById('kpiReunionesBar');
+        if (reunBar && d.reunionesTotal > 0) reunBar.style.width = Math.min(100, Math.round(d.reunionesWeek / Math.max(d.reunionesTotal, 1) * 100)) + '%';
+
+        // Project status chart (doughnut)
+        if (window.Chart) {
+            const ctx = document.getElementById('execChartProjects');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Activos', 'Completados', 'Pausados', 'Vencidos'],
+                        datasets: [{
+                            data: [d.projectsActive, d.projectsCompleted, d.projectsPaused, d.projectsOverdue],
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, cutout: '65%',
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#9ca3af', padding: 12, font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Pipeline bars
+        const pipeline = document.getElementById('execPipeline');
+        if (pipeline) {
+            const stages = [
+                { key: 'captured', label: 'Capturadas', count: d.ideasPending, color: '#3b82f6', icon: '📥' },
+                { key: 'organized', label: 'Organizadas', count: d.organized, color: '#f59e0b', icon: '📂' },
+                { key: 'distilled', label: 'Destiladas', count: d.distilled, color: '#8b5cf6', icon: '💎' },
+                { key: 'expressed', label: 'Expresadas', count: d.expressed, color: '#10b981', icon: '🚀' }
+            ];
+            const maxCount = Math.max(...stages.map(s => s.count), 1);
+            pipeline.innerHTML = stages.map(s => {
+                const pct = Math.max(Math.round(s.count / maxCount * 100), 4);
+                return `<div class="exec-pipe-stage">
+                    <div class="exec-pipe-icon">${s.icon}</div>
+                    <div class="exec-pipe-info">
+                        <div class="exec-pipe-label">${s.label} <strong>${s.count}</strong></div>
+                        <div class="exec-pipe-bar-wrap"><div class="exec-pipe-bar" style="width:${pct}%;background:${s.color}"></div></div>
+                    </div>
+                </div>`;
+            }).join('<div class="exec-pipe-arrow">→</div>');
+        }
+
+        // Top projects
+        const topEl = document.getElementById('execTopProjects');
+        if (topEl) {
+            if (d.topProjects && d.topProjects.length > 0) {
+                const statusColors = { active: '#3b82f6', development: '#f59e0b', beta: '#8b5cf6' };
+                topEl.innerHTML = d.topProjects.map(p => {
+                    const color = statusColors[p.status] || '#6b7280';
+                    const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+                    return `<div class="exec-proj-item hp-clickable" onclick="switchSection('projects')">
+                        <span class="exec-proj-icon">${p.icon || '📦'}</span>
+                        <span class="exec-proj-name">${escapeHtml(p.name)}</span>
+                        <span class="exec-proj-status" style="color:${color}">${p.status}</span>
+                        ${deadline ? `<span class="exec-proj-deadline">${deadline}</span>` : ''}
+                    </div>`;
+                }).join('');
+            } else {
+                topEl.innerHTML = '<div class="hp-empty">Sin proyectos activos</div>';
+            }
+        }
+    } catch (err) {
+        console.error('Executive summary error:', err);
+    }
 }
 
 async function loadHomeTeam() {
@@ -844,6 +914,16 @@ function updateProjectStats() {
     set('projStatCompleted', completed);
     set('projStatPaused', paused);
     set('projStatOverdue', overdue);
+
+    // Executive summary
+    const total = allProjects.length;
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    set('projExecRate', rate + '%');
+    const bar = document.getElementById('projExecBar');
+    if (bar) bar.style.width = rate + '%';
+    set('projExecInternal', allProjects.filter(p => (p.project_type || 'interno') === 'interno').length);
+    set('projExecClient', allProjects.filter(p => p.project_type === 'cliente').length);
+    set('projExecWithDeadline', allProjects.filter(p => p.deadline).length);
 }
 
 function filterAndRenderProjects() {
