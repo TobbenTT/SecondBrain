@@ -1190,15 +1190,15 @@ function renderArchivos(files) {
         const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
         const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'manager';
         const deleteBtn = canDelete && file.type !== 'app'
-            ? `<button class="arc-action arc-delete" title="Eliminar" onclick="event.stopPropagation(); deleteArchivo('${escapeHtml(file.name)}')">✕</button>`
+            ? `<button class="arc-delete" title="Eliminar" onclick="event.stopPropagation(); deleteArchivo('${escapeHtml(file.name)}')">✕</button>`
             : '';
 
         return `
             <div class="arc-card arc-${typeClass}">
+                ${deleteBtn}
                 <div class="arc-header">
                     <span class="arc-type-label">${cfg.abbr}</span>
                     <span class="arc-size">${file.sizeFormatted}</span>
-                    ${deleteBtn}
                 </div>
                 <div class="arc-body">
                     <div class="arc-icon">${cfg.icon}</div>
