@@ -6904,7 +6904,7 @@ async function loadReuniones() {
         const data = await res.json();
         renderReuniones(data.reuniones);
         updateReunionesPagination(data.pagination);
-        populateParticipantFilter(data.reuniones);
+        populateParticipantFilter();
     } catch (err) {
         console.error('Load reuniones error:', err);
         const list = document.getElementById('reunionesList');
@@ -7213,26 +7213,22 @@ function updateReunionesPagination(pagination) {
     if (next) next.disabled = pagination.page >= pagination.totalPages;
 }
 
-function populateParticipantFilter(reuniones) {
+async function populateParticipantFilter() {
     const select = document.getElementById('reunionesParticipant');
-    if (!select) return;
-    const currentValue = select.value;
-    const allNames = new Set();
-    reuniones.forEach(r => {
-        (r.asistentes || []).forEach(name => {
-            if (name && name !== 'Participantes no identificados') allNames.add(name);
-        });
-    });
-    // Only repopulate if we have new names
-    if (allNames.size > 0 && select.options.length <= 1) {
-        [...allNames].sort().forEach(name => {
+    if (!select || select.options.length > 1) return; // already populated
+    try {
+        const res = await fetch('/api/reuniones/participants');
+        if (!res.ok) return;
+        const names = await res.json();
+        const currentValue = select.value;
+        names.forEach(name => {
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
             select.appendChild(opt);
         });
-    }
-    if (currentValue) select.value = currentValue;
+        if (currentValue) select.value = currentValue;
+    } catch { /* ignore */ }
 }
 
 // ─── Email Recipients Management (Admin) ─────────────────────────────────────

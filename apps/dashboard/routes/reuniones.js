@@ -354,6 +354,73 @@ router.get('/reuniones/stats/summary', async (req, res) => {
     }
 });
 
+// ─── Unique participants (filtered) ─────────────────────────────────────────
+
+const PARTICIPANT_BLACKLIST = new Set([
+    'participantes no identificados', 'error', 'estructura', 'fireflies',
+    'ojo', 'anti', 'vantas', 'usuario de prueba', 'test', 'unknown',
+    'n/a', 'na', 'none', 'null', 'undefined', 'sistema', 'system',
+    'bot', 'ai', 'assistant', 'moderator', 'host'
+]);
+
+function isValidParticipant(name) {
+    if (!name || typeof name !== 'string') return false;
+    const trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 80) return false;
+    if (PARTICIPANT_BLACKLIST.has(trimmed.toLowerCase())) return false;
+    // Reject names that are just numbers, emails, or URLs
+    if (/^\d+$/.test(trimmed)) return false;
+    if (/^https?:\/\//.test(trimmed)) return false;
+    return true;
+}
+
+router.get('/reuniones/participants', async (req, res) => {
+    try {
+        const rows = await all("SELECT asistentes FROM reuniones WHERE deleted_at IS NULL AND asistentes != '[]'");
+        const allNames = new Set();
+        rows.forEach(r => {
+            const arr = safeJsonParse(r.asistentes, []);
+            arr.forEach(name => {
+                if (isValidParticipant(name)) allNames.add(name.trim());
+            });
+        });
+        res.json([...allNames].sort((a, b) => a.localeCompare(b, 'es')));
+    } catch (err) {
+        log.error('Participants list error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch participants' });
+    }
+});
+
+// ─── Admin: Clean bad participant names from all reuniones ──────────────────
+
+router.put('/reuniones/participants/cleanup', async (req, res) => {
+    if (!req.session?.user || !['admin', 'ceo'].includes(req.session.user.role)) {
+        return res.status(403).json({ error: 'Admin only' });
+    }
+    try {
+        const extraBlacklist = (req.body.blacklist || []).map(n => n.toLowerCase().trim());
+        const rows = await all("SELECT id, asistentes FROM reuniones WHERE asistentes != '[]' AND deleted_at IS NULL");
+        let cleaned = 0;
+        for (const row of rows) {
+            const arr = safeJsonParse(row.asistentes, []);
+            const filtered = arr.filter(name => {
+                if (!isValidParticipant(name)) return false;
+                if (extraBlacklist.includes((name || '').toLowerCase().trim())) return false;
+                return true;
+            });
+            if (filtered.length !== arr.length) {
+                await run('UPDATE reuniones SET asistentes = ? WHERE id = ?', [JSON.stringify(filtered), row.id]);
+                cleaned++;
+            }
+        }
+        log.info('Participants cleanup', { cleaned, by: req.session.user.username });
+        res.json({ cleaned, message: `${cleaned} reuniones limpiadas` });
+    } catch (err) {
+        log.error('Participants cleanup error', { error: err.message });
+        res.status(500).json({ error: 'Cleanup failed' });
+    }
+});
+
 // ─── List meetings (paginated, filterable) ──────────────────────────────────
 
 router.get('/reuniones', async (req, res) => {
