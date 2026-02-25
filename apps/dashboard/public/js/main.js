@@ -2171,6 +2171,11 @@ function initChat() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: text, agent: agent })
             });
+            if (!res.ok) {
+                removeTypingIndicator();
+                if (res.status === 401) { appendMessage('ai', 'Sesion expirada. Recarga la pagina.'); return; }
+                throw new Error(`Servidor respondio ${res.status}`);
+            }
             const data = await res.json();
 
             removeTypingIndicator();
@@ -2178,7 +2183,10 @@ function initChat() {
             appendMessage('ai', data.response);
         } catch (err) {
             removeTypingIndicator();
-            appendMessage('ai', `Error: ${err.message}`);
+            const msg = err.message.includes('Failed to fetch')
+                ? 'No se pudo conectar al servidor. Verifica tu conexion.'
+                : `No pude procesar tu mensaje. ${err.message}`;
+            appendMessage('ai', msg);
         } finally {
             sendBtn.disabled = false;
         }

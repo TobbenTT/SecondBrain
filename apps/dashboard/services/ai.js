@@ -521,28 +521,39 @@ Genera un output profesional y completo basado en tu skill.
 Este output sera guardado como entregable del sistema SecondBrain.
 `;
 
-    try {
-        // 1. Gemini (primary)
-        if (genAI) {
-            const executionModel = genAI.getGenerativeModel({
-                model: "gemini-3-flash-preview",
-                generationConfig: { maxOutputTokens: 8000 }
-            });
-            const execChat = executionModel.startChat({
-                systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-            });
-            const result = await execChat.sendMessage(userPrompt);
-            const response = await result.response;
-            return { success: true, output: response.text() };
+    // 1. Gemini (primary) with retry for 503/overloaded
+    if (genAI) {
+        const MAX_RETRIES = 3;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                const executionModel = genAI.getGenerativeModel({
+                    model: "gemini-3-flash-preview",
+                    generationConfig: { maxOutputTokens: 8000 }
+                });
+                const execChat = executionModel.startChat({
+                    systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+                });
+                const result = await execChat.sendMessage(userPrompt);
+                const response = await result.response;
+                return { success: true, output: response.text() };
+            } catch (geminiErr) {
+                const is503 = geminiErr.message && (geminiErr.message.includes('503') || geminiErr.message.includes('overloaded') || geminiErr.message.includes('high demand'));
+                if (is503 && attempt < MAX_RETRIES) {
+                    const delay = attempt * 3000;
+                    log.info(`Gemini 503, retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+                log.info('Gemini unavailable for executeWithAgent, falling back to Ollama', { error: geminiErr.message, attempts: attempt });
+                break;
+            }
         }
-    } catch (geminiErr) {
-        log.info('Gemini unavailable for executeWithAgent, falling back to Ollama', { error: geminiErr.message });
     }
     try {
         // 2. Ollama (last resort)
         const ollamaResult = await ollama.generate(userPrompt, systemPrompt);
         if (ollamaResult) return { success: true, output: ollamaResult };
-        throw new Error('All AI providers failed');
+        throw new Error('All AI providers failed — Gemini returned 503 and Ollama is unavailable');
     } catch (error) {
         log.error('Agent execution error', { error: error.message });
         return { success: false, error: error.message };

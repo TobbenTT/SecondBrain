@@ -522,7 +522,7 @@ function seedApiKeys() {
     db.get('SELECT count(*) as count FROM api_keys', [], (err, row) => {
         if (err) return;
         if (row.count === 0) {
-            log.info('Seeding default API key for OpenClaw');
+            log.info('Seeding default API keys');
             const crypto = require('crypto');
             const key = 'sb_' + crypto.randomBytes(24).toString('hex');
             db.run(
@@ -533,6 +533,15 @@ function seedApiKeys() {
                 }
             );
         }
+        // Ensure inteligencia-correos key always exists
+        const correosKey = 'sb_12b5199409045112e93c13eef4c149a239841de0b9ed0baf';
+        db.run(
+            'INSERT OR IGNORE INTO api_keys (key, name, username, permissions) VALUES (?, ?, ?, ?)',
+            [correosKey, 'Inteligencia de Correos', 'system', 'read,write'],
+            (err) => {
+                if (!err) log.info('Inteligencia-de-correos API key ensured');
+            }
+        );
     });
 }
 
