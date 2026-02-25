@@ -41,7 +41,7 @@ router.get('/gtd/daily-report', async (req, res) => {
             userStats.push({ username: u.username, pending: pending.cnt, completed_today: done.cnt });
         }
 
-        const areas = await all('SELECT * FROM areas WHERE status = 'active'');
+        const areas = await all("SELECT * FROM areas WHERE status = 'active'");
 
         let report;
         try {
