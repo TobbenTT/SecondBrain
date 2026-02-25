@@ -229,12 +229,19 @@ app.post('/recover-from-fireflies', async (req, res) => {
         const transcripts = listResult.data.transcripts || [];
         console.log(`[RECOVER] Found ${transcripts.length} recent transcripts in Fireflies`);
 
-        // 2. Check which ones are already in Supabase (by title match)
+        // 2. Check which ones are already in Supabase (by title + date combo)
         const { pool } = require('./scripts/db');
-        const existing = await pool.query('SELECT titulo FROM reuniones_analisis');
-        const existingTitles = new Set(existing.rows.map(r => r.titulo?.toLowerCase().trim()));
+        const existing = await pool.query('SELECT titulo, fecha FROM reuniones_analisis');
+        const existingKeys = new Set(existing.rows.map(r => {
+            const date = r.fecha ? new Date(r.fecha).toISOString().split('T')[0] : '';
+            return `${r.titulo?.toLowerCase().trim()}|${date}`;
+        }));
 
-        const missing = transcripts.filter(t => !existingTitles.has(t.title?.toLowerCase().trim()));
+        const missing = transcripts.filter(t => {
+            const date = t.date ? new Date(parseInt(t.date)).toISOString().split('T')[0] : '';
+            const key = `${t.title?.toLowerCase().trim()}|${date}`;
+            return !existingKeys.has(key);
+        });
         console.log(`[RECOVER] ${missing.length} transcripts missing from Supabase`);
 
         if (missing.length === 0) {
