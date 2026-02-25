@@ -51,6 +51,29 @@ router.get('/', async (req, res) => {
     }
 });
 
+// ─── Export all feedback as JSON download ────────────────────────────────────
+router.get('/export', async (req, res) => {
+    try {
+        const feedback = await all(
+            `SELECT f.*,
+                    (SELECT COUNT(*) FROM feedback_attachments fa WHERE fa.feedback_id = f.id) as attachment_count
+             FROM feedback f
+             ORDER BY f.created_at DESC`
+        );
+        const date = new Date().toISOString().slice(0, 10);
+        res.setHeader('Content-Disposition', `attachment; filename="feedback_export_${date}.json"`);
+        res.setHeader('Content-Type', 'application/json');
+        res.json({
+            exported_at: new Date().toISOString(),
+            total: feedback.length,
+            feedback
+        });
+    } catch (err) {
+        log.error('Feedback export error', { error: err.message });
+        res.status(500).json({ error: 'Failed to export feedback' });
+    }
+});
+
 // ─── Create feedback (with optional attachments) ────────────────────────────
 router.post('/', upload.array('attachments', 5), async (req, res) => {
     const user = req.session?.user;

@@ -7177,6 +7177,23 @@ async function loadFeedback() {
     }
 }
 
+async function downloadFeedback() {
+    try {
+        const res = await fetch('/api/feedback/export');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feedback_export_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Feedback descargado', 'success');
+    } catch (err) {
+        console.error('Download feedback error:', err);
+        showToast('Error al descargar feedback', 'error');
+    }
+}
+
 function filterFeedback(status) {
     _fbFilter = status;
     document.querySelectorAll('#feedbackFilters .skill-filter-chip').forEach(btn => {
