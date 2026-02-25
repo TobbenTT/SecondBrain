@@ -154,7 +154,7 @@ app.use(session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    name: 'sb.sid',
+    name: 'sb.sid2',
     cookie: {
         maxAge: 1000 * 60 * 60 * 8,
         httpOnly: true,
