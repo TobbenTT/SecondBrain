@@ -192,6 +192,63 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Sync all meetings from Supabase to Dashboard SQLite
+app.post('/sync-to-dashboard', async (req, res) => {
+    const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+    const apiKey = process.env.DASHBOARD_API_KEY;
+
+    if (!apiKey) {
+        return res.status(400).json({ error: 'DASHBOARD_API_KEY not configured' });
+    }
+
+    try {
+        const { pool } = require('./scripts/db');
+        const result = await pool.query(
+            'SELECT * FROM reuniones_analisis ORDER BY fecha DESC'
+        );
+
+        let synced = 0, skipped = 0, failed = 0;
+
+        for (const row of result.rows) {
+            const payload = {
+                external_id: String(row.id),
+                titulo: row.titulo,
+                fecha: row.fecha,
+                transcripcion_raw: row.transcripcion_raw || null,
+                asistentes: typeof row.asistentes === 'string' ? JSON.parse(row.asistentes) : (row.asistentes || []),
+                acuerdos: typeof row.acuerdos === 'string' ? JSON.parse(row.acuerdos) : (row.acuerdos || []),
+                puntos_clave: typeof row.puntos_clave === 'string' ? JSON.parse(row.puntos_clave) : (row.puntos_clave || []),
+                compromisos: typeof row.compromisos === 'string' ? JSON.parse(row.compromisos) : (row.compromisos || []),
+                entregables: typeof row.entregables === 'string' ? JSON.parse(row.entregables) : (row.entregables || []),
+                proxima_reunion: row.proxima_reunion || null,
+                nivel_analisis: row.nivel_analisis || null
+            };
+
+            try {
+                const resp = await fetch(`${dashboardUrl}/api/webhook/reuniones`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(10000)
+                });
+                const data = await resp.json();
+                if (data.message === 'Already exists') skipped++;
+                else if (data.success) synced++;
+                else failed++;
+            } catch (err) {
+                console.error(`[SYNC] Failed for ID ${row.id}: ${err.message}`);
+                failed++;
+            }
+        }
+
+        console.log(`[SYNC] Done: ${synced} synced, ${skipped} already existed, ${failed} failed (total: ${result.rows.length})`);
+        res.json({ success: true, total: result.rows.length, synced, skipped, failed });
+    } catch (err) {
+        console.error('[SYNC] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Tarea Programada: Envío Semanal todos los viernes a las 12:00 PM (hora servidor local)
 // Sintaxis cron: 'minuto hora dia mes dia_semana' -> '0 12 * * 5'
 cron.schedule('0 12 * * 5', () => {
