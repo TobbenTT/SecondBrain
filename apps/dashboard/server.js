@@ -269,7 +269,7 @@ const ERROR_META = {
     401: { title: 'No Autorizado', message: 'Necesitas iniciar sesion para acceder a este recurso.' },
     403: { title: 'Acceso Denegado', message: 'No tienes permisos para acceder a este recurso.' },
     404: { title: 'Pagina No Encontrada', message: 'El recurso que buscas no existe o fue movido a otra ubicacion.' },
-    500: { title: 'Error del Servidor', message: 'Ocurrio un error interno. El equipo tecnico ha sido notificado.' },
+    500: { title: 'Error del Servidor', message: 'Ocurrio un error interno. Por favor intenta de nuevo o contacta al administrador.' },
     502: { title: 'Bad Gateway', message: 'El servidor no pudo obtener una respuesta valida. Puede estar reiniciandose.' },
     503: { title: 'Servicio en Mantenimiento', message: 'El sistema esta temporalmente fuera de servicio. Volvera pronto.' },
 };

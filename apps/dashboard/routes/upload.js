@@ -84,8 +84,30 @@ const upload = multer({
     limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+// ─── Multer Error Handler ────────────────────────────────────────────────────
+function handleMulterError(err, req, res, next) {
+    if (err instanceof multer.MulterError) {
+        const messages = {
+            LIMIT_FILE_SIZE: 'El archivo excede el tamaño máximo permitido (50MB)',
+            LIMIT_UNEXPECTED_FILE: 'Campo de archivo inesperado',
+        };
+        log.warn('Upload rejected', { code: err.code, path: req.path });
+        return res.status(400).json({ error: messages[err.code] || `Error de upload: ${err.code}` });
+    }
+    if (err && err.message === 'Tipo de archivo no permitido') {
+        log.warn('File type rejected', { path: req.path, originalname: req.file?.originalname });
+        return res.status(400).json({ error: 'Tipo de archivo no permitido. Solo se aceptan: .md, .pdf, .txt, .docx' });
+    }
+    next(err);
+}
+
 // ─── Voice Upload ────────────────────────────────────────────────────────────
-router.post('/api/ideas/voice', blockConsultor, upload.single('audio'), async (req, res) => {
+router.post('/api/ideas/voice', blockConsultor, (req, res, next) => {
+    upload.single('audio')(req, res, (err) => {
+        if (err) return handleMulterError(err, req, res, next);
+        next();
+    });
+}, async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
         const textToSave = (req.body.text || 'Nota de voz').trim();
@@ -120,7 +142,12 @@ router.post('/api/ideas/voice', blockConsultor, upload.single('audio'), async (r
 });
 
 // ─── File Upload ─────────────────────────────────────────────────────────────
-router.post('/api/upload', blockConsultor, upload.single('file'), (req, res) => {
+router.post('/api/upload', blockConsultor, (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) return handleMulterError(err, req, res, next);
+        next();
+    });
+}, (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file provided' });
         const rawTags = req.body.tags || '';

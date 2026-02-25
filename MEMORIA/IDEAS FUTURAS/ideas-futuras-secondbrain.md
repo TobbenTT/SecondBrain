@@ -12,7 +12,21 @@
 **Prioridad:** Media-Alta (ahorro de costos)
 **Contexto:** Inteligencia-de-correos usa Supabase ($25/mes). Se puede reemplazar con PostgreSQL en Docker.
 
-**Que implica:**
+**Estrategia: Preparar en segundo plano sin afectar produccion**
+
+Se puede dejar todo listo para que el dia que digan "SI" sea 1 click:
+
+1. Agregar PostgreSQL 16 al docker-compose (contenedor corriendo pero nada lo usa todavia)
+2. Crear script `migrate-to-postgres.sh` que:
+   - Exporta de Supabase con `pg_dump`
+   - Exporta de SQLite con `.dump`
+   - Importa todo al PostgreSQL local
+3. Preparar el codigo con env var `DB_ENGINE=sqlite|postgres` — el dashboard lee de uno u otro segun la variable
+4. **Cuando digan SI**: cambiar `DB_ENGINE=postgres` en `.env`, correr el script, reiniciar contenedores
+
+El dashboard sigue funcionando con SQLite mientras tanto. PostgreSQL corre en paralelo sin que nadie lo note.
+
+**Que implica (tecnico):**
 - Agregar contenedor PostgreSQL 16 al docker-compose
 - Exportar datos de Supabase con `pg_dump`
 - Importar en PostgreSQL local con `pg_restore`
@@ -28,12 +42,13 @@
 - Misma tecnologia (PostgreSQL) pero local
 - Backups bajo tu control, no dependen de Supabase
 - Menor latencia (BD esta en el mismo servidor, no en la nube)
+- Se puede preparar sin afectar produccion (todo en paralelo)
 
 **Desventajas:**
 - Pierdes Supabase Auth (hay que replicar con auth del dashboard)
 - RLS de Supabase hay que configurarlo manual en PostgreSQL nativo
 - Tu eres responsable de los updates de seguridad de PostgreSQL
-- Necesita ventana de mantenimiento para la migracion (downtime)
+- Necesita ventana de mantenimiento para la migracion (downtime minimo si se prepara bien)
 - Si el VPS cae, la BD cae con el (en Supabase estan separados)
 
 ---
@@ -278,27 +293,62 @@ nginx (TLS 1.3)
 
 ---
 
-## 9. 2FA (Autenticacion de Dos Factores)
+## 9. 2FA Adaptativo (Risk-Based Authentication)
 
 **Estado:** No implementado
 **Prioridad:** Media (requerido para ISO 27001)
 
-**Opciones:**
-- TOTP (Google Authenticator / Authy) — gratis, estandar
-- Email OTP — mas simple pero menos seguro
-- WebAuthn / Passkeys — moderno pero mas complejo
+**Enfoque:** 2FA adaptativo — NO pedir segundo factor siempre, solo cuando hay riesgo.
+
+**Cuando se pide 2FA:**
+
+| Situacion | 2FA? |
+|-----------|------|
+| Login desde IP conocida + dispositivo habitual | No |
+| Login desde IP nueva o pais diferente | Si |
+| Login despues de 30 dias sin verificar | Si |
+| Accion sensible (borrar datos, cambiar password, admin panel) | Si |
+| 3+ intentos fallidos de login en esa cuenta | Si |
+| Cambiar email o rol de usuario | Si |
+
+**Implementacion tecnica:**
+- Tabla `trusted_devices` (IP + user-agent hash + fecha de ultimo 2FA)
+- Si combo IP+device esta en la tabla y no ha expirado → skip 2FA
+- Si es nuevo → pedir TOTP o email OTP
+- Para acciones sensibles → siempre pedir, sin importar dispositivo
+
+**Opciones de segundo factor:**
+
+| Metodo | Como funciona | Pros | Contras |
+|--------|--------------|------|---------|
+| TOTP (Microsoft Authenticator / Google Authenticator) | Codigo de 6 digitos que cambia cada 30 segundos | Gratis, funciona offline, estandar | Requiere sacar el celular |
+| WebAuthn / Passkeys (RECOMENDADO) | El navegador usa Windows Hello: PIN, huella digital, o reconocimiento facial | Mas rapido (1 toque), no necesitas celular, phishing-resistant | Requiere navegador moderno y hardware compatible |
+| Email OTP | Codigo enviado por email | Simple de implementar | Menos seguro, depende del email |
+| Push notification | Microsoft Authenticator envia "Aprobar/Rechazar" al celular | Muy comodo, 1 tap | Requiere internet en el celular |
+
+**Recomendacion:** Soportar multiples metodos. WebAuthn como principal (huella/PIN de Windows Hello) + TOTP como fallback (Microsoft Authenticator en el celular). El usuario elige cual prefiere.
+
+**WebAuthn en detalle (huella / PIN / cara):**
+- El navegador (Chrome, Edge, Firefox) detecta Windows Hello automaticamente
+- El usuario registra su dispositivo una vez (huella, PIN, o cara)
+- En el siguiente login que requiera 2FA → el navegador pide la huella/PIN directamente
+- No se envia nada por internet — la verificacion es local en el dispositivo
+- Si el usuario cambia de PC → usa TOTP como fallback hasta registrar el nuevo dispositivo
+- Libreria npm: `@simplewebauthn/server` + `@simplewebauthn/browser`
 
 **Ventajas:**
 - Si roban la contraseña, no pueden entrar sin el segundo factor
 - Requisito para ISO 27001 y SOC 2
 - TOTP es gratis y funciona offline
 - Genera confianza en clientes que auditen la seguridad de VSC
+- Sin friccion en uso diario — solo pide 2FA cuando hay riesgo real
+- Acciones sensibles siempre protegidas aunque el login fue normal
 
 **Desventajas:**
-- Friccion para el usuario (sacar el celular cada login)
 - Si pierden el celular, quedan bloqueados (necesita recovery codes)
 - Email OTP depende de que el email funcione (si el servidor de email cae, nadie entra)
-- Implementacion requiere cambios en login flow, BD (secret keys), y UI
+- Implementacion requiere cambios en login flow, BD (secret keys, trusted_devices), y UI
+- La logica de "riesgo" puede tener falsos positivos (VPN cambia IP constantemente)
 
 ---
 
@@ -325,3 +375,114 @@ nginx (TLS 1.3)
 - Migracion de schema + datos requiere tiempo y testing
 - PostgreSQL consume mas RAM que SQLite (~50-100MB base)
 - Over-engineering si el equipo es pequeño
+
+---
+
+## 11. Staging Environment (Entorno de Pruebas)
+
+**Estado:** No implementado
+**Prioridad:** Media-Alta (previene errores en produccion)
+**Contexto:** Tener una copia identica del sistema donde probar cambios antes de pasarlos a produccion.
+
+**Como funciona:**
+- **Produccion** (`app.tudominio.com`): Lo que ven los usuarios reales, datos reales
+- **Staging** (`staging.tudominio.com`): Copia identica donde pruebas features nuevos, con datos de prueba
+- Cuando un cambio funciona bien en staging → se pasa a produccion con confianza
+
+**Implementacion con Docker:**
+- Segundo `docker-compose.staging.yml` con los mismos servicios pero en puertos distintos
+- BD separada (copia de produccion o datos de prueba) — nunca tocar datos reales
+- Subdominio `staging.tudominio.com` apuntando al mismo VPS via nginx
+- Mismo codigo pero en branch `staging` o `develop` de git
+- Proteger con password (nginx basic auth) para que solo el equipo acceda
+
+```
+Flujo de trabajo:
+  develop branch → staging (pruebas) → main branch → produccion
+
+  Desarrollador hace cambios
+       ↓
+  Push a branch develop
+       ↓
+  Deploy automatico a staging.tudominio.com
+       ↓
+  Probar que todo funciona (QA)
+       ↓
+  Merge a main → deploy a produccion
+```
+
+**Ventajas:**
+- Nunca rompes produccion — los errores se detectan en staging antes
+- Puedes probar features grandes sin miedo (ej: migracion de BD, 2FA, etc.)
+- El CEO/equipo puede ver y aprobar cambios antes de que salgan en vivo
+- Estandar de la industria — requisito para ISO 27001 y SOC 2
+- Si staging falla, produccion sigue funcionando sin problema
+- Permite hacer testing de carga sin afectar usuarios reales
+
+**Desventajas:**
+- Consume recursos del VPS (duplicas contenedores — ~200-500MB RAM extra)
+- Necesita mantener datos de prueba actualizados (o script para copiar de produccion)
+- Un servicio mas que mantener (actualizar staging tambien cuando hay cambios de infra)
+- Si el VPS es limitado en RAM, puede no ser viable tener ambos corriendo a la vez
+- Requiere disciplina: si el equipo no usa staging, es desperdicio de recursos
+
+---
+
+## ROADMAP — Orden de Ejecucion
+
+> Staging primero, luego probar todo lo grande ahi antes de tocar produccion.
+
+### Fase 1: Staging Environment (Idea #11)
+**Prioridad: PRIMERA** — Es la base para todo lo demas.
+- Crear `docker-compose.staging.yml`
+- Configurar subdominio `staging.tudominio.com` en nginx
+- Proteger con basic auth
+- Branch `develop` apunta a staging, `main` a produccion
+
+### Fase 2: PostgreSQL Local en Staging (Ideas #1 y #10)
+**Probar en staging sin tocar produccion.**
+- Agregar contenedor PostgreSQL 16 al compose de staging
+- Migrar datos de Supabase (correos) al PostgreSQL local en staging
+- Migrar SQLite del dashboard al mismo PostgreSQL en staging
+- Probar que todo funciona igual — si falla, produccion sigue intacta
+- Cuando pase QA → pasar a produccion con 1 click
+
+### Fase 3: Redis + Sesiones (Idea #2)
+**Probar en staging.**
+- Agregar Redis al compose de staging
+- Reemplazar MemoryStore por RedisStore
+- Verificar que sesiones sobreviven reinicios
+- Pasar a produccion
+
+### Fase 4: 2FA Adaptativo (Idea #9)
+**Probar en staging.**
+- Implementar tabla `trusted_devices`
+- WebAuthn como metodo principal (huella digital / PIN / cara via Windows Hello)
+- TOTP como fallback (Microsoft Authenticator / Google Authenticator)
+- Probar flujo completo: login normal, login IP nueva, acciones sensibles
+- Pasar a produccion
+
+### Fase 5: Seguridad avanzada (Ideas #3 y #4)
+- Rate limiting, fail2ban, redes Docker separadas
+- pgAudit, backups encriptados
+- Preparar documentacion para certificaciones
+
+### Fase 6: Features de valor (Ideas #6 y #7)
+- Daily Digest automatico (Tap on Shoulder)
+- Confidence Score en GTD (Bouncer)
+
+### Fase 7: Largo plazo (Ideas #5 y #8)
+- File Manager para CEO (esperar requisitos)
+- WhatsApp / Email ingestion
+
+```
+Timeline visual:
+
+Fase 1 ████░░░░░░░░░░░░░░░░  Staging (base para todo)
+Fase 2 ░░░░████████░░░░░░░░  PostgreSQL local (probar en staging)
+Fase 3 ░░░░░░░░████░░░░░░░░  Redis sesiones
+Fase 4 ░░░░░░░░░░░░████░░░░  2FA adaptativo
+Fase 5 ░░░░░░░░░░░░░░░░████  Seguridad avanzada
+Fase 6 ░░░░░░░░░░░░░░░░░░██  Features de valor
+Fase 7 ░░░░░░░░░░░░░░░░░░░░  Largo plazo (cuando se necesite)
+```

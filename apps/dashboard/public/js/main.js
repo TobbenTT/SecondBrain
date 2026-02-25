@@ -1354,13 +1354,14 @@ function initUpload() {
                 initArchivos();
                 initHomeData();
             } else {
-                const err = await res.json();
-                alert('Error: ' + (err.error || 'Upload failed'));
+                let msg = 'Error al subir archivo';
+                try { const data = await res.json(); msg = data.error || msg; } catch (_) {}
+                showToast(msg, 'error');
                 btnUpload.textContent = 'Subir Archivo ↑';
             }
         } catch (err) {
             console.error('Upload error:', err);
-            alert('Error de conexión');
+            showToast('Error de conexión al subir archivo', 'error');
             btnUpload.textContent = 'Subir Archivo ↑';
         }
         btnUpload.disabled = false;
