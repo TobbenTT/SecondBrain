@@ -113,10 +113,16 @@ const uploadLimiter = rateLimit({
     max: 10,
     message: { error: 'Upload rate limit exceeded.' }
 });
+const downloadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: 'Too many downloads. Try again in a minute.'
+});
 app.use('/api/', apiLimiter);
 app.use('/api/ai/', aiLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/ideas/voice', uploadLimiter);
+app.use('/descargar/', downloadLimiter);
 
 // ─── Performance: Compression ───────────────────────────────────────────────
 app.use(compression({
@@ -216,6 +222,20 @@ app.post('/webhook/fireflies', async (req, res) => {
 app.use('/login', loginLimiter);
 app.use(authRoutes);
 
+// ─── CSRF Protection for API routes ─────────────────────────────────────────
+// HTML forms can only submit GET/POST. For POST, we require application/json
+// (which triggers CORS preflight cross-origin), blocking form-based CSRF.
+// PUT/DELETE/PATCH require JavaScript (fetch/XHR) → already CORS-protected.
+app.use('/api/', (req, res, next) => {
+    if (req.method !== 'POST') return next();
+    if (req.isApiRequest) return next(); // X-API-Key authenticated
+    const cl = req.headers['content-length'];
+    if (!cl || cl === '0') return next(); // Action endpoints without body (e.g. /complete)
+    const ct = (req.headers['content-type'] || '').toLowerCase();
+    if (ct.includes('application/json') || ct.includes('multipart/form-data')) return next();
+    return res.status(403).json({ error: 'Invalid content type. Use application/json.' });
+});
+
 // ─── Protected Routes ────────────────────────────────────────────────────────
 app.use(requireAuth);
 
@@ -256,7 +276,8 @@ app.use((err, req, res, _next) => {
         log.warn(err.message, { code: err.code, status: err.statusCode, path: req.path });
         return res.status(err.statusCode).json({ error: err.message, code: err.code });
     }
-    log.error('Unhandled error', { error: err.message, stack: err.stack, path: req.path, method: req.method });
+    const sanitizedStack = NODE_ENV === 'production' ? undefined : err.stack;
+    log.error('Unhandled error', { error: err.message, stack: sanitizedStack, path: req.path, method: req.method });
     res.status(500).json({ error: NODE_ENV === 'production' ? 'Internal server error' : err.message });
 });
 

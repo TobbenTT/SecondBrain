@@ -354,6 +354,12 @@ function initTables() {
         db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_fecha ON reuniones(fecha)');
         db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_external ON reuniones(external_id)');
         db.run('CREATE INDEX IF NOT EXISTS idx_reuniones_notif_user ON reuniones_notifications(username)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_created_by ON ideas(created_by)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_status ON ideas(status)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_execution ON ideas(execution_status)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_needs_review ON ideas(needs_review)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_is_project ON ideas(is_project)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_ideas_user_date ON ideas(created_by, created_at)');
 
         // ─── Feedback table ─────────────────────────────────────────────
         db.run(`CREATE TABLE IF NOT EXISTS feedback (
