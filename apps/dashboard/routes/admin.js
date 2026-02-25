@@ -1553,4 +1553,91 @@ router.get('/graph', async (req, res) => {
     }
 });
 
+// ─── Herramientas Contratadas (Subscriptions / Tools) ────────────────────────
+
+router.get('/herramientas', async (req, res) => {
+    try {
+        const herramientas = await all(
+            'SELECT * FROM herramientas_contratadas ORDER BY estado ASC, categoria, nombre'
+        );
+        res.json({ herramientas });
+    } catch (err) {
+        log.error('Herramientas list error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch herramientas' });
+    }
+});
+
+router.get('/herramientas/resumen', async (req, res) => {
+    try {
+        const activas = await all("SELECT * FROM herramientas_contratadas WHERE estado = 'activo'");
+        let totalMensual = 0;
+        activas.forEach(h => {
+            const costo = (h.costo_mensual || 0) * (h.num_licencias || 1);
+            totalMensual += h.frecuencia === 'anual' ? costo / 12 : costo;
+        });
+
+        const categorias = {};
+        activas.forEach(h => {
+            categorias[h.categoria] = (categorias[h.categoria] || 0) + 1;
+        });
+
+        const proxRenovacion = await get(
+            "SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND fecha_renovacion IS NOT NULL AND fecha_renovacion != '' ORDER BY fecha_renovacion ASC LIMIT 1"
+        );
+
+        res.json({
+            total_activas: activas.length,
+            total_mensual: Math.round(totalMensual * 100) / 100,
+            total_anual: Math.round(totalMensual * 12 * 100) / 100,
+            por_categoria: categorias,
+            proxima_renovacion: proxRenovacion || null
+        });
+    } catch (err) {
+        log.error('Herramientas resumen error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch resumen' });
+    }
+});
+
+router.post('/herramientas', requireAdmin, async (req, res) => {
+    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, notas } = req.body;
+    if (!nombre) return res.status(400).json({ error: 'Nombre es requerido' });
+    try {
+        const result = await run(
+            `INSERT INTO herramientas_contratadas (nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, notas, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nombre, proveedor || null, categoria || 'General', costo_mensual || 0, moneda || 'USD', frecuencia || 'mensual', fecha_inicio || null, fecha_renovacion || null, num_licencias || 1, notas || null, req.session.user.username]
+        );
+        log.info('Herramienta added', { id: result.lastID, nombre, by: req.session.user.username });
+        res.json({ success: true, id: result.lastID });
+    } catch (err) {
+        log.error('Herramienta create error', { error: err.message });
+        res.status(500).json({ error: 'Failed to create herramienta' });
+    }
+});
+
+router.put('/herramientas/:id', requireAdmin, async (req, res) => {
+    const { nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, estado, notas } = req.body;
+    try {
+        await run(
+            `UPDATE herramientas_contratadas SET nombre=?, proveedor=?, categoria=?, costo_mensual=?, moneda=?, frecuencia=?, fecha_inicio=?, fecha_renovacion=?, num_licencias=?, estado=?, notas=? WHERE id=?`,
+            [nombre, proveedor, categoria, costo_mensual, moneda, frecuencia, fecha_inicio, fecha_renovacion, num_licencias, estado, notas, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Herramienta update error', { error: err.message });
+        res.status(500).json({ error: 'Failed to update herramienta' });
+    }
+});
+
+router.delete('/herramientas/:id', requireAdmin, async (req, res) => {
+    try {
+        await run('DELETE FROM herramientas_contratadas WHERE id = ?', [req.params.id]);
+        log.info('Herramienta deleted', { id: req.params.id, by: req.session.user.username });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Herramienta delete error', { error: err.message });
+        res.status(500).json({ error: 'Failed to delete herramienta' });
+    }
+});
+
 module.exports = router;

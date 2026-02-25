@@ -10014,3 +10014,92 @@ select option {
     color: var(--text-secondary);
     margin: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HERRAMIENTAS CONTRATADAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.herr-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.herr-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    text-align: center;
+}
+.herr-stat-val {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent-light);
+}
+.herr-stat-val.herr-stat-small { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
+.herr-stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+.herr-table-wrap {
+    overflow-x: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.herr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.herr-table thead th {
+    background: rgba(255,255,255,0.03);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+.herr-table tbody td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-primary);
+}
+.herr-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.herr-row-inactive { opacity: 0.5; }
+.herr-cat-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.herr-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.herr-activo { background: rgba(46,204,113,0.15); color: #2ecc71; }
+.herr-inactivo { background: rgba(149,165,166,0.15); color: #95a5a6; }
+.herr-cancelado { background: rgba(231,76,60,0.15); color: #e74c3c; }
+.herr-btn-edit, .herr-btn-del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.herr-btn-edit:hover { background: rgba(52,152,219,0.15); }
+.herr-btn-del:hover { background: rgba(231,76,60,0.15);
+}

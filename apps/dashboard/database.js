@@ -216,6 +216,24 @@ function initTables() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
+        // Herramientas Contratadas (subscriptions/tools tracking for Finance agent)
+        db.run(`CREATE TABLE IF NOT EXISTS herramientas_contratadas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            proveedor TEXT,
+            categoria TEXT DEFAULT 'General',
+            costo_mensual REAL DEFAULT 0,
+            moneda TEXT DEFAULT 'USD',
+            frecuencia TEXT DEFAULT 'mensual',
+            fecha_inicio TEXT,
+            fecha_renovacion TEXT,
+            num_licencias INTEGER DEFAULT 1,
+            estado TEXT DEFAULT 'activo',
+            notas TEXT,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
         // Daily Checklist Table (per-consultant task tracking)
         db.run(`CREATE TABLE IF NOT EXISTS daily_checklist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

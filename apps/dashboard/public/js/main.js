@@ -99,7 +99,8 @@ const SECTION_META = {
     'reuniones': { title: 'Reuniones', subtitle: 'Inteligencia de reuniones — Analisis automatizado de Fireflies.ai' },
     'feedback': { title: 'Feedback', subtitle: 'Sugerencias y mejoras del equipo' },
     'admin-users': { title: 'Gestion de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
-    'graph-view': { title: 'Vista Gráfica', subtitle: 'Mapa interactivo de conexiones — Proyectos, Áreas, Reuniones, Ideas, Skills' }
+    'graph-view': { title: 'Vista Gráfica', subtitle: 'Mapa interactivo de conexiones — Proyectos, Áreas, Reuniones, Ideas, Skills' },
+    'herramientas': { title: 'Herramientas Contratadas', subtitle: 'Suscripciones y licencias de software — Contexto para Finance Agent' }
 };
 
 
@@ -163,6 +164,7 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'reuniones') loadReuniones();
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
+    if (sectionId === 'herramientas') loadHerramientas();
     if (sectionId === 'graph-view') loadGraphView();
     if (sectionId === 'inbox') { if (!_lazyInited.inbox) { _lazyInited.inbox = true; initInboxTriage(); } loadInboxTriage(); }
     if (sectionId === 'okrs') { if (!_lazyInited.okrs) { _lazyInited.okrs = true; initOKRs(); } loadOKRs(); }
@@ -8711,6 +8713,175 @@ async function loadUserBriefing(username) {
         }
     } catch (err) {
         showToast('Error al cargar briefing', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HERRAMIENTAS CONTRATADAS (Admin — Tools/Subscriptions)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HERR_CATEGORIAS_COLORS = {
+    Productividad: '#3498db', Infraestructura: '#e67e22', Comunicaciones: '#2ecc71',
+    Desarrollo: '#9b59b6', 'Diseño': '#e91e63', Operaciones: '#00bcd4',
+    RRHH: '#ff9800', Seguridad: '#f44336', Otro: '#607d8b'
+};
+
+async function loadHerramientas() {
+    try {
+        const [resHerr, resStats] = await Promise.all([
+            fetch('/api/herramientas'),
+            fetch('/api/herramientas/resumen')
+        ]);
+        const { herramientas } = await resHerr.json();
+        const stats = await resStats.json();
+
+        // Stats
+        const statsEl = document.getElementById('herrStats');
+        if (statsEl) {
+            const proxRen = stats.proxima_renovacion
+                ? `${stats.proxima_renovacion.nombre} (${new Date(stats.proxima_renovacion.fecha_renovacion).toLocaleDateString('es-ES')})`
+                : 'N/A';
+            statsEl.innerHTML = `
+                <div class="herr-stat"><div class="herr-stat-val">${stats.total_activas}</div><div class="herr-stat-label">HERRAMIENTAS ACTIVAS</div></div>
+                <div class="herr-stat"><div class="herr-stat-val">$${stats.total_mensual.toLocaleString()}</div><div class="herr-stat-label">COSTO MENSUAL</div></div>
+                <div class="herr-stat"><div class="herr-stat-val">$${stats.total_anual.toLocaleString()}</div><div class="herr-stat-label">COSTO ANUAL</div></div>
+                <div class="herr-stat"><div class="herr-stat-val herr-stat-small">${proxRen}</div><div class="herr-stat-label">PROXIMA RENOVACION</div></div>
+            `;
+        }
+
+        // Table
+        const tbody = document.getElementById('herrTableBody');
+        if (!tbody) return;
+        if (!herramientas || herramientas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay herramientas registradas. Agrega la primera.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = herramientas.map(h => {
+            const catColor = HERR_CATEGORIAS_COLORS[h.categoria] || '#607d8b';
+            const estadoBadge = h.estado === 'activo'
+                ? '<span class="herr-badge herr-activo">Activo</span>'
+                : h.estado === 'cancelado'
+                    ? '<span class="herr-badge herr-cancelado">Cancelado</span>'
+                    : '<span class="herr-badge herr-inactivo">Inactivo</span>';
+            const renovacion = h.fecha_renovacion
+                ? new Date(h.fecha_renovacion).toLocaleDateString('es-ES')
+                : '-';
+            const costoLabel = `$${(h.costo_mensual || 0).toLocaleString()} ${h.moneda || 'USD'}/${h.frecuencia === 'anual' ? 'año' : 'mes'}`;
+            return `<tr class="${h.estado !== 'activo' ? 'herr-row-inactive' : ''}">
+                <td><strong>${escapeHtml(h.nombre)}</strong></td>
+                <td>${escapeHtml(h.proveedor || '-')}</td>
+                <td><span class="herr-cat-badge" style="background:${catColor}20;color:${catColor};border:1px solid ${catColor}40">${escapeHtml(h.categoria)}</span></td>
+                <td>${costoLabel}</td>
+                <td style="text-align:center">${h.num_licencias || 1}</td>
+                <td>${renovacion}</td>
+                <td>${estadoBadge}</td>
+                <td>
+                    <button class="herr-btn-edit" onclick="openHerramientaModal(${h.id})" title="Editar">✏️</button>
+                    <button class="herr-btn-del" onclick="deleteHerramienta(${h.id}, '${escapeHtml(h.nombre).replace(/'/g, "\\'")}')" title="Eliminar">🗑️</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error('Load herramientas error:', err);
+    }
+}
+
+let _herrCache = [];
+async function openHerramientaModal(id) {
+    const modal = document.getElementById('herrModal');
+    const title = document.getElementById('herrModalTitle');
+    if (!modal) return;
+
+    // Reset form
+    document.getElementById('herrForm').reset();
+    document.getElementById('herrId').value = '';
+    document.getElementById('herrEstado').value = 'activo';
+
+    if (id) {
+        title.textContent = 'Editar Herramienta';
+        try {
+            const res = await fetch('/api/herramientas');
+            const { herramientas } = await res.json();
+            const h = herramientas.find(x => x.id === id);
+            if (h) {
+                document.getElementById('herrId').value = h.id;
+                document.getElementById('herrNombre').value = h.nombre || '';
+                document.getElementById('herrProveedor').value = h.proveedor || '';
+                document.getElementById('herrCategoria').value = h.categoria || 'General';
+                document.getElementById('herrCosto').value = h.costo_mensual || 0;
+                document.getElementById('herrFrecuencia').value = h.frecuencia || 'mensual';
+                document.getElementById('herrMoneda').value = h.moneda || 'USD';
+                document.getElementById('herrLicencias').value = h.num_licencias || 1;
+                document.getElementById('herrFechaInicio').value = h.fecha_inicio || '';
+                document.getElementById('herrFechaRenovacion').value = h.fecha_renovacion || '';
+                document.getElementById('herrEstado').value = h.estado || 'activo';
+                document.getElementById('herrNotas').value = h.notas || '';
+            }
+        } catch (err) { console.error(err); }
+    } else {
+        title.textContent = 'Agregar Herramienta';
+    }
+    modal.style.display = 'flex';
+}
+
+function closeHerramientaModal() {
+    const modal = document.getElementById('herrModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function saveHerramienta(e) {
+    e.preventDefault();
+    const id = document.getElementById('herrId').value;
+    const body = {
+        nombre: document.getElementById('herrNombre').value.trim(),
+        proveedor: document.getElementById('herrProveedor').value.trim(),
+        categoria: document.getElementById('herrCategoria').value,
+        costo_mensual: parseFloat(document.getElementById('herrCosto').value) || 0,
+        frecuencia: document.getElementById('herrFrecuencia').value,
+        moneda: document.getElementById('herrMoneda').value,
+        num_licencias: parseInt(document.getElementById('herrLicencias').value) || 1,
+        fecha_inicio: document.getElementById('herrFechaInicio').value || null,
+        fecha_renovacion: document.getElementById('herrFechaRenovacion').value || null,
+        estado: document.getElementById('herrEstado').value,
+        notas: document.getElementById('herrNotas').value.trim()
+    };
+
+    if (!body.nombre) { showToast('Nombre es requerido', 'error'); return; }
+
+    try {
+        const url = id ? `/api/herramientas/${id}` : '/api/herramientas';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success || data.id) {
+            showToast(id ? 'Herramienta actualizada' : 'Herramienta agregada', 'success');
+            closeHerramientaModal();
+            loadHerramientas();
+        } else {
+            showToast(data.error || 'Error al guardar', 'error');
+        }
+    } catch (err) {
+        showToast('Error al guardar herramienta', 'error');
+    }
+}
+
+async function deleteHerramienta(id, nombre) {
+    if (!confirm(`Eliminar "${nombre}"? Esta accion no se puede deshacer.`)) return;
+    try {
+        const res = await fetch(`/api/herramientas/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Herramienta eliminada', 'success');
+            loadHerramientas();
+        } else {
+            showToast(data.error || 'Error al eliminar', 'error');
+        }
+    } catch (err) {
+        showToast('Error al eliminar herramienta', 'error');
     }
 }
 
