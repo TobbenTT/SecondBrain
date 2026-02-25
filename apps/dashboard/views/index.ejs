@@ -221,11 +221,7 @@
                 <% if (user) { %>
                     <div class="user-profile" onclick="openProfileModal()" style="cursor:pointer" title="Editar perfil">
                         <div class="user-avatar" id="sidebarAvatar">
-                            <% if (user.avatar) { %>
-                                <img src="<%= user.avatar %>" alt="avatar">
-                            <% } else { %>
-                                <%= user.username.charAt(0).toUpperCase() %>
-                            <% } %>
+                            <img src="<%= user.avatar || '/avatars/vsc.png' %>" alt="avatar">
                         </div>
                         <div class="user-info">
                             <span class="user-name"><%= user.username %></span>

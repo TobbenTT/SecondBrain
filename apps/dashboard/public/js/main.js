@@ -7787,9 +7787,8 @@ window.closeFbLightbox = closeFbLightbox;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function _avatarHtml(avatar, username, size = 40) {
-    if (avatar) return `<img src="${avatar}" alt="${username}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
-    const initial = (username || '?').charAt(0).toUpperCase();
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${size * 0.45}px;">${initial}</div>`;
+    const src = avatar || '/avatars/vsc.png';
+    return `<img src="${src}" alt="${username || '?'}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
 }
 
 // ─── Profile Modal (self-edit) ──────────────────────────────────────────────
