@@ -159,7 +159,7 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 8,
         httpOnly: true,
         sameSite: 'lax',
-        secure: 'auto'  // auto-detect: secure when X-Forwarded-Proto=https via trust proxy
+        secure: false  // SSL termination at nginx; container receives HTTP on localhost
     }
 }));
 
