@@ -94,11 +94,7 @@ router.get('/archivo/:filename', (req, res) => {
     const ext = path.extname(filename).toLowerCase();
     const stats = fs.statSync(filePath);
 
-    if (ext === '.pdf') {
-        const dynamicPage = findDynamicPage(filename, DINAMICAS_DIR);
-        if (dynamicPage) return res.redirect(dynamicPage.url);
-    }
-
+    // PDFs serve directly — interactive versions are linked via the file list UI
     if (ext === '.md') {
         const content = fs.readFileSync(filePath, 'utf-8');
         const htmlContent = marked(content);
