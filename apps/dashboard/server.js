@@ -159,7 +159,7 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 8,
         httpOnly: true,
         sameSite: 'lax',
-        secure: NODE_ENV === 'production'
+        secure: 'auto'  // auto-detect: secure when X-Forwarded-Proto=https via trust proxy
     }
 }));
 
