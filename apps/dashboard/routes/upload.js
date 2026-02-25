@@ -150,4 +150,52 @@ router.post('/api/upload', blockConsultor, upload.single('file'), (req, res) => 
     }
 });
 
+// ─── Delete File ────────────────────────────────────────────────────────────
+router.delete('/api/archivo/:filename', (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    if (!['admin', 'manager'].includes(user.role)) {
+        return res.status(403).json({ error: 'Solo admin o manager pueden eliminar archivos' });
+    }
+
+    const filename = req.params.filename;
+    const filePath = path.join(ARCHIVOS_DIR, filename);
+
+    // Safety: prevent path traversal
+    if (!filePath.startsWith(ARCHIVOS_DIR)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    try {
+        // Delete the file
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        } else {
+            return res.status(404).json({ error: 'Archivo no encontrado' });
+        }
+
+        // Delete associated dynamic page folder
+        const ext = path.extname(filename).toLowerCase();
+        const basename = path.basename(filename, ext);
+        const dynamicDir = path.join(DINAMICAS_DIR, basename);
+        if (fs.existsSync(dynamicDir)) {
+            fs.rmSync(dynamicDir, { recursive: true, force: true });
+            log.info('Dynamic page deleted', { dir: basename });
+        }
+
+        // Remove tags
+        const tags = loadTags(TAGS_FILE);
+        if (tags[filename]) {
+            delete tags[filename];
+            saveTags(TAGS_FILE, tags);
+        }
+
+        log.info('File deleted', { filename, user: user.username });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('File delete error', { error: err.message });
+        res.status(500).json({ error: 'Error al eliminar archivo' });
+    }
+});
+
 module.exports = router;

@@ -1188,12 +1188,17 @@ function renderArchivos(files) {
             ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Descargar PDF" onclick="event.stopPropagation();">Descargar</a>`
             : '';
         const dynamicBadge = file.hasDynamic && file.type !== 'app' ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
+        const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'manager';
+        const deleteBtn = canDelete && file.type !== 'app'
+            ? `<button class="arc-action arc-delete" title="Eliminar" onclick="event.stopPropagation(); deleteArchivo('${escapeHtml(file.name)}')">✕</button>`
+            : '';
 
         return `
             <div class="arc-card arc-${typeClass}">
                 <div class="arc-header">
                     <span class="arc-type-label">${cfg.abbr}</span>
                     <span class="arc-size">${file.sizeFormatted}</span>
+                    ${deleteBtn}
                 </div>
                 <div class="arc-body">
                     <div class="arc-icon">${cfg.icon}</div>
@@ -1208,6 +1213,22 @@ function renderArchivos(files) {
             </div>
         `;
     }).join('');
+}
+
+async function deleteArchivo(filename) {
+    if (!confirm(`¿Eliminar "${filename}"? Esta acción no se puede deshacer.`)) return;
+    try {
+        const res = await fetch(`/api/archivo/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Archivo eliminado', 'success');
+            loadArchivos();
+        } else {
+            showToast(data.error || 'Error al eliminar', 'error');
+        }
+    } catch {
+        showToast('Error al eliminar archivo', 'error');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

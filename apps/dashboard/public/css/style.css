@@ -1492,6 +1492,10 @@ a:hover {
     border: 1px solid rgba(39,174,96,0.15);
 }
 .arc-download:hover { background: rgba(39,174,96,0.2); color: #27ae60; }
+.arc-delete { position: absolute; right: 8px; top: 8px; background: rgba(231,76,60,0.1); color: #e74c3c; border: 1px solid rgba(231,76,60,0.15); border-radius: 50%; width: 24px; height: 24px; padding: 0; font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; }
+.arc-card:hover .arc-delete { opacity: 1; }
+.arc-delete:hover { background: rgba(231,76,60,0.3); }
+.arc-header { position: relative; }
 
 /* Empty state */
 .archivos-empty {
