@@ -71,7 +71,7 @@ router.get('/api/archivos', (req, res) => {
                         modified: new Date(),
                         hasDynamic: true,
                         dynamicUrl: `/dinamicas/${encodeURIComponent(dir.name)}/${encodeURIComponent(entryFile)}`,
-                        tags: tags[dir.name] || ['guia', 'sistema']
+                        tags: tags[dir.name] || []
                     });
                 }
             });
