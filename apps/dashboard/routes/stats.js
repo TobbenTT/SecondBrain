@@ -91,4 +91,37 @@ router.get('/analytics', async (req, res) => {
     }
 });
 
+// ─── Executive Summary (Home) ───────────────────────────────────────────────
+
+router.get('/executive', async (req, res) => {
+    try {
+        const [
+            projectsActive, projectsCompleted, projectsPaused,
+            ideasPending, expressed,
+            compromisos, compromisosSemana
+        ] = await Promise.all([
+            get("SELECT count(*) as c FROM projects WHERE status IN ('active','development','beta')"),
+            get("SELECT count(*) as c FROM projects WHERE status = 'completed'"),
+            get("SELECT count(*) as c FROM projects WHERE status = 'paused'"),
+            get("SELECT count(*) as c FROM ideas WHERE code_stage = 'captured' OR code_stage IS NULL"),
+            get("SELECT count(*) as c FROM ideas WHERE code_stage = 'expressed'"),
+            get("SELECT count(*) as c FROM reuniones_compromisos WHERE estado != 'cumplido'"),
+            get("SELECT count(*) as c FROM reuniones_compromisos WHERE estado != 'cumplido' AND created_at >= datetime('now', '-7 days')")
+        ]);
+
+        res.json({
+            projectsActive: projectsActive?.c || 0,
+            projectsCompleted: projectsCompleted?.c || 0,
+            projectsPaused: projectsPaused?.c || 0,
+            ideasPending: ideasPending?.c || 0,
+            expressed: expressed?.c || 0,
+            compromisos: compromisos?.c || 0,
+            compromisosSemana: compromisosSemana?.c || 0
+        });
+    } catch (err) {
+        log.error('Executive summary error', { error: err.message });
+        res.status(500).json({ error: 'Executive summary failed' });
+    }
+});
+
 module.exports = router;

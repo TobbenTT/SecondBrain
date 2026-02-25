@@ -259,10 +259,28 @@ async function initHomeData() {
         console.error('Home data error:', err);
     }
 
-    // Load team, gallery, and personal dashboard
+    // Load executive summary, team, gallery, and personal dashboard
+    loadExecutiveSummary();
     loadHomeTeam();
     loadHomeGallery();
     loadMyDashboard();
+}
+
+async function loadExecutiveSummary() {
+    try {
+        const res = await fetch('/api/stats/executive');
+        if (!res.ok) return;
+        const d = await res.json();
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('hexProjectsActive', d.projectsActive);
+        set('hexIdeasPending', d.ideasPending);
+        set('hexCompromisos', d.compromisos);
+        set('hexExpressed', d.expressed);
+        const sub1 = document.getElementById('hexProjectsSub');
+        if (sub1) sub1.textContent = `${d.projectsCompleted} completados · ${d.projectsPaused} pausados`;
+        const sub2 = document.getElementById('hexCompromisosSub');
+        if (sub2) sub2.textContent = `${d.compromisosSemana} de esta semana`;
+    } catch (_) { /* silent */ }
 }
 
 async function loadHomeTeam() {
@@ -790,10 +808,26 @@ async function loadProjects() {
     try {
         const res = await fetch('/api/projects');
         allProjects = await res.json();
+        updateProjectStats();
         filterAndRenderProjects();
     } catch (err) {
         console.error('Load projects error:', err);
     }
+}
+
+function updateProjectStats() {
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    const active = allProjects.filter(p => p.status === 'active').length;
+    const dev = allProjects.filter(p => ['development', 'beta'].includes(p.status)).length;
+    const completed = allProjects.filter(p => p.status === 'completed').length;
+    const paused = allProjects.filter(p => p.status === 'paused').length;
+    const now = new Date().toISOString().slice(0, 10);
+    const overdue = allProjects.filter(p => p.deadline && p.deadline < now && !['completed', 'cancelled'].includes(p.status)).length;
+    set('projStatActive', active);
+    set('projStatDev', dev);
+    set('projStatCompleted', completed);
+    set('projStatPaused', paused);
+    set('projStatOverdue', overdue);
 }
 
 function filterAndRenderProjects() {
@@ -4384,6 +4418,34 @@ async function loadAnalytics() {
             });
         } else if (ctx6) {
             ctx6.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.85rem;">Sin datos de productividad aun</div>';
+        }
+
+        // CODE flow pipeline (visual funnel)
+        const pipeline = document.getElementById('codeFlowPipeline');
+        if (pipeline && data.codeFlow) {
+            const stageMap = { captured: 'Capturada', organized: 'Organizada', distilled: 'Destilada', expressed: 'Expresada' };
+            const stageColors = { captured: '#3b82f6', organized: '#f59e0b', distilled: '#8b5cf6', expressed: '#10b981' };
+            const stageIcons = { captured: '📥', organized: '📂', distilled: '🧪', expressed: '🚀' };
+            const stages = ['captured', 'organized', 'distilled', 'expressed'];
+            const counts = {};
+            data.codeFlow.forEach(r => { counts[r.code_stage] = r.count; });
+            const total = stages.reduce((s, k) => s + (counts[k] || 0), 0) || 1;
+
+            pipeline.innerHTML = stages.map((key, i) => {
+                const count = counts[key] || 0;
+                const pct = Math.round(count / total * 100);
+                return `
+                    <div class="cfp-stage">
+                        <div class="cfp-icon">${stageIcons[key]}</div>
+                        <div class="cfp-bar-wrap">
+                            <div class="cfp-bar" style="width:${Math.max(pct, 4)}%;background:${stageColors[key]}"></div>
+                        </div>
+                        <div class="cfp-label">${stageMap[key]}</div>
+                        <div class="cfp-count">${count} <span style="color:var(--text-muted);font-size:0.75rem">(${pct}%)</span></div>
+                    </div>
+                    ${i < stages.length - 1 ? '<div class="cfp-arrow">→</div>' : ''}
+                `;
+            }).join('');
         }
 
     } catch (err) {

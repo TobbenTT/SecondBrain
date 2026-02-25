@@ -36,11 +36,11 @@
                 <span class="nav-label">Principal</span>
                 <a href="#home" class="nav-link active" data-section="home">
                     <span class="nav-icon">🏠</span>
-                    Home
+                    Inicio
                 </a>
                 <a href="#overview" class="nav-link" data-section="overview">
                     <span class="nav-icon">📊</span>
-                    Overview
+                    Dashboard CODE/PARA
                 </a>
                 <a href="#reuniones" class="nav-link" data-section="reuniones">
                     <span class="nav-icon">📅</span>
@@ -48,49 +48,49 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">PARA</span>
+                <span class="nav-label">Gestión de Conocimiento</span>
                 <a href="#projects" class="nav-link" data-section="projects">
                     <span class="nav-icon">🚀</span>
                     Proyectos
                 </a>
                 <a href="#areas" class="nav-link" data-section="areas">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon">🏢</span>
                     Áreas
                 </a>
                 <a href="#archivos" class="nav-link" data-section="archivos">
                     <span class="nav-icon">📄</span>
-                    Recursos
+                    Recursos & Docs
                 </a>
                 <a href="#skills" class="nav-link" data-section="skills">
                     <span class="nav-icon">📚</span>
-                    Skills
+                    Habilidades
                 </a>
                 <a href="#methodologies" class="nav-link" data-section="methodologies">
                     <span class="nav-icon">📐</span>
-                    Metodologias
+                    Metodologías
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">CODE</span>
+                <span class="nav-label">Captura & Procesamiento</span>
                 <a href="#inbox" class="nav-link" data-section="inbox">
                     <span class="nav-icon">📥</span>
-                    Inbox
+                    Bandeja de Entrada
                     <span class="inbox-badge" id="inboxBadge" style="display:none;"></span>
                 </a>
                 <a href="#ideas" class="nav-link" data-section="ideas">
                     <span class="nav-icon">💡</span>
-                    Captura
+                    Ideas (Captura)
                 </a>
                 <a href="#context" class="nav-link" data-section="context">
                     <span class="nav-icon">🧠</span>
-                    Memoria
+                    Memoria PARA
                 </a>
                 <a href="#waiting" class="nav-link" data-section="waiting">
                     <span class="nav-icon">⏳</span>
-                    A la Espera
+                    Delegaciones
                 </a>
                 <a href="#reportability" class="nav-link" data-section="reportability">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon">📋</span>
                     Reportabilidad
                 </a>
                 <a href="#analytics" class="nav-link" data-section="analytics">
@@ -99,10 +99,10 @@
                 </a>
             </div>
             <div class="nav-section nav-section-revision">
-                <span class="nav-label">CONSULTOR</span>
+                <span class="nav-label">Equipo</span>
                 <a href="#revision" class="nav-link" data-section="revision">
                     <span class="nav-icon">📝</span>
-                    Revision
+                    Revisión
                 </a>
                 <a href="#feedback" class="nav-link" data-section="feedback">
                     <span class="nav-icon">💬</span>
@@ -110,10 +110,10 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">OPENCLAW</span>
+                <span class="nav-label">Automatización</span>
                 <a href="#agents" class="nav-link" data-section="agents">
                     <span class="nav-icon">🤖</span>
-                    Agentes
+                    Agentes IA
                 </a>
                 <a href="#openclaw" class="nav-link" data-section="openclaw">
                     <span class="nav-icon">🦞</span>
@@ -121,21 +121,21 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">GTD</span>
+                <span class="nav-label">Planificación GTD</span>
                 <a href="#gtd-board" class="nav-link" data-section="gtd-board">
                     <span class="nav-icon">🎯</span>
-                    Proximas Acciones
+                    Próximas Acciones
                 </a>
                 <a href="#gtd-projects" class="nav-link" data-section="gtd-projects">
                     <span class="nav-icon">📂</span>
                     Proyectos GTD
                 </a>
                 <a href="#gtd-report" class="nav-link" data-section="gtd-report">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon">📰</span>
                     Reporte Diario
                 </a>
                 <a href="#okrs" class="nav-link" data-section="okrs">
-                    <span class="nav-icon">🎯</span>
+                    <span class="nav-icon">🏆</span>
                     OKRs
                 </a>
             </div>
@@ -274,6 +274,37 @@
                 <div class="hss-item hss-clickable" onclick="switchSection('areas')">
                     <span class="hss-num" id="homeStatAreas">—</span>
                     <span class="hss-label">Áreas Activas</span>
+                </div>
+            </div>
+
+            <!-- Executive Summary -->
+            <div class="home-executive" id="homeExecutive">
+                <h3 class="home-section-title" style="margin-bottom:12px;">Resumen Ejecutivo</h3>
+                <div class="hex-grid">
+                    <div class="hex-card hex-card-blue">
+                        <div class="hex-icon">🚀</div>
+                        <div class="hex-value" id="hexProjectsActive">—</div>
+                        <div class="hex-label">Proyectos Activos</div>
+                        <div class="hex-sub" id="hexProjectsSub"></div>
+                    </div>
+                    <div class="hex-card hex-card-amber">
+                        <div class="hex-icon">📥</div>
+                        <div class="hex-value" id="hexIdeasPending">—</div>
+                        <div class="hex-label">Ideas sin Clasificar</div>
+                        <div class="hex-sub">Pendientes de organizar</div>
+                    </div>
+                    <div class="hex-card hex-card-red">
+                        <div class="hex-icon">📋</div>
+                        <div class="hex-value" id="hexCompromisos">—</div>
+                        <div class="hex-label">Compromisos Abiertos</div>
+                        <div class="hex-sub" id="hexCompromisosSub"></div>
+                    </div>
+                    <div class="hex-card hex-card-green">
+                        <div class="hex-icon">✅</div>
+                        <div class="hex-value" id="hexExpressed">—</div>
+                        <div class="hex-label">Expresadas (CODE)</div>
+                        <div class="hex-sub">Ideas completadas</div>
+                    </div>
                 </div>
             </div>
 
@@ -424,8 +455,8 @@
             <!-- CODE Pipeline — Hero -->
             <div class="ov-pipeline-panel">
                 <div class="ov-pipeline-header">
-                    <h2>Pipeline CODE</h2>
-                    <span>Flujo de Trabajo</span>
+                    <h2>Dashboard Operativo</h2>
+                    <span>Pipeline CODE + Métricas PARA — Vista general del flujo de trabajo</span>
                 </div>
                 <div class="ov-pipeline-track">
                     <div class="ov-pipeline-line"></div>
@@ -556,6 +587,34 @@
              SECTION: PROJECTS (dynamic)
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-projects">
+
+            <!-- Project Executive Summary -->
+            <div class="home-stats-strip" id="projectStatsStrip">
+                <div class="hss-item">
+                    <span class="hss-num" id="projStatActive">—</span>
+                    <span class="hss-label">Activos</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="projStatDev">—</span>
+                    <span class="hss-label">En Desarrollo</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="projStatCompleted">—</span>
+                    <span class="hss-label">Completados</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="projStatPaused">—</span>
+                    <span class="hss-label">Pausados</span>
+                </div>
+                <div class="hss-divider"></div>
+                <div class="hss-item">
+                    <span class="hss-num" id="projStatOverdue" style="color:#ef4444">—</span>
+                    <span class="hss-label">Vencidos</span>
+                </div>
+            </div>
 
             <!-- Add Project Panel -->
             <div class="panel add-project-panel">
@@ -1421,6 +1480,16 @@
                 </div>
             </div>
 
+            <!-- CODE Flow Pipeline -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🔄 Pipeline CODE (Capturar → Organizar → Destilar → Expresar)</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="codeFlowPipeline" class="code-flow-pipeline"></div>
+                </div>
+            </div>
+
             <!-- Type & Priority Charts -->
             <div class="analytics-row">
                 <div class="panel" style="flex:1;">
@@ -2138,6 +2207,15 @@
              SECTION: INBOX TRIAGE
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-inbox">
+            <!-- Inbox Explainer -->
+            <div class="inbox-explainer">
+                <div class="inbox-explainer-icon">📥</div>
+                <div>
+                    <strong>Bandeja de Entrada — Triage Inteligente</strong>
+                    <p>Aquí llegan las ideas capturadas que la IA clasificó automáticamente. Revisa las que tienen baja confianza, confirma o corrige la clasificación, y muévelas a su destino (Proyecto, Área, Recurso o Archivo).</p>
+                </div>
+            </div>
+
             <!-- Inbox Stats -->
             <div class="home-stats-strip" id="inboxStatsStrip">
                 <div class="hss-item">

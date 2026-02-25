@@ -10151,3 +10151,94 @@ select option {
     opacity: 0.7;
 }
 .update-banner .update-dismiss:hover { opacity: 1; }
+
+/* ─── Inbox Explainer ─────────────────────────────────────────────────────── */
+.inbox-explainer {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+.inbox-explainer-icon { font-size: 2rem; flex-shrink: 0; }
+.inbox-explainer strong { font-size: 0.92rem; color: var(--text-primary); }
+.inbox-explainer p { font-size: 0.82rem; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.5; }
+
+/* ─── Executive Summary (Home) ────────────────────────────────────────────── */
+.home-executive { padding: 0 24px; margin-bottom: 8px; }
+.hex-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+@media (max-width: 900px) { .hex-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .hex-grid { grid-template-columns: 1fr; } }
+.hex-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-top: 3px solid transparent;
+}
+.hex-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+.hex-card-blue  { border-top-color: #3b82f6; }
+.hex-card-amber { border-top-color: #f59e0b; }
+.hex-card-red   { border-top-color: #ef4444; }
+.hex-card-green { border-top-color: #10b981; }
+.hex-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.hex-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); }
+.hex-label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-top: 2px; }
+.hex-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; min-height: 14px; }
+
+/* ─── CODE Flow Pipeline (Analytics) ──────────────────────────────────────── */
+.code-flow-pipeline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 16px;
+    overflow-x: auto;
+}
+.cfp-stage {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+}
+.cfp-icon { font-size: 1.6rem; margin-bottom: 8px; }
+.cfp-bar-wrap {
+    height: 28px;
+    background: var(--bg-input, rgba(255,255,255,0.05));
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+.cfp-bar {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.6s ease;
+}
+.cfp-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.cfp-count {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 2px;
+}
+.cfp-arrow {
+    font-size: 1.4rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-top: -20px;
+}
+@media (max-width: 640px) {
+    .code-flow-pipeline { flex-direction: column; }
+    .cfp-arrow { transform: rotate(90deg); margin-top: 0; }
+}
