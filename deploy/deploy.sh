@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# SecondBrain — Zero-Downtime Deploy (Blue-Green)
+# SecondBrain — Deploy Seguro
 #
 # Uso: ./deploy.sh [servicio]
 #   ./deploy.sh              → deploy dashboard (default)
@@ -9,12 +9,12 @@
 #
 # Flujo:
 #   1. git pull
-#   2. Build nueva imagen
-#   3. Levantar nuevo container en puerto temporal
-#   4. Esperar health check OK
-#   5. Cambiar nginx al nuevo puerto
-#   6. Apagar container viejo
-#   7. Limpiar
+#   2. Build nueva imagen (mientras la vieja sigue sirviendo)
+#   3. Reemplazar container (nginx muestra pagina de mantenimiento ~3-5s)
+#   4. Esperar health check
+#
+# Los datos son seguros: el volumen sb-data persiste entre containers.
+# Los archivos en knowledge/ y core/skills/ son bind mounts del host.
 # ============================================================================
 
 set -euo pipefail
@@ -32,7 +32,6 @@ err()  { echo -e "${RED}[✗]${NC} $1"; }
 info() { echo -e "${BLUE}[→]${NC} $1"; }
 
 REPO_DIR="${HOME}/SecondBrain"
-NGINX_CONF="/etc/nginx/sites-available/secondbrain"
 SERVICE="${1:-dashboard}"
 
 cd "$REPO_DIR"
@@ -54,103 +53,51 @@ wait_for_health() {
     return 1
 }
 
-swap_nginx_port() {
-    local new_port=$1
-    # Reemplazar el puerto en el upstream del nginx
-    sudo sed -i "s|server 127.0.0.1:[0-9]*;|server 127.0.0.1:${new_port};|" "$NGINX_CONF"
-
-    if sudo nginx -t 2>/dev/null; then
-        sudo systemctl reload nginx
-        return 0
-    else
-        err "nginx config invalida — revirtiendo"
-        return 1
-    fi
-}
-
-get_current_port() {
-    grep -oP 'server 127\.0\.0\.1:\K[0-9]+' "$NGINX_CONF" | head -1
-}
-
 # ─── Deploy Dashboard ────────────────────────────────────────────────────────
 
 deploy_dashboard() {
-    local LIVE_PORT
-    LIVE_PORT=$(get_current_port)
-    local NEW_PORT
-
-    if [ "$LIVE_PORT" = "3000" ]; then
-        NEW_PORT=3001
-    else
-        NEW_PORT=3000
-    fi
-
-    info "Dashboard: puerto actual=${LIVE_PORT}, nuevo=${NEW_PORT}"
-
-    # 1. Pull
     info "Descargando cambios..."
     git pull --ff-only
 
-    # 2. Build nueva imagen
-    info "Construyendo imagen..."
+    # Build ANTES de parar — asi el downtime es solo el restart (~3-5s)
+    info "Construyendo imagen nueva (el dashboard sigue funcionando)..."
     docker compose build dashboard
+    log "Imagen construida"
 
-    # 3. Levantar nuevo container en puerto temporal
-    info "Levantando container nuevo en puerto ${NEW_PORT}..."
-    DASHBOARD_PORT=$NEW_PORT docker compose run -d \
-        --name "secondbrain-dashboard-new" \
-        -p "${NEW_PORT}:3000" \
-        --no-deps \
-        -e "PORT=3000" \
-        dashboard
+    # Reemplazar container — nginx muestra maintenance.html durante estos segundos
+    info "Reemplazando container (downtime ~3-5s, nginx muestra pagina de mantenimiento)..."
+    docker compose up -d --no-deps dashboard
 
-    # 4. Esperar health check
-    info "Esperando health check en puerto ${NEW_PORT}..."
-    if wait_for_health "$NEW_PORT"; then
-        log "Health check OK"
+    # Esperar que arranque
+    info "Esperando health check..."
+    if wait_for_health 3000; then
+        log "Dashboard desplegado y saludable"
     else
-        err "Health check fallo despues de 60s — abortando"
-        docker rm -f "secondbrain-dashboard-new" 2>/dev/null
+        err "Health check fallo despues de 60s"
+        warn "Revisando logs..."
+        docker logs --tail 20 secondbrain-dashboard
         exit 1
     fi
-
-    # 5. Cambiar nginx
-    info "Cambiando nginx al puerto ${NEW_PORT}..."
-    if swap_nginx_port "$NEW_PORT"; then
-        log "Nginx apuntando a puerto ${NEW_PORT}"
-    else
-        err "Error al cambiar nginx — limpiando"
-        docker rm -f "secondbrain-dashboard-new" 2>/dev/null
-        exit 1
-    fi
-
-    # 6. Apagar container viejo
-    info "Apagando container viejo..."
-    docker rm -f "secondbrain-dashboard" 2>/dev/null || true
-    sleep 1
-
-    # 7. Renombrar nuevo container al nombre estandar
-    docker rename "secondbrain-dashboard-new" "secondbrain-dashboard"
-
-    log "Dashboard desplegado sin downtime (puerto ${NEW_PORT})"
 }
 
 # ─── Deploy Correos ──────────────────────────────────────────────────────────
 
 deploy_correos() {
-    info "Correos: deploy con rebuild rapido..."
-
+    info "Descargando cambios..."
     git pull --ff-only
 
-    # Correos no tiene upstream en nginx, usa puerto fijo 3003
-    # El downtime es minimo (~5s) y solo afecta webhooks de Fireflies
-    docker compose up -d --build inteligencia-correos
+    info "Construyendo imagen correos..."
+    docker compose build inteligencia-correos
+    log "Imagen construida"
+
+    info "Reemplazando container correos..."
+    docker compose up -d --no-deps inteligencia-correos
 
     info "Esperando health check correos..."
     if wait_for_health 3003; then
         log "Inteligencia-de-correos desplegado"
     else
-        warn "Health check correos no respondio, verificar logs: docker logs secondbrain-correos"
+        warn "Health check correos no respondio — revisar: docker logs secondbrain-correos"
     fi
 }
 
@@ -158,11 +105,11 @@ deploy_correos() {
 
 echo ""
 echo -e "${BLUE}╔══════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   SecondBrain — Zero-Downtime Deploy ║${NC}"
+echo -e "${BLUE}║     SecondBrain — Deploy Seguro      ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════╝${NC}"
 echo ""
 
-# Copiar pagina de mantenimiento (por si es la primera vez)
+# Asegurar que la pagina de mantenimiento existe
 sudo mkdir -p /var/www/secondbrain
 sudo cp deploy/maintenance.html /var/www/secondbrain/ 2>/dev/null || true
 
