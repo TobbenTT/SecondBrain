@@ -36,7 +36,7 @@ router.get('/login', (req, res) => {
     if (req.session && req.session.authenticated) {
         return res.redirect('/');
     }
-    res.render('login', { error: null, csrfToken: '' });
+    res.render('login', { error: null, csrfToken: '', useLocalAuth: !isSupabaseConfigured() });
 });
 
 router.post('/login', async (req, res) => {
