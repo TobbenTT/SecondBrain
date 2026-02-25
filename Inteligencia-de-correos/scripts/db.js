@@ -12,9 +12,7 @@ const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ...(process.env.DB_SSL === 'false' ? {} : { ssl: { rejectUnauthorized: false } })
 });
 
 async function guardarMetadatosReunion(reunion, datosIA) {

@@ -63,7 +63,7 @@ router.post('/chat', validateBody({
             `;
         }
 
-        const areasData = await all('SELECT name, description FROM areas WHERE status = "active"');
+        const areasData = await all("SELECT name, description FROM areas WHERE status = 'active'");
         const msgWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
         const scoredItems = contextItems.map(item => {
             const text = `${item.key} ${item.content}`.toLowerCase();
@@ -124,7 +124,7 @@ router.post('/preview', validateBody({
         const contextItems = await all('SELECT key, content FROM context_items');
         const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
         const users = await all('SELECT username, role, department, expertise FROM users');
-        const areas = await all('SELECT name FROM areas WHERE status = "active"');
+        const areas = await all("SELECT name FROM areas WHERE status = 'active'");
 
         let speakerContext = null;
         if (createdBy) {
@@ -168,7 +168,7 @@ router.post('/research', validateBody({
 
 router.post('/review', async (req, res) => {
     try {
-        const ideas = await all("SELECT * FROM ideas WHERE created_at >= datetime('now', '-7 days')");
+        const ideas = await all("SELECT * FROM ideas WHERE created_at >= NOW() - INTERVAL '7 days'");
 
         let ideasToReview = ideas;
         if (ideas.length < 5) {
@@ -184,7 +184,7 @@ router.post('/review', async (req, res) => {
 
         const staleIdeas = await all(`SELECT id, text, ai_summary, code_stage, para_type, created_at
             FROM ideas WHERE code_stage IN ('captured', 'organized')
-            AND created_at <= datetime('now', '-14 days')
+            AND created_at <= NOW() - INTERVAL '14 days'
             ORDER BY created_at ASC LIMIT 20`);
 
         res.json({ response: review, stale_ideas: staleIdeas, reviewed_count: reviewedIds.length });
@@ -196,11 +196,11 @@ router.post('/review', async (req, res) => {
 
 router.post('/digest', async (req, res) => {
     try {
-        const ideas = await all("SELECT * FROM ideas WHERE created_at >= datetime('now', '-7 days') ORDER BY created_at DESC");
+        const ideas = await all("SELECT * FROM ideas WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC");
         const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
         const contextItems = await all('SELECT key, content FROM context_items');
         const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
-        const areas = await all('SELECT a.*, (SELECT count(*) FROM ideas WHERE related_area_id = a.id) as ideas_count, (SELECT count(*) FROM context_items WHERE related_area_id = a.id) as context_count FROM areas a WHERE a.status = "active"');
+        const areas = await all("SELECT a.*, (SELECT count(*) FROM ideas WHERE related_area_id = a.id) as ideas_count, (SELECT count(*) FROM context_items WHERE related_area_id = a.id) as context_count FROM areas a WHERE a.status = 'active'");
 
         const digest = await aiService.generateDigest(ideas, waitingFor, contextString, areas);
         res.json({ response: digest });

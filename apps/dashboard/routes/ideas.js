@@ -153,7 +153,7 @@ router.delete('/', blockConsultor, async (req, res) => {
         await run('DELETE FROM daily_checklist');
         await run('DELETE FROM waiting_for');
         await run('DELETE FROM ideas');
-        await run('DELETE FROM sqlite_sequence WHERE name="ideas"');
+        await run("ALTER SEQUENCE ideas_id_seq RESTART WITH 1");
         res.json({ message: 'Todas las ideas han sido eliminadas' });
     } catch (err) {
         log.error('Ideas DB error', { error: err.message, path: req.path });

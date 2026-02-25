@@ -409,7 +409,7 @@ router.get('/reportability', async (req, res) => {
             const byStage = { captured: 0, organized: 0, distilled: 0, expressed: 0 };
             assigned.forEach(i => { const s = i.code_stage || 'captured'; if (byStage.hasOwnProperty(s)) byStage[s]++; });
 
-            const areas = await all('SELECT id, name, icon FROM areas WHERE status = "active"');
+            const areas = await all("SELECT id, name, icon FROM areas WHERE status = 'active'");
             const byArea = {};
             for (const a of areas) {
                 const areaItems = assigned.filter(i => i.related_area_id === a.id);
@@ -453,7 +453,7 @@ router.get('/reportability/team-summary', async (req, res) => {
             COALESCE(dc.checklist_total, 0) as checklist_total,
             COALESCE(wf.pending_waiting, 0) as pending_waiting,
             CASE WHEN COALESCE(dc.checklist_total, 0) > 0
-                THEN ROUND(CAST(COALESCE(dc.completed_today, 0) AS FLOAT) / dc.checklist_total * 100)
+                THEN ROUND(CAST(COALESCE(dc.completed_today, 0) AS NUMERIC) / dc.checklist_total * 100)
                 ELSE 0 END as completion_pct
             FROM users u
             WHERE u.role NOT IN ('usuario', 'cliente')
@@ -546,13 +546,13 @@ router.get('/notifications/check', async (req, res) => {
 
         const overdueDelegations = (await all(`SELECT w.id, w.description, w.delegated_to, w.delegated_by, w.created_at, a.name as area_name
             FROM waiting_for w LEFT JOIN areas a ON w.related_area_id = a.id
-            WHERE w.status = 'waiting' AND w.created_at <= datetime('now', '-3 days')
+            WHERE w.status = 'waiting' AND w.created_at <= NOW() - INTERVAL '3 days'
             ${username ? 'AND w.delegated_to = ?' : ''}
             ORDER BY w.created_at ASC LIMIT 10`,
             username ? [username] : [])).filter(d => !(dismissedMap.overdue_delegation && dismissedMap.overdue_delegation.has(d.id)));
 
         const staleCaptures = (await all(`SELECT id, text, created_at FROM ideas
-            WHERE code_stage = 'captured' AND created_at <= datetime('now', '-1 day')
+            WHERE code_stage = 'captured' AND created_at <= NOW() - INTERVAL '1 day'
             ORDER BY created_at ASC LIMIT 5`)).filter(s => !(dismissedMap.stale_capture && dismissedMap.stale_capture.has(s.id)));
 
         const needsReview = (await all(`SELECT id, text, ai_summary, ai_confidence, ai_type FROM ideas
@@ -605,7 +605,7 @@ router.post('/notifications/:id/dismiss', async (req, res) => {
             await run('UPDATE user_notifications SET read = 1 WHERE id = ? AND username = ?', [parseInt(id), username]);
         } else {
             await run(
-                `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
+                `INSERT INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?) ON CONFLICT (username, notification_type, notification_id) DO NOTHING`,
                 [username, type, parseInt(id)]
             );
         }
@@ -626,7 +626,7 @@ router.post('/notifications/clear-all', async (req, res) => {
         }
         for (const n of notifications) {
             await run(
-                `INSERT OR IGNORE INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?)`,
+                `INSERT INTO notification_dismissals (username, notification_type, notification_id) VALUES (?, ?, ?) ON CONFLICT (username, notification_type, notification_id) DO NOTHING`,
                 [username, n.type, parseInt(n.id)]
             );
         }
@@ -1020,7 +1020,7 @@ router.post('/import', blockConsultor, requireAdmin, async (req, res) => {
 
         if (data.areas && Array.isArray(data.areas)) {
             for (const a of data.areas) {
-                await run('INSERT OR IGNORE INTO areas (name, description, icon, status) VALUES (?, ?, ?, ?)',
+                await run('INSERT INTO areas (name, description, icon, status) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO NOTHING',
                     [a.name, a.description, a.icon || '📂', a.status || 'active']);
                 imported.areas++;
             }
@@ -1218,7 +1218,7 @@ router.post('/admin/seed', requireAdmin, async (req, res) => {
         projects.find(p => p.id === 'presupuesto-2026').related_area_id = areaMapPre['Finanzas'] || null;
 
         for (const p of projects) {
-            await run(`INSERT OR REPLACE INTO projects (id, name, description, url, icon, status, tech, project_type, client_name, geography, related_area_id, horizon, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            await run(`INSERT INTO projects (id, name, description, url, icon, status, tech, project_type, client_name, geography, related_area_id, horizon, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, url = EXCLUDED.url, icon = EXCLUDED.icon, status = EXCLUDED.status, tech = EXCLUDED.tech, project_type = EXCLUDED.project_type, client_name = EXCLUDED.client_name, geography = EXCLUDED.geography, related_area_id = EXCLUDED.related_area_id, horizon = EXCLUDED.horizon, deadline = EXCLUDED.deadline`,
                 [p.id, p.name, p.description, p.url, p.icon, p.status, p.tech, p.project_type, p.client_name, p.geography, p.related_area_id, p.horizon, p.deadline]);
         }
 

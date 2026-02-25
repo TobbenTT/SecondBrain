@@ -12,6 +12,6 @@ COPY . .
 RUN mkdir -p data logs public/voice-notes public/gallery public/avatars \
     && chmod +x entrypoint.sh
 
-EXPOSE 3000
+EXPOSE ${PORT:-3000}
 
 ENTRYPOINT ["./entrypoint.sh"]

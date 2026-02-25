@@ -23,7 +23,7 @@ router.get('/gtd/daily-report', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        const ideas = await all("SELECT * FROM ideas WHERE date(created_at) = ? ORDER BY created_at DESC", [today]);
+        const ideas = await all("SELECT * FROM ideas WHERE created_at::date = ? ORDER BY created_at DESC", [today]);
         const projects = await all(`
             SELECT i.id, i.text as name, i.ai_summary, i.assigned_to,
                 (SELECT count(*) FROM ideas sub WHERE sub.parent_idea_id = i.id) as sub_count,
@@ -31,17 +31,17 @@ router.get('/gtd/daily-report', async (req, res) => {
             FROM ideas i WHERE i.is_project = 1 AND (i.completada IS NULL OR i.completada = 0)
         `);
         const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
-        const completedToday = await all("SELECT * FROM ideas WHERE date(fecha_finalizacion) = ?", [today]);
+        const completedToday = await all("SELECT * FROM ideas WHERE fecha_finalizacion::date = ?", [today]);
 
         const users = await all('SELECT username FROM users');
         const userStats = [];
         for (const u of users) {
             const pending = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND (completada IS NULL OR completada = 0)", [u.username]);
-            const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND date(fecha_finalizacion) = ?", [u.username, today]);
+            const done = await get("SELECT count(*) as cnt FROM ideas WHERE assigned_to = ? AND fecha_finalizacion::date = ?", [u.username, today]);
             userStats.push({ username: u.username, pending: pending.cnt, completed_today: done.cnt });
         }
 
-        const areas = await all('SELECT * FROM areas WHERE status = "active"');
+        const areas = await all('SELECT * FROM areas WHERE status = 'active'');
 
         let report;
         try {
@@ -199,7 +199,7 @@ router.get('/checklist/:username', async (req, res) => {
 
         for (const idea of assigned) {
             await run(
-                `INSERT OR IGNORE INTO daily_checklist (username, idea_id, date) VALUES (?, ?, ?)`,
+                `INSERT INTO daily_checklist (username, idea_id, date) VALUES (?, ?, ?) ON CONFLICT (username, idea_id, date) DO NOTHING`,
                 [username, idea.id, today]
             );
         }
@@ -471,7 +471,7 @@ router.post('/okrs/:id/links', async (req, res) => {
     const { link_type, link_id } = req.body;
     if (!link_type || !link_id) return res.status(400).json({ error: 'link_type and link_id required' });
     try {
-        await run('INSERT OR IGNORE INTO okr_links (okr_id, link_type, link_id) VALUES (?, ?, ?)',
+        await run('INSERT INTO okr_links (okr_id, link_type, link_id) VALUES (?, ?, ?) ON CONFLICT (okr_id, link_type, link_id) DO NOTHING',
             [req.params.id, link_type, link_id]);
         res.json({ success: true });
     } catch (err) {

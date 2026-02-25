@@ -105,7 +105,7 @@ async function notifyParticipants(reunionId, titulo, asistentes) {
 
         for (const username of matchedUsers) {
             await run(
-                `INSERT OR IGNORE INTO reuniones_notifications (username, reunion_id) VALUES (?, ?)`,
+                `INSERT INTO reuniones_notifications (username, reunion_id) VALUES (?, ?) ON CONFLICT (username, reunion_id) DO NOTHING`,
                 [username, reunionId]
             );
         }
@@ -133,13 +133,13 @@ async function autoLinkReunion(reunionId, data) {
 
         for (const p of projects) {
             if (p.name && searchText.includes(p.name.toLowerCase())) {
-                await run('INSERT OR IGNORE INTO reunion_links (reunion_id, link_type, link_id, auto_detected) VALUES (?, ?, ?, 1)',
+                await run('INSERT INTO reunion_links (reunion_id, link_type, link_id, auto_detected) VALUES (?, ?, ?, 1) ON CONFLICT (reunion_id, link_type, link_id) DO NOTHING',
                     [reunionId, 'project', p.id]);
             }
         }
         for (const a of areas) {
             if (a.name && searchText.includes(a.name.toLowerCase())) {
-                await run('INSERT OR IGNORE INTO reunion_links (reunion_id, link_type, link_id, auto_detected) VALUES (?, ?, ?, 1)',
+                await run('INSERT INTO reunion_links (reunion_id, link_type, link_id, auto_detected) VALUES (?, ?, ?, 1) ON CONFLICT (reunion_id, link_type, link_id) DO NOTHING',
                     [reunionId, 'area', String(a.id)]);
             }
         }
@@ -186,7 +186,7 @@ router.post('/reuniones/:id/links', async (req, res) => {
         return res.status(400).json({ error: 'link_type (project|area) and link_id required' });
     }
     try {
-        await run('INSERT OR IGNORE INTO reunion_links (reunion_id, link_type, link_id) VALUES (?, ?, ?)',
+        await run('INSERT INTO reunion_links (reunion_id, link_type, link_id) VALUES (?, ?, ?) ON CONFLICT (reunion_id, link_type, link_id) DO NOTHING',
             [req.params.id, link_type, link_id]);
         res.json({ success: true });
     } catch (err) {
@@ -332,7 +332,7 @@ router.get('/reuniones/stats/summary', async (req, res) => {
     try {
         const [total, thisWeek, withCompromisos, allCompromisos] = await Promise.all([
             get('SELECT COUNT(*) as count FROM reuniones'),
-            get("SELECT COUNT(*) as count FROM reuniones WHERE fecha >= date('now', '-7 days')"),
+            get("SELECT COUNT(*) as count FROM reuniones WHERE fecha >= (CURRENT_DATE - INTERVAL '7 days')::text"),
             get("SELECT COUNT(*) as count FROM reuniones WHERE compromisos != '[]'"),
             all("SELECT compromisos FROM reuniones WHERE compromisos != '[]'")
         ]);

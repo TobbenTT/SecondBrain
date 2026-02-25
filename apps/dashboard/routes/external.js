@@ -107,7 +107,7 @@ router.get('/external/digest', async (req, res) => {
     if (!req.isApiRequest) return res.status(401).json({ error: 'API key required' });
 
     try {
-        const ideas = await all("SELECT * FROM ideas WHERE created_at >= datetime('now', '-7 days') ORDER BY created_at DESC");
+        const ideas = await all("SELECT * FROM ideas WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC");
         const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
         const contextItems = await all('SELECT key, content FROM context_items');
         const contextString = contextItems.map(c => `${c.key}: ${c.content}`).join('\n');
@@ -139,7 +139,7 @@ router.post('/webhook/openclaw', validateBody({
                 const { username, idea_id } = payload || {};
                 if (username && idea_id) {
                     const today = new Date().toISOString().split('T')[0];
-                    await run('INSERT OR IGNORE INTO daily_checklist (username, idea_id, date) VALUES (?, ?, ?)',
+                    await run('INSERT INTO daily_checklist (username, idea_id, date) VALUES (?, ?, ?) ON CONFLICT (username, idea_id, date) DO NOTHING',
                         [username, idea_id, today]);
                     await run(`UPDATE daily_checklist SET completed = 1, completed_at = CURRENT_TIMESTAMP
                         WHERE username = ? AND idea_id = ? AND date = ?`, [username, idea_id, today]);
@@ -159,8 +159,9 @@ router.post('/webhook/openclaw', validateBody({
             case 'context_add': {
                 const { key, content, category, para_type } = payload || {};
                 if (key && content) {
-                    await run(`INSERT OR REPLACE INTO context_items (key, content, category, para_type, code_stage, source)
-                        VALUES (?, ?, ?, ?, 'organized', 'openclaw')`,
+                    await run(`INSERT INTO context_items (key, content, category, para_type, code_stage, source)
+                        VALUES (?, ?, ?, ?, 'organized', 'openclaw')
+                        ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content, category = EXCLUDED.category, para_type = EXCLUDED.para_type, code_stage = EXCLUDED.code_stage, source = EXCLUDED.source`,
                         [key, content, category || 'business', para_type || 'resource']);
                 }
                 res.json({ success: true, message: 'Context saved' });
