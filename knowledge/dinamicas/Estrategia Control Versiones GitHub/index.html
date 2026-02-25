@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estrategia de Control de Versiones y Flujo de Trabajo en GitHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        html { scroll-behavior: smooth; }
+        .code-block { font-family: 'JetBrains Mono', monospace; }
+        .code-block:hover .copy-btn { opacity: 1; }
+        .nav-link.active { background: #eef2ff; color: #4f46e5; font-weight: 600; }
+        @media (max-width: 768px) {
+            .mobile-nav { display: flex; overflow-x: auto; gap: 0.5rem; padding: 0.75rem; }
+            .mobile-nav a { white-space: nowrap; font-size: 0.75rem; padding: 0.4rem 0.75rem; background: #f1f5f9; border-radius: 9999px; }
+            .mobile-nav a.active { background: #e0e7ff; color: #4f46e5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+
+    <!-- Desktop Sidebar -->
+    <nav class="fixed top-0 z-50 hidden md:block w-64 h-screen bg-white border-r border-gray-200 overflow-y-auto">
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">Value Strategy<br><span class="text-brand-600 font-medium text-sm">Consulting</span></h2>
+            <p class="text-xs text-gray-500 mt-1 mb-6">v1.0.0 &middot; Febrero 2026</p>
+            <ul class="space-y-1 text-sm" id="navLinks">
+                <li><a href="#intro" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Introduccion</a></li>
+                <li><a href="#github-flow" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">GitHub Flow</a></li>
+                <li><a href="#ramas" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Estandar de Ramas</a></li>
+                <li><a href="#commits" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Convencion de Commits</a></li>
+                <li><a href="#pull-requests" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Pull Requests</a></li>
+                <li><a href="#versionado" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Versionado Semantico</a></li>
+                <li><a href="#flujo-diario" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Flujo Diario</a></li>
+                <li><a href="#mejores-practicas" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Mejores Practicas</a></li>
+                <li><a href="#estructura" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors">Estructura del Repo</a></li>
+                <li><a href="#cheatsheet" class="nav-link block py-1.5 px-2 rounded text-gray-600 hover:text-brand-600 hover:bg-brand-50 transition-colors font-medium text-gray-800">Cheat Sheet</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Mobile Top Nav -->
+    <div class="md:hidden mobile-nav sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <a href="#intro">Intro</a>
+        <a href="#github-flow">Flow</a>
+        <a href="#ramas">Ramas</a>
+        <a href="#commits">Commits</a>
+        <a href="#pull-requests">PRs</a>
+        <a href="#versionado">Versiones</a>
+        <a href="#flujo-diario">Diario</a>
+        <a href="#mejores-practicas">Practicas</a>
+        <a href="#cheatsheet">Cheat Sheet</a>
+    </div>
+
+    <!-- Main Content -->
+    <main class="md:ml-64 p-6 md:p-12 max-w-5xl mx-auto">
+
+        <!-- Header -->
+        <header id="intro" class="mb-12 pb-8 border-b border-gray-200 scroll-mt-20">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 text-brand-700 text-xs font-semibold mb-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                Guia de Estandarizacion
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-3">Estrategia de Control de Versiones</h1>
+            <p class="text-xl text-gray-500 font-light mb-6">Flujo de Trabajo en GitHub</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6">
+                <p class="text-sm text-blue-800">Este documento estandariza la gestion del codigo fuente, garantizando la estabilidad del software, facilitando la colaboracion entre desarrolladores y permitiendo una recuperacion rapida ante errores.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+                    <div class="text-2xl mb-1">&#128737;</div>
+                    <div class="font-semibold text-sm text-gray-900">Estabilidad</div>
+                    <div class="text-xs text-gray-500">main siempre funcional</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+                    <div class="text-2xl mb-1">&#128269;</div>
+                    <div class="font-semibold text-sm text-gray-900">Trazabilidad</div>
+                    <div class="text-xs text-gray-500">Historial claro y documentado</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+                    <div class="text-2xl mb-1">&#9889;</div>
+                    <div class="font-semibold text-sm text-gray-900">Recuperacion</div>
+                    <div class="text-xs text-gray-500">Revertir cambios rapidamente</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. GitHub Flow -->
+        <section id="github-flow" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">2</span>
+                Metodologia: GitHub Flow
+            </h2>
+
+            <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg mb-6">
+                <p class="text-sm text-amber-800 font-medium">Cualquier codigo en la rama <code class="bg-amber-100 px-1 rounded">main</code> debe ser siempre funcional y estar listo para produccion.</p>
+            </div>
+
+            <!-- Visual Flow Diagram -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 overflow-x-auto">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Diagrama del Flujo</h3>
+                <div class="flex items-center gap-3 min-w-[600px]">
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-lg font-bold">1</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">main</span>
+                        <span class="text-[10px] text-gray-400">actualizado</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-300 relative"><div class="absolute -right-1 -top-1 text-gray-400">&#8594;</div></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-lg font-bold">2</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">Crear rama</span>
+                        <span class="text-[10px] text-gray-400">feature/*</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-300 relative"><div class="absolute -right-1 -top-1 text-gray-400">&#8594;</div></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-lg font-bold">3</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">Commits</span>
+                        <span class="text-[10px] text-gray-400">atomicos</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-300 relative"><div class="absolute -right-1 -top-1 text-gray-400">&#8594;</div></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-lg font-bold">4</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">Push</span>
+                        <span class="text-[10px] text-gray-400">publicar</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-300 relative"><div class="absolute -right-1 -top-1 text-gray-400">&#8594;</div></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center text-lg font-bold">5</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">Pull Request</span>
+                        <span class="text-[10px] text-gray-400">review</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-300 relative"><div class="absolute -right-1 -top-1 text-gray-400">&#8594;</div></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center text-lg font-bold">&#10003;</div>
+                        <span class="text-xs text-gray-600 mt-1 font-medium">Merge</span>
+                        <span class="text-[10px] text-gray-400">a main</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Rama</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Proposito</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Vida Util</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr class="bg-green-50"><td class="px-4 py-2 font-mono font-medium text-green-800">main</td><td class="px-4 py-2">Codigo de produccion, siempre funcional</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">Permanente</span></td></tr>
+                        <tr><td class="px-4 py-2 font-mono font-medium text-blue-700">feature/*</td><td class="px-4 py-2">Desarrollo de nuevas funcionalidades</td><td class="px-4 py-2 text-gray-500">Temporal</td></tr>
+                        <tr><td class="px-4 py-2 font-mono font-medium text-red-700">bugfix/*</td><td class="px-4 py-2">Correccion de errores encontrados</td><td class="px-4 py-2 text-gray-500">Temporal</td></tr>
+                        <tr><td class="px-4 py-2 font-mono font-medium text-yellow-700">perf/*</td><td class="px-4 py-2">Mejoras de rendimiento</td><td class="px-4 py-2 text-gray-500">Temporal</td></tr>
+                        <tr><td class="px-4 py-2 font-mono font-medium text-gray-700">docs/*</td><td class="px-4 py-2">Actualizacion de documentacion</td><td class="px-4 py-2 text-gray-500">Temporal</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 3. Ramas y Nomenclatura -->
+        <section id="ramas" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">3</span>
+                Estandar de Ramas y Nomenclatura
+            </h2>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Formato</h3>
+                <div class="code-block bg-gray-900 text-green-400 px-4 py-3 rounded-lg text-sm">
+                    &lt;tipo&gt;/&lt;descripcion-kebab-case&gt;
+                </div>
+            </div>
+
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Tipo</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Prefijo</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Ejemplo</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Cuando usar</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="px-4 py-2">&#127195; Nueva funcionalidad</td><td class="px-4 py-2 font-mono text-blue-700">feature/</td><td class="px-4 py-2 font-mono text-xs">feature/login-biometrico</td><td class="px-4 py-2 text-gray-600 text-xs">Nuevo desarrollo o mejora</td></tr>
+                        <tr><td class="px-4 py-2">&#128027; Correccion de error</td><td class="px-4 py-2 font-mono text-red-700">bugfix/</td><td class="px-4 py-2 font-mono text-xs">bugfix/error-calculo-iva</td><td class="px-4 py-2 text-gray-600 text-xs">Corregir un bug reportado</td></tr>
+                        <tr><td class="px-4 py-2">&#9889; Rendimiento</td><td class="px-4 py-2 font-mono text-yellow-700">perf/</td><td class="px-4 py-2 font-mono text-xs">perf/optimizacion-imagenes</td><td class="px-4 py-2 text-gray-600 text-xs">Optimizacion sin cambio funcional</td></tr>
+                        <tr><td class="px-4 py-2">&#128196; Documentacion</td><td class="px-4 py-2 font-mono text-gray-700">docs/</td><td class="px-4 py-2 font-mono text-xs">docs/manual-usuario</td><td class="px-4 py-2 text-gray-600 text-xs">Cambios solo en docs</td></tr>
+                        <tr><td class="px-4 py-2">&#128295; Mantenimiento</td><td class="px-4 py-2 font-mono text-gray-700">chore/</td><td class="px-4 py-2 font-mono text-xs">chore/actualizar-dependencias</td><td class="px-4 py-2 text-gray-600 text-xs">Config, deps, CI/CD</td></tr>
+                        <tr><td class="px-4 py-2">&#129514; Experimento</td><td class="px-4 py-2 font-mono text-purple-700">experiment/</td><td class="px-4 py-2 font-mono text-xs">experiment/nuevo-framework</td><td class="px-4 py-2 text-gray-600 text-xs">Pruebas que podrian descartarse</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Correct vs Incorrect -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <h4 class="text-sm font-bold text-green-800 mb-3">&#9989; Correcto</h4>
+                    <ul class="space-y-2 text-sm font-mono">
+                        <li class="text-green-700">feature/login-biometrico</li>
+                        <li class="text-green-700">bugfix/corregir-calculo-iva</li>
+                        <li class="text-green-700">docs/actualizar-readme</li>
+                        <li class="text-green-700">perf/cache-consultas-db</li>
+                    </ul>
+                </div>
+                <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <h4 class="text-sm font-bold text-red-800 mb-3">&#10060; Incorrecto</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><code class="font-mono text-red-700">feature/Login_Biometrico</code> <span class="text-xs text-red-500">- Mayusculas y guiones bajos</span></li>
+                        <li><code class="font-mono text-red-700">bugfix/fix</code> <span class="text-xs text-red-500">- Demasiado vago</span></li>
+                        <li><code class="font-mono text-red-700">docs/Documentacion Actualizada</code> <span class="text-xs text-red-500">- Espacios y acentos</span></li>
+                        <li><code class="font-mono text-red-700">feature-nueva</code> <span class="text-xs text-red-500">- Sin prefijo de tipo</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-4">
+                <p class="text-sm text-blue-800"><strong>Reglas:</strong> Solo minusculas y kebab-case. Maximo 50 caracteres. Sin espacios, acentos ni caracteres especiales.</p>
+            </div>
+        </section>
+
+        <!-- 4. Convencion de Commits -->
+        <section id="commits" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">4</span>
+                Convencion de Mensajes de Commit
+            </h2>
+
+            <p class="text-gray-600 mb-4">Seguimos el estandar <strong>Conventional Commits</strong> para mensajes claros y automatizables.</p>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Formato</h3>
+                <div class="code-block bg-gray-900 text-gray-100 px-4 py-3 rounded-lg text-sm leading-relaxed">
+                    <span class="text-yellow-400">&lt;tipo&gt;</span>: <span class="text-green-400">&lt;descripcion corta en minusculas&gt;</span><br>
+                    <span class="text-gray-500"><br>[cuerpo opcional: explicar el porque]</span><br>
+                    <span class="text-gray-500"><br>[pie opcional: referencias a issues]</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700">Tipo</th>
+                        <th class="px-3 py-3 text-center font-semibold text-gray-700 w-12">Emoji</th>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700">Descripcion</th>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700">Ejemplo</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="px-3 py-2 font-mono font-medium text-brand-600">feat</td><td class="px-3 py-2 text-center">&#10024;</td><td class="px-3 py-2">Nueva funcionalidad</td><td class="px-3 py-2 text-xs text-gray-600">feat: agregar recuperacion de contrasena</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-red-600">fix</td><td class="px-3 py-2 text-center">&#128027;</td><td class="px-3 py-2">Correccion de error</td><td class="px-3 py-2 text-xs text-gray-600">fix: corregir salto de linea en reportes</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-teal-600">refactor</td><td class="px-3 py-2 text-center">&#9851;&#65039;</td><td class="px-3 py-2">Reestructuracion de codigo</td><td class="px-3 py-2 text-xs text-gray-600">refactor: limpiar funciones de validacion</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-gray-600">chore</td><td class="px-3 py-2 text-center">&#128295;</td><td class="px-3 py-2">Mantenimiento general</td><td class="px-3 py-2 text-xs text-gray-600">chore: actualizar dependencias</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-blue-600">docs</td><td class="px-3 py-2 text-center">&#128221;</td><td class="px-3 py-2">Cambios en documentacion</td><td class="px-3 py-2 text-xs text-gray-600">docs: agregar guia de instalacion</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-pink-600">style</td><td class="px-3 py-2 text-center">&#128132;</td><td class="px-3 py-2">Formato, sin cambio logico</td><td class="px-3 py-2 text-xs text-gray-600">style: corregir indentacion</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-green-600">test</td><td class="px-3 py-2 text-center">&#9989;</td><td class="px-3 py-2">Agregar o modificar tests</td><td class="px-3 py-2 text-xs text-gray-600">test: agregar pruebas para validacion</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-yellow-600">perf</td><td class="px-3 py-2 text-center">&#9889;</td><td class="px-3 py-2">Mejora de rendimiento</td><td class="px-3 py-2 text-xs text-gray-600">perf: optimizar consulta de inventario</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-cyan-600">ci</td><td class="px-3 py-2 text-center">&#128260;</td><td class="px-3 py-2">Cambios en CI/CD</td><td class="px-3 py-2 text-xs text-gray-600">ci: configurar pipeline de deploy</td></tr>
+                        <tr><td class="px-3 py-2 font-mono font-medium text-orange-600">build</td><td class="px-3 py-2 text-center">&#128230;</td><td class="px-3 py-2">Build o dependencias</td><td class="px-3 py-2 text-xs text-gray-600">build: migrar de webpack a vite</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Example Commit -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Ejemplo Completo</h3>
+                <div class="code-block bg-gray-900 text-gray-100 px-4 py-3 rounded-lg text-sm leading-relaxed relative">
+                    <button class="copy-btn absolute top-2 right-2 px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.parentElement.textContent.replace('Copiar','').trim())">Copiar</button>
+                    <span class="text-yellow-400">feat</span>: agregar autenticacion con Google OAuth<br><br>
+                    <span class="text-gray-400">Se implementa el flujo OAuth 2.0 con Google como proveedor.</span><br>
+                    <span class="text-gray-400">Esto permite a los usuarios iniciar sesion sin crear cuenta manual.</span><br><br>
+                    <span class="text-cyan-400">Closes #42</span>
+                </div>
+            </div>
+
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                <p class="text-sm text-red-800"><strong>Reglas:</strong> Explicar el <em>que</em> y el <em>porque</em>, nunca el "como". Max 72 caracteres. Minusculas despues del tipo. Un commit = un cambio logico.</p>
+            </div>
+        </section>
+
+        <!-- 5. Pull Requests -->
+        <section id="pull-requests" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">5</span>
+                Protocolo de Integracion (Pull Requests)
+            </h2>
+
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6">
+                <p class="text-sm text-red-800 font-medium">Ningun desarrollador puede subir codigo directamente a <code class="bg-red-100 px-1 rounded">main</code>. Todo cambio debe pasar por un Pull Request con revision obligatoria.</p>
+            </div>
+
+            <h3 class="text-lg font-semibold text-gray-900 mb-3">Checklist de Aprobacion</h3>
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+                <div class="divide-y divide-gray-100">
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#9989;</span><span class="font-medium text-sm">Compilacion</span><span class="text-xs text-gray-500 ml-auto">El codigo compila sin errores</span></div>
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#128274;</span><span class="font-medium text-sm">Seguridad</span><span class="text-xs text-gray-500 ml-auto">No hay credenciales ni llaves API expuestas</span></div>
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#128221;</span><span class="font-medium text-sm">Documentacion</span><span class="text-xs text-gray-500 ml-auto">Se actualizo si fue necesario</span></div>
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#129514;</span><span class="font-medium text-sm">Tests</span><span class="text-xs text-gray-500 ml-auto">Las pruebas pasan y se agregaron nuevas</span></div>
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#127912;</span><span class="font-medium text-sm">Estilo</span><span class="text-xs text-gray-500 ml-auto">Sigue las convenciones del proyecto</span></div>
+                    <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span class="text-lg">&#128207;</span><span class="font-medium text-sm">Alcance</span><span class="text-xs text-gray-500 ml-auto">Solo cambios relacionados a la tarea</span></div>
+                </div>
+            </div>
+
+            <!-- PR Template -->
+            <h3 class="text-lg font-semibold text-gray-900 mb-3">Plantilla de Pull Request</h3>
+            <div class="code-block bg-gray-900 text-gray-100 px-4 py-4 rounded-lg text-sm leading-relaxed relative overflow-x-auto">
+                <button class="copy-btn absolute top-2 right-2 px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre text-xs">## Descripcion
+&lt;!-- Que cambio se realizo y por que? --&gt;
+
+## Issue Relacionado
+&lt;!-- Closes #numero --&gt;
+
+## Tipo de Cambio
+- [ ] Nueva funcionalidad (feature)
+- [ ] Correccion de error (bugfix)
+- [ ] Refactorizacion
+- [ ] Documentacion
+- [ ] Mejora de rendimiento
+
+## Como se probo?
+&lt;!-- Describir los tests realizados --&gt;
+
+## Checklist
+- [ ] Mi codigo compila sin errores
+- [ ] No expongo credenciales ni secretos
+- [ ] Actualice la documentacion si fue necesario
+- [ ] Agregue tests para los nuevos cambios
+- [ ] Todos los tests existentes pasan</pre>
+            </div>
+        </section>
+
+        <!-- 6. Versionado Semantico -->
+        <section id="versionado" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">6</span>
+                Versionado Semantico y Releases
+            </h2>
+
+            <!-- SemVer Visual -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 text-center">
+                <div class="inline-flex items-baseline gap-1 text-4xl md:text-5xl font-mono font-bold mb-4">
+                    <span class="text-red-500">v1</span><span class="text-gray-300">.</span><span class="text-yellow-500">3</span><span class="text-gray-300">.</span><span class="text-green-500">2</span>
+                </div>
+                <div class="flex justify-center gap-8 text-sm">
+                    <div><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span><strong>Major</strong><br><span class="text-xs text-gray-500">Rompe compatibilidad</span></div>
+                    <div><span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-1"></span><strong>Minor</strong><br><span class="text-xs text-gray-500">Nueva funcionalidad</span></div>
+                    <div><span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span><strong>Patch</strong><br><span class="text-xs text-gray-500">Correccion de error</span></div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Evento</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Accion</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Etiqueta</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="px-4 py-2">Fin de Sprint</td><td class="px-4 py-2">Crear Release con Changelog</td><td class="px-4 py-2 font-mono text-brand-600">vX.Y.0</td></tr>
+                        <tr><td class="px-4 py-2">Hotfix en produccion</td><td class="px-4 py-2">Crear Patch Release</td><td class="px-4 py-2 font-mono text-brand-600">vX.Y.Z</td></tr>
+                        <tr><td class="px-4 py-2">Cambio estructural mayor</td><td class="px-4 py-2">Major Release + docs migracion</td><td class="px-4 py-2 font-mono text-brand-600">vX.0.0</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                <p class="text-sm text-green-800"><strong>Tip:</strong> Al final de cada ciclo, crear una Release en GitHub con un resumen de todos los cambios (Changelog) para mantener un registro historico claro.</p>
+            </div>
+        </section>
+
+        <!-- 7. Flujo Diario -->
+        <section id="flujo-diario" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">7</span>
+                Flujo Diario del Desarrollador
+            </h2>
+
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700 w-10">Paso</th>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700">Accion</th>
+                        <th class="px-3 py-3 text-left font-semibold text-gray-700">Comando</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="px-3 py-2 text-center">1&#65039;&#8419;</td><td class="px-3 py-2">Actualizar local</td><td class="px-3 py-2 font-mono text-xs text-brand-600">git checkout main && git pull origin main</td></tr>
+                        <tr><td class="px-3 py-2 text-center">2&#65039;&#8419;</td><td class="px-3 py-2">Crear rama</td><td class="px-3 py-2 font-mono text-xs text-brand-600">git checkout -b feature/nombre-tarea</td></tr>
+                        <tr><td class="px-3 py-2 text-center">3&#65039;&#8419;</td><td class="px-3 py-2">Registrar avances</td><td class="px-3 py-2 font-mono text-xs text-brand-600">git add . && git commit -m "feat: descripcion"</td></tr>
+                        <tr><td class="px-3 py-2 text-center">4&#65039;&#8419;</td><td class="px-3 py-2">Publicar rama</td><td class="px-3 py-2 font-mono text-xs text-brand-600">git push origin feature/nombre-tarea</td></tr>
+                        <tr><td class="px-3 py-2 text-center">5&#65039;&#8419;</td><td class="px-3 py-2">Crear PR</td><td class="px-3 py-2 text-xs text-gray-600">Desde la interfaz de GitHub</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Full Example -->
+            <h3 class="text-lg font-semibold text-gray-900 mb-3">Ejemplo Practico Completo</h3>
+            <div class="code-block bg-gray-900 text-gray-100 px-4 py-4 rounded-lg text-sm leading-relaxed relative">
+                <button class="copy-btn absolute top-2 right-2 px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre text-xs"><span class="text-gray-500"># 1. Actualizar main</span>
+git checkout main
+git pull origin main
+
+<span class="text-gray-500"># 2. Crear rama para la nueva tarea</span>
+git checkout -b feature/formulario-contacto
+
+<span class="text-gray-500"># 3. Desarrollar y hacer commits atomicos</span>
+git add src/components/ContactForm.tsx
+git commit -m "feat: agregar estructura del formulario de contacto"
+
+git add src/services/emailService.ts
+git commit -m "feat: implementar servicio de envio de email"
+
+git add src/tests/contactForm.test.ts
+git commit -m "test: agregar pruebas unitarias del formulario"
+
+<span class="text-gray-500"># 4. Publicar la rama</span>
+git push origin feature/formulario-contacto
+
+<span class="text-gray-500"># 5. Ir a GitHub -> Crear Pull Request -> Asignar revisores</span></pre>
+            </div>
+        </section>
+
+        <!-- 8. Mejores Practicas -->
+        <section id="mejores-practicas" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">8</span>
+                Mejores Practicas
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-green-50 border border-green-200 rounded-xl p-5">
+                    <h3 class="text-base font-bold text-green-800 mb-4">&#9989; Hacer (Do)</h3>
+                    <ul class="space-y-3 text-sm">
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>Commits pequenos y atomicos</strong><br><span class="text-gray-600">Facilitan el review y el rollback</span></div></li>
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>Mensajes descriptivos</strong><br><span class="text-gray-600">Historial claro y trazable</span></div></li>
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>PRs enfocados en una tarea</strong><br><span class="text-gray-600">Reviews mas rapidos y efectivos</span></div></li>
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>Actualizar rama con main frecuentemente</strong><br><span class="text-gray-600">Evitar conflictos grandes al merge</span></div></li>
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>Eliminar ramas despues del merge</strong><br><span class="text-gray-600">Repositorio limpio y organizado</span></div></li>
+                        <li class="flex gap-2"><span class="text-green-500 mt-0.5">&#9679;</span><div><strong>Usar .gitignore adecuadamente</strong><br><span class="text-gray-600">No subir archivos innecesarios</span></div></li>
+                    </ul>
+                </div>
+                <div class="bg-red-50 border border-red-200 rounded-xl p-5">
+                    <h3 class="text-base font-bold text-red-800 mb-4">&#10060; No Hacer (Don't)</h3>
+                    <ul class="space-y-3 text-sm">
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>Push directo a main</strong><br><span class="text-gray-600">Codigo sin revisar en produccion</span></div></li>
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>Mensajes como "fix", "update"</strong><br><span class="text-gray-600">Historial incomprensible</span></div></li>
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>PRs con cientos de archivos</strong><br><span class="text-gray-600">Imposible de revisar efectivamente</span></div></li>
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>Subir credenciales o llaves API</strong><br><span class="text-gray-600">Vulnerabilidad de seguridad critica</span></div></li>
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>Trabajar dias sin hacer commits</strong><br><span class="text-gray-600">Perdida de trabajo y commits enormes</span></div></li>
+                        <li class="flex gap-2"><span class="text-red-500 mt-0.5">&#9679;</span><div><strong>Ignorar comentarios del code review</strong><br><span class="text-gray-600">Deuda tecnica acumulada</span></div></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. Estructura del Repo -->
+        <section id="estructura" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">9</span>
+                Estructura Recomendada del Repositorio
+            </h2>
+
+            <div class="code-block bg-gray-900 text-gray-100 px-5 py-4 rounded-lg text-sm leading-relaxed">
+<pre class="whitespace-pre"><span class="text-yellow-400">proyecto/</span>
+├── <span class="text-blue-400">.github/</span>
+│   ├── <span class="text-blue-400">workflows/</span>          <span class="text-gray-500"># GitHub Actions (CI/CD)</span>
+│   │   └── ci.yml
+│   └── PULL_REQUEST_TEMPLATE.md
+├── <span class="text-green-400">src/</span>                    <span class="text-gray-500"># Codigo fuente</span>
+│   ├── <span class="text-green-400">components/</span>
+│   ├── <span class="text-green-400">services/</span>
+│   ├── <span class="text-green-400">utils/</span>
+│   └── index.ts
+├── <span class="text-purple-400">tests/</span>                  <span class="text-gray-500"># Pruebas</span>
+├── <span class="text-cyan-400">docs/</span>                   <span class="text-gray-500"># Documentacion</span>
+├── .gitignore
+├── README.md
+├── CHANGELOG.md
+└── package.json</pre>
+            </div>
+        </section>
+
+        <!-- 10. Cheat Sheet -->
+        <section id="cheatsheet" class="mb-12 scroll-mt-20">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-bold">10</span>
+                Tarjeta de Referencia Rapida
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Ramas -->
+                <div class="bg-white rounded-xl border border-gray-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">&#128256; Ramas</h3>
+                    <div class="code-block bg-gray-900 text-gray-100 px-3 py-3 rounded-lg text-xs leading-relaxed relative">
+                        <button class="copy-btn absolute top-1 right-1 px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-[10px] opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre">git checkout -b feature/nombre    <span class="text-gray-500"># Crear feature</span>
+git checkout -b bugfix/nombre     <span class="text-gray-500"># Crear bugfix</span>
+git branch -d feature/nombre      <span class="text-gray-500"># Eliminar local</span>
+git push origin --delete feature/nombre  <span class="text-gray-500"># Eliminar remota</span></pre>
+                    </div>
+                </div>
+
+                <!-- Commits -->
+                <div class="bg-white rounded-xl border border-gray-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">&#128221; Commits</h3>
+                    <div class="code-block bg-gray-900 text-gray-100 px-3 py-3 rounded-lg text-xs leading-relaxed relative">
+                        <button class="copy-btn absolute top-1 right-1 px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-[10px] opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre">git add .                                  <span class="text-gray-500"># Agregar cambios</span>
+git commit -m "feat: descripcion"          <span class="text-gray-500"># Commit feature</span>
+git commit -m "fix: descripcion"           <span class="text-gray-500"># Commit bugfix</span>
+git commit --amend -m "nuevo msg"          <span class="text-gray-500"># Corregir ultimo</span></pre>
+                    </div>
+                </div>
+
+                <!-- Sincronizacion -->
+                <div class="bg-white rounded-xl border border-gray-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">&#128260; Sincronizacion</h3>
+                    <div class="code-block bg-gray-900 text-gray-100 px-3 py-3 rounded-lg text-xs leading-relaxed relative">
+                        <button class="copy-btn absolute top-1 right-1 px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-[10px] opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre">git pull origin main              <span class="text-gray-500"># Actualizar main</span>
+git merge main                    <span class="text-gray-500"># Integrar en tu rama</span>
+git push origin feature/nombre    <span class="text-gray-500"># Publicar tu rama</span></pre>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="bg-white rounded-xl border border-gray-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">&#127991;&#65039; Tags y Releases</h3>
+                    <div class="code-block bg-gray-900 text-gray-100 px-3 py-3 rounded-lg text-xs leading-relaxed relative">
+                        <button class="copy-btn absolute top-1 right-1 px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-[10px] opacity-0 transition-opacity hover:bg-gray-600" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent)">Copiar</button>
+<pre class="whitespace-pre">git tag -a v1.0.0 -m "Release v1.0.0"  <span class="text-gray-500"># Crear tag</span>
+git push origin v1.0.0                  <span class="text-gray-500"># Publicar tag</span>
+git tag -l                              <span class="text-gray-500"># Listar tags</span></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="border-t border-gray-200 pt-8 pb-12 text-center text-sm text-gray-400">
+            <p>Este documento es un <strong class="text-gray-600">estandar vivo</strong> que se actualiza conforme evoluciona el equipo.</p>
+            <p class="mt-1">Ultima revision: Febrero 2026 &middot; Proxima revision: Mayo 2026</p>
+            <p class="mt-3 text-xs">Value Strategy Consulting</p>
+        </footer>
+    </main>
+
+    <!-- Active nav highlight on scroll -->
+    <script>
+        const sections = document.querySelectorAll('section[id], header[id]');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navLinks.forEach(link => {
+                        link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+                    });
+                }
+            });
+        }, { rootMargin: '-20% 0px -70% 0px' });
+
+        sections.forEach(s => observer.observe(s));
+    </script>
+</body>
+</html>
