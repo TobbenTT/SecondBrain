@@ -504,7 +504,7 @@ router.get('/search', async (req, res) => {
             all(`SELECT w.id, w.description, w.delegated_to, w.delegated_by, w.status, a.name as area_name
                  FROM waiting_for w LEFT JOIN areas a ON w.related_area_id = a.id
                  WHERE w.description LIKE ? LIMIT 10`, [term]),
-            all(`SELECT id, name, description, status FROM projects WHERE name LIKE ? OR description LIKE ? LIMIT 10`,
+            all(`SELECT id, name, description, status FROM projects WHERE deleted_at IS NULL AND (name LIKE ? OR description LIKE ?) LIMIT 10`,
                 [term, term])
         ]);
 

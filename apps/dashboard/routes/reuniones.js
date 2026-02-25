@@ -481,7 +481,7 @@ router.get('/reuniones', async (req, res) => {
 
 router.get('/reuniones/:id', async (req, res) => {
     try {
-        const reunion = await get('SELECT * FROM reuniones WHERE id = ?', [req.params.id]);
+        const reunion = await get('SELECT * FROM reuniones WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
         res.json(parseReunion(reunion));
     } catch (err) {
@@ -516,7 +516,7 @@ router.post('/reuniones/:id/generate-tasks', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Authentication required' });
 
     try {
-        const reunion = await get('SELECT * FROM reuniones WHERE id = ?', [req.params.id]);
+        const reunion = await get('SELECT * FROM reuniones WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
 
         // Check if tasks were already generated from this meeting

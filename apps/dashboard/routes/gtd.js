@@ -387,7 +387,7 @@ router.get('/okrs', async (req, res) => {
             obj.key_results = await all(
                 `SELECT kr.*,
                         (SELECT count(*) FROM okr_links WHERE okr_id = kr.id) as link_count
-                 FROM okrs kr WHERE kr.parent_id = ? ORDER BY kr.id`,
+                 FROM okrs kr WHERE kr.parent_id = ? AND kr.deleted_at IS NULL ORDER BY kr.id`,
                 [obj.id]
             );
         }
