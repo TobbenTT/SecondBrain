@@ -1182,9 +1182,9 @@ function renderArchivos(files) {
     grid.innerHTML = files.map(file => {
         const cfg = typeConfig[file.type] || typeConfig.other;
         const typeClass = file.type === 'markdown' ? 'md' : file.type === 'pdf' ? 'pdf' : file.type === 'app' ? 'app' : 'other';
-        // APP type: always use dynamicUrl. MD/PDF: always open the file itself.
+        // APP type or files with dynamic page: open the interactive version
         const isApp = file.type === 'app';
-        const href = isApp ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
+        const href = (isApp || file.hasDynamic) ? file.dynamicUrl : `/archivo/${encodeURIComponent(file.name)}`;
         const tagsHtml = (file.tags || []).length > 0
             ? `<div class="arc-tags">${file.tags.map(t => `<span class="arc-tag">#${escapeHtml(t)}</span>`).join('')}</div>`
             : '';
@@ -1215,8 +1215,8 @@ function renderArchivos(files) {
                     ${tagsHtml}
                 </div>
                 <div class="arc-footer">
-                    <a href="${href}" class="arc-action arc-view" ${isApp ? 'target="_blank"' : ''}>Abrir</a>
-                    ${interactiveBtn}
+                    <a href="${href}" class="arc-action arc-view" ${(isApp || file.hasDynamic) ? 'target="_blank"' : ''}>Abrir</a>
+                    ${file.hasDynamic && !isApp ? `<a href="/archivo/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Ver archivo original">Original</a>` : ''}
                     ${downloadBtn}
                 </div>
             </div>
