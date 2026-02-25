@@ -4217,18 +4217,37 @@ async function checkNotifications() {
                 ).join('');
             }
             if (data.user_notifications && data.user_notifications.length > 0) {
-                html += data.user_notifications.map(n =>
-                    `<div class="notification-item info" onclick="switchSection('${n.link_section || 'feedback'}')" style="cursor:pointer;">
-                        <span class="notif-icon">🔔</span>
-                        <span class="notif-text">${escapeHtml((n.message || n.title || '').substring(0, 80))}</span>
+                const typeIcons = { feedback_fixed: '🔧', feedback_rejected: '🔄' };
+                const typeColors = { feedback_fixed: '#8b5cf6', feedback_rejected: '#ef4444' };
+                html += data.user_notifications.map(n => {
+                    const icon = typeIcons[n.type] || '🔔';
+                    const color = typeColors[n.type] || '#6366f1';
+                    return `<div class="notification-item notif-user" onclick="switchSection('${n.link_section || 'feedback'}')" style="cursor:pointer;border-left:3px solid ${color};">
+                        <span class="notif-icon">${icon}</span>
+                        <div class="notif-user-content">
+                            <strong class="notif-user-title">${escapeHtml(n.title)}</strong>
+                            <span class="notif-user-msg">${escapeHtml((n.message || '').substring(0, 100))}</span>
+                        </div>
                         <button class="notif-dismiss" onclick="dismissNotification(event, ${n.id}, 'user_notification')" title="Descartar">✕</button>
-                    </div>`
-                ).join('');
+                    </div>`;
+                }).join('');
             }
             if (data.total === 0) {
                 html = '<div class="notification-empty">Sin notificaciones pendientes</div>';
             }
             list.innerHTML = html;
+        }
+
+        // Toast for new user notifications (dedup)
+        if (data.user_notifications && data.user_notifications.length > 0) {
+            const newIds = data.user_notifications.map(n => n.id).sort().join(',');
+            if (window._lastUserNotifIds !== undefined && newIds !== window._lastUserNotifIds) {
+                const latest = data.user_notifications[0];
+                showToast(latest.title || 'Nueva notificación', 'info');
+            }
+            window._lastUserNotifIds = newIds;
+        } else {
+            window._lastUserNotifIds = '';
         }
 
         // Browser push notification for urgent items (dedup: only notify on new items)
@@ -7333,6 +7352,17 @@ function renderFeedback() {
             </div>`;
         }
 
+        // Reporter can reject a "corregido" fix
+        let rejectHtml = '';
+        const isReporter = window.__USER__ && window.__USER__.username === fb.username;
+        if (fb.status === 'corregido' && isReporter) {
+            rejectHtml = `<div class="fb-reject-fix">
+                <p>Este feedback fue marcado como corregido. ¿Funciona correctamente?</p>
+                <button class="fb-reject-btn fb-reject-ok" onclick="confirmFeedbackFix(${fb.id})">✅ Sí, funciona</button>
+                <button class="fb-reject-btn fb-reject-no" onclick="rejectFeedbackFix(${fb.id})">❌ No resuelto</button>
+            </div>`;
+        }
+
         return `<div class="feedback-card fb-status-${fb.status}">
             <div class="fb-header">
                 <h3>${escapeHtml(fb.title)}</h3>
@@ -7346,6 +7376,7 @@ function renderFeedback() {
                 <span>📅 ${date}</span>
             </div>
             ${attachHtml}
+            ${rejectHtml}
             ${responseHtml}
             ${actionsHtml}
         </div>`;
@@ -7493,6 +7524,40 @@ async function updateFeedbackStatus(id, status) {
         }
     } catch (err) {
         showToast('Error al actualizar', 'error');
+    }
+}
+
+async function rejectFeedbackFix(id) {
+    try {
+        const res = await fetch(`/api/feedback/${id}/reject-fix`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+            showToast('Feedback reabierto — el equipo será notificado', 'info');
+            loadFeedback();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error al rechazar', 'error');
+        }
+    } catch (err) {
+        showToast('Error al rechazar corrección', 'error');
+    }
+}
+
+async function confirmFeedbackFix(id) {
+    try {
+        const res = await fetch(`/api/feedback/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'resuelto' })
+        });
+        if (res.ok) {
+            showToast('Feedback confirmado como resuelto', 'success');
+            loadFeedback();
+        }
+    } catch (err) {
+        showToast('Error al confirmar', 'error');
     }
 }
 

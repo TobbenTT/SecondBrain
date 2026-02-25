@@ -229,6 +229,43 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
+// ─── Reporter rejects fix (only the original reporter can do this) ──────────
+router.put('/:id/reject-fix', async (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    try {
+        const fb = await get('SELECT * FROM feedback WHERE id = ?', [req.params.id]);
+        if (!fb) return res.status(404).json({ error: 'Feedback not found' });
+        if (fb.username !== user.username) {
+            return res.status(403).json({ error: 'Solo el autor del feedback puede rechazar la corrección' });
+        }
+        if (fb.status !== 'corregido') {
+            return res.status(400).json({ error: 'Solo se puede rechazar feedback en estado "corregido"' });
+        }
+
+        await run(
+            'UPDATE feedback SET status = ?, resolved_at = NULL WHERE id = ?',
+            ['abierto', req.params.id]
+        );
+
+        // Notify admins that the fix was rejected
+        const admins = await all("SELECT username FROM users WHERE role IN ('admin', 'manager')");
+        for (const admin of admins) {
+            await run(
+                `INSERT INTO user_notifications (username, type, title, message, link_section, link_id)
+                 VALUES (?, 'feedback_rejected', ?, ?, 'feedback', ?)`,
+                [admin.username, 'Corrección rechazada', `${user.username} reporta que "${fb.title}" NO está resuelto y necesita más trabajo.`, req.params.id]
+            );
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Feedback reject-fix error', { error: err.message });
+        res.status(500).json({ error: 'Failed to reject fix' });
+    }
+});
+
 // ─── Respond to feedback (admin/manager only) ──────────────────────────────
 router.put('/:id/respond', async (req, res) => {
     const user = req.session?.user;
