@@ -532,7 +532,20 @@
                 </div>
             </div>
 
-            <!-- Inbox + PARA side by side -->
+            <!-- Team Reportability Summary -->
+            <div class="panel ov-team-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">👥 Avance del Equipo</h2>
+                    <button class="panel-action" onclick="switchSection('reportability')">Ver detalle →</button>
+                </div>
+                <div class="panel-body">
+                    <div class="ov-team-strip" id="ovTeamSummary">
+                        <div class="loading-sm"><div class="spinner-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inbox + PARA + Reuniones -->
             <div class="ov-bottom-row">
                 <div class="panel ov-inbox-panel">
                     <div class="panel-header">
@@ -550,32 +563,46 @@
                         </div>
                     </div>
                 </div>
-                <div class="ov-para-panel">
-                    <h4 class="ov-para-title">Distribución Organizativa</h4>
-                    <div class="ov-para-grid">
-                        <div class="ov-para-card ov-para-projects" onclick="switchSection('projects')">
-                            <span class="ov-para-icon">🚀</span>
-                            <span class="ov-para-count" id="paraProjects">0</span>
-                            <span class="ov-para-label">Proyectos</span>
-                            <span class="ov-para-desc">Con deadline</span>
+                <div class="ov-right-col">
+                    <div class="ov-para-panel">
+                        <h4 class="ov-para-title">Distribución Organizativa</h4>
+                        <div class="ov-para-grid">
+                            <div class="ov-para-card ov-para-projects" onclick="switchSection('projects')">
+                                <span class="ov-para-icon">🚀</span>
+                                <span class="ov-para-count" id="paraProjects">0</span>
+                                <span class="ov-para-label">Proyectos</span>
+                                <span class="ov-para-desc">Con deadline</span>
+                            </div>
+                            <div class="ov-para-card ov-para-areas" onclick="switchSection('areas')">
+                                <span class="ov-para-icon">📋</span>
+                                <span class="ov-para-count" id="paraAreas">0</span>
+                                <span class="ov-para-label">Areas</span>
+                                <span class="ov-para-desc">Responsabilidades</span>
+                            </div>
+                            <div class="ov-para-card ov-para-resources" onclick="switchSection('archivos')">
+                                <span class="ov-para-icon">📚</span>
+                                <span class="ov-para-count" id="paraResources">0</span>
+                                <span class="ov-para-label">Recursos</span>
+                                <span class="ov-para-desc">Referencia</span>
+                            </div>
+                            <div class="ov-para-card ov-para-archive">
+                                <span class="ov-para-icon">🗄️</span>
+                                <span class="ov-para-count" id="paraArchive">0</span>
+                                <span class="ov-para-label">Archivo</span>
+                                <span class="ov-para-desc">Inactivo</span>
+                            </div>
                         </div>
-                        <div class="ov-para-card ov-para-areas" onclick="switchSection('areas')">
-                            <span class="ov-para-icon">📋</span>
-                            <span class="ov-para-count" id="paraAreas">0</span>
-                            <span class="ov-para-label">Areas</span>
-                            <span class="ov-para-desc">Responsabilidades</span>
+                    </div>
+                    <!-- Recent Reuniones mini-panel -->
+                    <div class="panel ov-reuniones-mini">
+                        <div class="panel-header">
+                            <h2 class="panel-title">📅 Reuniones Recientes</h2>
+                            <button class="panel-action" onclick="switchSection('reuniones')">Ver todas →</button>
                         </div>
-                        <div class="ov-para-card ov-para-resources" onclick="switchSection('archivos')">
-                            <span class="ov-para-icon">📚</span>
-                            <span class="ov-para-count" id="paraResources">0</span>
-                            <span class="ov-para-label">Recursos</span>
-                            <span class="ov-para-desc">Referencia</span>
-                        </div>
-                        <div class="ov-para-card ov-para-archive">
-                            <span class="ov-para-icon">🗄️</span>
-                            <span class="ov-para-count" id="paraArchive">0</span>
-                            <span class="ov-para-label">Archivo</span>
-                            <span class="ov-para-desc">Inactivo</span>
+                        <div class="panel-body">
+                            <div id="ovReunionesRecent">
+                                <div class="loading-sm"><div class="spinner-sm"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>

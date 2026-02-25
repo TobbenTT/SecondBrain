@@ -3408,6 +3408,74 @@ async function initOverviewStats() {
     } catch (err) {
         console.error('Error loading overview stats:', err);
     }
+
+    // Load team summary and recent reuniones for overview
+    loadOverviewTeamSummary();
+    loadOverviewReuniones();
+}
+
+async function loadOverviewTeamSummary() {
+    const el = document.getElementById('ovTeamSummary');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/reportability/team-summary');
+        if (!res.ok) throw new Error('API error');
+        const summary = await res.json();
+        if (!Array.isArray(summary) || summary.length === 0) {
+            el.innerHTML = '<div class="hp-empty">Sin datos de equipo aun</div>';
+            return;
+        }
+        el.innerHTML = summary.map(u => {
+            const pctColor = u.completion_pct >= 80 ? '#10b981' : u.completion_pct >= 50 ? '#f59e0b' : '#ef4444';
+            return `
+                <div class="ov-team-member" onclick="switchSection('reportability')">
+                    <div class="ov-team-avatar" style="border-color:${pctColor};">${_avatarHtml(u.avatar, u.username, 36)}</div>
+                    <div class="ov-team-info">
+                        <span class="ov-team-name">${escapeHtml(u.username)}</span>
+                        <span class="ov-team-dept">${escapeHtml(u.department || u.role)}</span>
+                    </div>
+                    <div class="ov-team-pct" style="color:${pctColor};">${u.completion_pct}%</div>
+                    <div class="ov-team-bar">
+                        <div class="ov-team-bar-fill" style="width:${u.completion_pct}%;background:${pctColor};"></div>
+                    </div>
+                    <div class="ov-team-counts">
+                        <span>${u.completed_today}/${u.checklist_total}</span>
+                        <span>📋 ${u.total_assigned}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('Overview team summary error:', err);
+        el.innerHTML = '<div class="hp-empty">Error al cargar avance</div>';
+    }
+}
+
+async function loadOverviewReuniones() {
+    const el = document.getElementById('ovReunionesRecent');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/reuniones?limit=5');
+        if (!res.ok) throw new Error('API error');
+        const reuniones = await res.json();
+        const list = Array.isArray(reuniones) ? reuniones : (reuniones.reuniones || []);
+        if (list.length === 0) {
+            el.innerHTML = '<div class="hp-empty">Sin reuniones registradas</div>';
+            return;
+        }
+        el.innerHTML = list.slice(0, 5).map(r => {
+            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+            const compromisos = r.compromisos ? (typeof r.compromisos === 'string' ? JSON.parse(r.compromisos) : r.compromisos) : [];
+            return `
+                <div class="ov-reunion-item" onclick="switchSection('reuniones')">
+                    <span class="ov-reunion-date">${fecha}</span>
+                    <span class="ov-reunion-title">${escapeHtml(r.titulo || 'Sin titulo')}</span>
+                    ${compromisos.length > 0 ? `<span class="ov-reunion-badge">${compromisos.length} compromisos</span>` : ''}
+                </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('Overview reuniones error:', err);
+        el.innerHTML = '<div class="hp-empty">Error al cargar reuniones</div>';
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
