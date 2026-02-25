@@ -91,6 +91,21 @@ function invalidateUsersCache() {
     _usersCache.ts = 0;
 }
 
+// ─── Lazy script loader (Chart.js, D3 loaded on demand) ─────────────────────
+const _loadedScripts = {};
+function loadScript(url) {
+    if (_loadedScripts[url]) return _loadedScripts[url];
+    _loadedScripts[url] = new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${url}"]`)) return resolve();
+        const s = document.createElement('script');
+        s.src = url; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+    });
+    return _loadedScripts[url];
+}
+const CDN_CHARTJS = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+const CDN_D3 = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+
 // ─── Section titles mapping ────────────────────────────────────────────────────
 const SECTION_META = {
     home: { title: 'Bienvenido', subtitle: 'Hub Interno de Operaciones' },
@@ -169,8 +184,8 @@ function _applySectionSwitch(sectionId) {
 
     // Lazy-load section-specific data
     if (sectionId === 'archivos') { if (!_lazyInited.archivos) { _lazyInited.archivos = true; initArchivos(); } }
-    if (sectionId === 'overview') { if (!_lazyInited.overview) { _lazyInited.overview = true; initOverviewStats(); } }
-    if (sectionId === 'analytics') { if (!_lazyInited.analytics) { _lazyInited.analytics = true; initAnalytics(); } loadAnalytics(); }
+    if (sectionId === 'overview') { loadScript(CDN_CHARTJS).then(() => { if (!_lazyInited.overview) { _lazyInited.overview = true; initOverviewStats(); } }); }
+    if (sectionId === 'analytics') { loadScript(CDN_CHARTJS).then(() => { if (!_lazyInited.analytics) { _lazyInited.analytics = true; initAnalytics(); } loadAnalytics(); }); }
     if (sectionId === 'openclaw') loadOpenClawStatus();
     if (sectionId === 'agents') { if (!_lazyInited.agents) { _lazyInited.agents = true; initAgents(); } loadAgentsSection(); }
     if (sectionId === 'gtd-board') { if (!_lazyInited.nextActions) { _lazyInited.nextActions = true; initNextActions(); } loadGtdBoard('context'); loadNextActionsPanel(); }
@@ -182,7 +197,7 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
     if (sectionId === 'herramientas') loadHerramientas();
-    if (sectionId === 'graph-view') loadGraphView();
+    if (sectionId === 'graph-view') { loadScript(CDN_D3).then(() => loadGraphView()); }
     if (sectionId === 'inbox') { if (!_lazyInited.inbox) { _lazyInited.inbox = true; initInboxTriage(); } loadInboxTriage(); }
     if (sectionId === 'okrs') { if (!_lazyInited.okrs) { _lazyInited.okrs = true; initOKRs(); } loadOKRs(); }
 }
@@ -251,17 +266,17 @@ function initHomeGreeting() {
 
 // ─── Home Data ──────────────────────────────────────────────────────────────
 async function initHomeData() {
-    // Load basic stats for home stats strip
+    // Load counts from lightweight endpoint (1 query instead of 4 full-array fetches)
     try {
-        const [projRes, archRes, ideasRes, areasRes] = await Promise.all([
-            fetch('/api/projects'), fetch('/api/archivos'),
-            fetch('/api/ideas'),    fetch('/api/areas')
-        ]);
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        if (projRes.ok) { const d = await projRes.json(); set('homeStatProjects', Array.isArray(d) ? d.length : 0); }
-        if (archRes.ok) { const d = await archRes.json(); set('homeStatDocs', Array.isArray(d) ? d.length : 0); }
-        if (ideasRes.ok) { const d = await ideasRes.json(); set('homeStatIdeas', Array.isArray(d) ? d.length : 0); }
-        if (areasRes.ok) { const d = await areasRes.json(); set('homeStatAreas', Array.isArray(d) ? d.length : 0); }
+        const res = await fetch('/api/stats/home-counts');
+        if (res.ok) {
+            const d = await res.json();
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            set('homeStatProjects', d.projects);
+            set('homeStatDocs', d.archivos);
+            set('homeStatIdeas', d.ideas);
+            set('homeStatAreas', d.areas);
+        }
     } catch (err) {
         console.error('Home stats error:', err);
     }
