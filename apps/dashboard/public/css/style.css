@@ -3754,13 +3754,23 @@ body,
     .ai-widget {
         width: calc(100% - 40px);
         right: 20px;
-        bottom: 90px;
-        height: 60vh;
+        bottom: 80px;
+        height: 60dvh;
     }
 
     .ai-toggle-btn {
-        right: 20px;
-        bottom: 20px;
+        right: 16px;
+        bottom: 16px;
+        width: 50px;
+        height: 50px;
+        font-size: 1.6rem;
+    }
+}
+
+/* Prevent mobile viewport resize from shifting fixed elements */
+@supports (bottom: env(safe-area-inset-bottom)) {
+    .ai-toggle-btn {
+        bottom: calc(16px + env(safe-area-inset-bottom));
     }
 }
 
@@ -9829,7 +9839,9 @@ select option {
         right: 8px;
         left: 8px;
         width: auto;
-        max-height: 70vh;
+        max-height: 70dvh;
+        overflow-y: auto;
+        z-index: 1100;
     }
 
     /* Report controls — stack */
