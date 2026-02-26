@@ -6655,7 +6655,16 @@ function renderAuditTimeline(filter) {
         const date = new Date(t.date).toLocaleString('es-ES');
         const sectionTag = t.section ? `<span class="comment-section-badge">${t.section}</span>` : '';
         const agentTag = t.agent ? `<span class="comment-role">${t.agent}</span>` : '';
-        return `<div class="audit-item">
+
+        // Build click handler for navigation
+        let clickAttr = '';
+        if (t.type === 'comment' && t.section === 'skill' && t.targetId) {
+            const safePath = escapeHtml(t.targetId).replace(/'/g, "\\'");
+            const safeLabel = escapeHtml(t.targetId.split('/').pop().replace('.md', '')).replace(/'/g, "\\'");
+            clickAttr = `onclick="viewSkill('${safePath}','${safeLabel}')" style="cursor:pointer;"`;
+        }
+
+        return `<div class="audit-item" ${clickAttr}>
             <span class="audit-icon">${t.icon}</span>
             <div class="audit-info">
                 <div class="audit-header">
