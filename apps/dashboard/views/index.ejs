@@ -912,6 +912,21 @@
                     <button class="skill-filter-chip" data-filter="markdown">📝 Markdown <span class="chip-count" id="archCountMd">0</span></button>
                     <button class="skill-filter-chip" data-filter="pdf">📕 PDF <span class="chip-count" id="archCountPdf">0</span></button>
                     <button class="skill-filter-chip" data-filter="app">🚀 Interactivas <span class="chip-count" id="archCountApp">0</span></button>
+                    <button class="skill-filter-chip" data-filter="other">📄 Otros <span class="chip-count" id="archCountOther">0</span></button>
+                    <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
+                    <button class="skill-filter-chip" data-filter="recent">🕐 Recientes</button>
+                    <button class="skill-filter-chip" data-filter="large">📦 Pesados</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+                    <label style="font-size:0.78rem;color:var(--text-muted);">Ordenar:</label>
+                    <select id="archSortSelect" onchange="filterAndRender()" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:4px 8px;font-size:0.78rem;cursor:pointer;">
+                        <option value="name">Nombre A-Z</option>
+                        <option value="name-desc">Nombre Z-A</option>
+                        <option value="date" selected>Más recientes</option>
+                        <option value="date-asc">Más antiguos</option>
+                        <option value="size">Más pesados</option>
+                        <option value="size-asc">Más livianos</option>
+                    </select>
                 </div>
             </div>
 

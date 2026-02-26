@@ -1419,13 +1419,14 @@ async function initArchivos() {
         if (statEl) statEl.textContent = allArchivos.length;
 
         // Populate filter chip counts
-        const counts = { all: allArchivos.length, markdown: 0, pdf: 0, app: 0 };
-        allArchivos.forEach(f => { if (counts[f.type] !== undefined) counts[f.type]++; });
+        const counts = { all: allArchivos.length, markdown: 0, pdf: 0, app: 0, other: 0 };
+        allArchivos.forEach(f => { if (counts[f.type] !== undefined) counts[f.type]++; else counts.other++; });
         const setCount = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
         setCount('archCountAll', counts.all);
         setCount('archCountMd', counts.markdown);
         setCount('archCountPdf', counts.pdf);
         setCount('archCountApp', counts.app);
+        setCount('archCountOther', counts.other);
 
         renderArchivos(allArchivos);
         renderTagFilterBar(allArchivos);
@@ -1480,15 +1481,42 @@ function filterAndRender() {
     const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const activeChip = document.querySelector('#archivosFilterChips .skill-filter-chip.active');
     const type = activeChip ? activeChip.dataset.filter : 'all';
-    let filtered = allArchivos;
+    let filtered = [...allArchivos];
+
+    // Text search
     if (query) {
         filtered = filtered.filter(f =>
             f.name.toLowerCase().includes(query) || f.basename.toLowerCase().includes(query) ||
             (f.tags || []).some(t => t.toLowerCase().includes(query))
         );
     }
-    if (type !== 'all') filtered = filtered.filter(f => f.type === type);
+
+    // Type filters
+    if (type === 'recent') {
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        filtered = filtered.filter(f => new Date(f.modified).getTime() > sevenDaysAgo);
+    } else if (type === 'large') {
+        filtered = filtered.filter(f => f.size > 500 * 1024); // > 500KB
+    } else if (type === 'other') {
+        filtered = filtered.filter(f => f.type !== 'markdown' && f.type !== 'pdf' && f.type !== 'app');
+    } else if (type !== 'all') {
+        filtered = filtered.filter(f => f.type === type);
+    }
+
+    // Tag filter
     if (activeTagFilter) filtered = filtered.filter(f => (f.tags || []).includes(activeTagFilter));
+
+    // Sorting
+    const sort = document.getElementById('archSortSelect')?.value || 'date';
+    switch (sort) {
+        case 'name':      filtered.sort((a, b) => a.basename.localeCompare(b.basename)); break;
+        case 'name-desc': filtered.sort((a, b) => b.basename.localeCompare(a.basename)); break;
+        case 'date':      filtered.sort((a, b) => new Date(b.modified) - new Date(a.modified)); break;
+        case 'date-asc':  filtered.sort((a, b) => new Date(a.modified) - new Date(b.modified)); break;
+        case 'size':      filtered.sort((a, b) => b.size - a.size); break;
+        case 'size-asc':  filtered.sort((a, b) => a.size - b.size); break;
+    }
+
     renderArchivos(filtered);
 }
 
