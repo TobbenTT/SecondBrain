@@ -6627,6 +6627,7 @@ async function loadAuditTrail() {
                 action: `Comentario en ${c.target_type}`,
                 detail: c.content.substring(0, 80),
                 section: c.section,
+                targetType: c.target_type,
                 targetId: c.target_id
             });
         });
@@ -6658,7 +6659,7 @@ function renderAuditTimeline(filter) {
 
         // Build click handler for navigation
         let clickAttr = '';
-        if (t.type === 'comment' && t.section === 'skill' && t.targetId) {
+        if (t.type === 'comment' && t.targetType === 'skill' && t.targetId) {
             const safePath = escapeHtml(t.targetId).replace(/'/g, "\\'");
             const safeLabel = escapeHtml(t.targetId.split('/').pop().replace('.md', '')).replace(/'/g, "\\'");
             clickAttr = `onclick="viewSkill('${safePath}','${safeLabel}')" style="cursor:pointer;"`;
