@@ -38,11 +38,11 @@ function decryptSecret(stored) {
 
 // ─── Device fingerprint ─────────────────────────────────────────────────────
 
-function computeDeviceHash(userAgent, ip) {
-    // Combine User-Agent + IP for stronger device fingerprint
-    // UA alone is easily spoofable; adding IP makes it harder to clone a trusted device
-    const data = (userAgent || 'unknown') + '|' + (ip || '');
-    return crypto.createHash('sha256').update(data).digest('hex');
+function computeDeviceHash(userAgent) {
+    // Device fingerprint based on User-Agent only
+    // IP is validated separately in the trusted_devices query to avoid
+    // breaking trust when users have dynamic IPs
+    return crypto.createHash('sha256').update(userAgent || 'unknown').digest('hex');
 }
 
 function generateDeviceLabel(userAgent) {
@@ -67,12 +67,12 @@ async function shouldRequire2FA(user, req) {
     if (!user.twofa_enabled) return false;
 
     const ip = req.ip;
-    const deviceHash = computeDeviceHash(req.headers['user-agent'], ip);
+    const deviceHash = computeDeviceHash(req.headers['user-agent']);
 
-    // Check for trusted device+IP combo that hasn't expired
+    // Check for trusted device that hasn't expired
     const trusted = await get(
-        'SELECT id FROM user_trusted_devices WHERE user_id = ? AND device_hash = ? AND ip_address = ? AND expires_at > NOW()',
-        [user.id, deviceHash, ip]
+        'SELECT id FROM user_trusted_devices WHERE user_id = ? AND device_hash = ? AND expires_at > NOW()',
+        [user.id, deviceHash]
     );
     if (trusted) {
         await run('UPDATE user_trusted_devices SET last_used = NOW() WHERE id = ?', [trusted.id]);

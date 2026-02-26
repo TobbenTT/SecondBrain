@@ -92,7 +92,7 @@ publicRouter.post('/2fa', async (req, res) => {
 
         // 2FA passed — save trusted device if requested
         if (trustDevice) {
-            const deviceHash = computeDeviceHash(req.headers['user-agent'], req.ip);
+            const deviceHash = computeDeviceHash(req.headers['user-agent']);
             const label = generateDeviceLabel(req.headers['user-agent']);
             const expiresAt = new Date(Date.now() + TRUST_DURATION_DAYS * 24 * 60 * 60 * 1000);
             await run(
