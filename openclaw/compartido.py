@@ -230,20 +230,21 @@ def hablar(texto):
         pass
 
 
-# ── WhatsApp (opcional) ──────────────────────────────────────────────────────
+# ── Telegram (opcional) ──────────────────────────────────────────────────────
 
-def enviar_whatsapp(mensaje):
-    """Envia notificacion por WhatsApp via Twilio. Falla silenciosamente."""
-    sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
-    token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
-    from_ = os.getenv("TWILIO_WHATSAPP_NUMBER", "").strip()
-    to_ = os.getenv("TU_NUMERO_WHATSAPP", "").strip()
+def enviar_telegram(mensaje):
+    """Envia notificacion por Telegram Bot API. Falla silenciosamente."""
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
-    if not all([sid, token, from_, to_]):
+    if not bot_token or not chat_id:
         return
     try:
-        from twilio.rest import Client
-        Client(sid, token).messages.create(from_=from_, body=mensaje, to=to_)
-        logger.info("WhatsApp enviado: %s", mensaje[:60])
+        requests.post(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            json={"chat_id": chat_id, "text": mensaje, "parse_mode": "HTML"},
+            timeout=10,
+        )
+        logger.info("Telegram enviado: %s", mensaje[:60])
     except Exception as e:
-        logger.debug("WhatsApp no disponible: %s", e)
+        logger.debug("Telegram no disponible: %s", e)
