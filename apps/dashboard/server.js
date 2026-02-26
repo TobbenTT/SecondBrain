@@ -88,10 +88,32 @@ app.use(helmet({
             imgSrc: ["'self'", "data:", "blob:"],
             connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://eypurbdkqfwnqiiucraq.supabase.co"],
             mediaSrc: ["'self'", "blob:"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            frameAncestors: ["'self'"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
         }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    // OWASP recommended headers
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
 }));
+
+// Additional OWASP headers not covered by helmet
+app.use((req, res, next) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    // Prevent caching of sensitive pages
+    if (req.path.startsWith('/api/') || req.path === '/login' || req.path === '/2fa') {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
 
 // Rate limiting
 const apiLimiter = rateLimit({
@@ -182,7 +204,7 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 8,
         httpOnly: true,
         sameSite: 'lax',
-        secure: NODE_ENV === 'production'  // trust proxy handles HTTPS detection behind nginx
+        secure: NODE_ENV === 'production' || NODE_ENV === 'staging'
     }
 }));
 
@@ -351,6 +373,21 @@ if (process.env.NODE_ENV !== 'test') {
         try {
             const { startDigestScheduler } = require('./services/digest');
             startDigestScheduler();
+        } catch (_) {}
+
+        // Audit log retention: purge logs > 90 days (runs daily at 2 AM)
+        try {
+            const cron = require('node-cron');
+            cron.schedule('0 2 * * *', async () => {
+                try {
+                    const { run: dbRun } = require('./database');
+                    const result = await dbRun("DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL '90 days'");
+                    log.info('Audit log retention: purged old entries', { retention_days: 90 });
+                } catch (err) {
+                    log.error('Audit retention cron error', { error: err.message });
+                }
+            }, { timezone: process.env.DIGEST_TIMEZONE || 'America/Santiago' });
+            log.info('Audit retention scheduler started', { cron: '0 2 * * *', retention_days: 90 });
         } catch (_) {}
     });
 }

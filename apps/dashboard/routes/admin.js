@@ -9,7 +9,7 @@ const orchestratorBridge = require('../services/orchestratorBridge');
 const { requireAdmin, denyRole } = require('../middleware/authorize');
 const { avatarUpload, AVATARS_DIR } = require('./auth');
 const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
-const { auditLog } = require('../helpers/audit');
+const { auditLog, decryptPII } = require('../helpers/audit');
 const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
@@ -1790,10 +1790,40 @@ router.get('/audit-log', requireAdmin, async (req, res) => {
             `SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT ?`,
             [...params, parseInt(lim) || 100]
         );
-        res.json(rows);
+
+        // Decrypt IPs, then mask for non-admin roles
+        const userRole = req.session?.user?.role;
+        const result = rows.map(r => {
+            const realIp = decryptPII(r.ip_address);
+            return {
+                ...r,
+                ip_address: userRole === 'admin' ? realIp : (realIp ? realIp.replace(/\d+\.\d+$/, '***.***') : null),
+                user_agent: userRole === 'admin' ? r.user_agent : undefined
+            };
+        });
+
+        res.json(result);
     } catch (err) {
         log.error('Audit log fetch error', { error: err.message });
         res.status(500).json({ error: 'Failed to fetch audit log' });
+    }
+});
+
+// Retention: auto-purge audit logs older than 90 days (GDPR compliance)
+router.delete('/audit-log/purge', requireAdmin, async (req, res) => {
+    try {
+        const userRole = req.session?.user?.role;
+        if (userRole !== 'admin') return res.status(403).json({ error: 'Solo admin puede purgar logs' });
+
+        const result = await run(
+            "DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL '90 days'"
+        );
+        const deleted = result?.changes || 0;
+        auditLog('audit_purge', { actor: req.session.user.username, ip: req.ip, details: { deleted_count: deleted, retention_days: 90 } });
+        res.json({ success: true, deleted });
+    } catch (err) {
+        log.error('Audit purge error', { error: err.message });
+        res.status(500).json({ error: 'Failed to purge audit logs' });
     }
 });
 
