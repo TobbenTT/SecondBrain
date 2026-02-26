@@ -10436,49 +10436,9 @@ select option {
 .herr-btn-edit:hover { background: rgba(52,152,219,0.15); }
 .herr-btn-del:hover { background: rgba(231,76,60,0.15); }
 
-/* ─── Update Banner ───────────────────────────────────────────────────────── */
-.update-banner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
-    font-size: 0.9rem;
-    font-weight: 600;
-    box-shadow: 0 2px 12px rgba(99,102,241,0.4);
-    animation: updateSlideDown 0.4s ease-out;
-}
-@keyframes updateSlideDown {
-    from { transform: translateY(-100%); }
-    to   { transform: translateY(0); }
-}
-.update-banner button {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
-    padding: 5px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 600;
-    transition: background 0.2s;
-}
-.update-banner button:hover { background: rgba(255,255,255,0.35); }
-.update-banner .update-dismiss {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    padding: 2px 6px;
-    opacity: 0.7;
-}
-.update-banner .update-dismiss:hover { opacity: 1; }
+/* ─── Update Popup ────────────────────────────────────────────────────────── */
+@keyframes upFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes upScaleIn { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
 /* ─── Idle Warning Banner ─────────────────────────────────────────────────── */
 .idle-warning-banner {

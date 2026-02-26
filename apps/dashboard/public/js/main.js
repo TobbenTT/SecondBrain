@@ -9678,18 +9678,28 @@ function initInactivityLogout() {
 }
 
 function showUpdateBanner() {
-    if (document.getElementById('updateBanner')) return;
+    if (document.getElementById('updatePopup')) return;
 
-    const banner = document.createElement('div');
-    banner.id = 'updateBanner';
-    banner.innerHTML = `
-        <div class="update-banner">
-            <span>🔄 Nueva versión disponible</span>
-            <button onclick="location.reload()">Recargar ahora</button>
-            <button class="update-dismiss" onclick="this.closest('.update-banner').remove()">&times;</button>
+    const overlay = document.createElement('div');
+    overlay.id = 'updatePopup';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:upFadeIn .3s ease-out;';
+    overlay.innerHTML = `
+        <div style="background:var(--bg-panel,#1e2030);border:1px solid var(--border,#2e3150);border-radius:16px;padding:32px 36px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:upScaleIn .3s ease-out;">
+            <div style="font-size:3rem;margin-bottom:12px;">🚀</div>
+            <h3 style="margin:0 0 8px;font-size:1.3rem;color:var(--text-primary,#fff);">Nueva versión disponible</h3>
+            <p style="margin:0 0 24px;color:var(--text-muted,#8b8fa3);font-size:0.9rem;line-height:1.5;">Se ha actualizado la plataforma con mejoras y correcciones. Recarga para obtener la última versión.</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="location.reload()" style="background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border:none;padding:10px 28px;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;">Recargar ahora</button>
+                <button onclick="document.getElementById('updatePopup').remove()" style="background:rgba(255,255,255,0.08);color:var(--text-muted,#8b8fa3);border:1px solid var(--border,#2e3150);padding:10px 20px;border-radius:10px;font-size:0.9rem;cursor:pointer;transition:background .15s;">Más tarde</button>
+            </div>
         </div>
     `;
-    document.body.prepend(banner);
+    document.body.appendChild(overlay);
+
+    // Re-show every 5 minutes if dismissed
+    overlay.querySelector('button:last-child').addEventListener('click', () => {
+        setTimeout(showUpdateBanner, 5 * 60 * 1000);
+    });
 }
 
 // ─── Admin File Manager ─────────────────────────────────────────────────────
