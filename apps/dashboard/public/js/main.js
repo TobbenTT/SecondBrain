@@ -59,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 5 * 60 * 1000);
 });
 
+// ─── Date helper: parse date-only strings without timezone shift ──────────────
+function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date(NaN);
+    // Strip time+timezone if present: "2026-02-26T00:00:00.000Z" → "2026-02-26"
+    const ymd = String(dateStr).substring(0, 10);
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
 // ─── Global Users Cache (eliminates 11 duplicate /api/users fetches) ──────────
 const _usersCache = { data: null, ts: 0, promise: null };
 const USERS_CACHE_TTL = 30000; // 30s
@@ -586,7 +595,7 @@ function _renderMyDashboard(data) {
             reunEl.innerHTML = '<div class="hp-empty">Sin reuniones recientes</div>';
         } else {
             reunEl.innerHTML = data.reuniones.map(r => {
-                const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+                const fecha = r.fecha ? parseLocalDate(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
                 return `<div class="hp-reunion-item hp-clickable" onclick="switchSection('reuniones')">
                     <span class="hp-reunion-date">${fecha}</span>
                     <span class="hp-reunion-title">${escapeHtml(r.titulo || 'Sin título')}</span>
@@ -3592,7 +3601,7 @@ async function loadOverviewReuniones() {
             return;
         }
         el.innerHTML = list.slice(0, 5).map(r => {
-            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+            const fecha = r.fecha ? parseLocalDate(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
             const compromisos = r.compromisos ? (typeof r.compromisos === 'string' ? JSON.parse(r.compromisos) : r.compromisos) : [];
             return `
                 <div class="ov-reunion-item" onclick="switchSection('reuniones')">
@@ -6981,7 +6990,7 @@ function renderReuniones(reuniones) {
     }
 
     list.innerHTML = reuniones.map(r => {
-        const fecha = new Date(r.fecha).toLocaleDateString('es-ES', {
+        const fecha = parseLocalDate(r.fecha).toLocaleDateString('es-ES', {
             weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
         });
         const rawAsistentes = r.asistentes || [];
@@ -7048,7 +7057,7 @@ async function openReunionDetail(id) {
 
         document.getElementById('reunionModalTitle').textContent = r.titulo;
 
-        const fechaFmt = new Date(r.fecha).toLocaleDateString('es-ES', {
+        const fechaFmt = parseLocalDate(r.fecha).toLocaleDateString('es-ES', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
