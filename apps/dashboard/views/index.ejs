@@ -1920,11 +1920,15 @@
             </div>
         </section>
 
-        <!-- Feedback Modal -->
+        <!-- Feedback Modal (supports single + bulk) -->
         <div id="feedbackModal" class="modal">
-            <div class="modal-content" style="max-width:560px;">
+            <div class="modal-content" style="max-width:680px;">
                 <span class="close-modal" onclick="closeFeedbackModal()">&times;</span>
                 <h2 class="modal-title">Enviar Feedback</h2>
+
+                <!-- Queued items list -->
+                <div id="fbQueueList" style="display:none;margin-bottom:12px;max-height:240px;overflow-y:auto;"></div>
+
                 <form id="feedbackForm">
                     <div class="form-group">
                         <label>Titulo</label>
@@ -1932,10 +1936,10 @@
                     </div>
                     <div class="form-group">
                         <label>Descripcion</label>
-                        <textarea id="fbContent" rows="4" required placeholder="Describe tu sugerencia, problema o idea de mejora..."></textarea>
+                        <textarea id="fbContent" rows="3" required placeholder="Describe tu sugerencia, problema o idea de mejora..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Adjuntos <span style="color:var(--text-muted);font-weight:normal">(opcional, max 5 archivos — imagenes, PDF, DOCX)</span></label>
+                        <label>Adjuntos <span style="color:var(--text-muted);font-weight:normal">(solo disponible al enviar 1 feedback)</span></label>
                         <div class="fb-upload-zone" id="fbUploadZone">
                             <input type="file" id="fbFiles" multiple accept="image/*,.pdf,.txt,.docx,.xlsx" style="display:none">
                             <div class="fb-upload-prompt" id="fbUploadPrompt" onclick="document.getElementById('fbFiles').click()">
@@ -1963,7 +1967,8 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary" id="btnQueueFeedback" onclick="queueFeedbackItem()" title="Agregar a la cola y seguir escribiendo">+ Agregar otro</button>
                         <button type="submit" class="btn btn-primary" id="btnSaveFeedback">Enviar Feedback</button>
                     </div>
                 </form>

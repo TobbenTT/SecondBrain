@@ -285,10 +285,15 @@ router.put('/api/profile/password', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Authentication required' });
 
     const { currentPassword, newPassword } = req.body;
-    const { validatePassword } = require('../helpers/validate');
+    const { validatePassword, checkBreachedPassword } = require('../helpers/validate');
     const pwCheck = validatePassword(newPassword);
     if (!currentPassword || !pwCheck.valid) {
         return res.status(400).json({ error: pwCheck.error || 'Contraseña actual y nueva requeridas' });
+    }
+
+    const breach = await checkBreachedPassword(newPassword);
+    if (breach.breached) {
+        return res.status(400).json({ error: `Esta contraseña aparece en ${breach.count?.toLocaleString() || 'múltiples'} filtraciones de datos. Elige otra.` });
     }
 
     try {

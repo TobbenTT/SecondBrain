@@ -100,10 +100,15 @@ router.get('/users', requireAdmin, async (req, res) => {
 router.post('/users', requireAdmin, async (req, res) => {
     const { username, email, password, role, department, expertise } = req.body;
 
-    const { validatePassword } = require('../helpers/validate');
+    const { validatePassword, checkBreachedPassword } = require('../helpers/validate');
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
         return res.status(400).json({ error: `Contraseña: ${pwCheck.error}` });
+    }
+
+    const breach = await checkBreachedPassword(password);
+    if (breach.breached) {
+        return res.status(400).json({ error: `Esta contraseña aparece en ${breach.count?.toLocaleString() || 'múltiples'} filtraciones de datos. Elige otra.` });
     }
 
     const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
@@ -182,6 +187,19 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
             req.params.id
         ]);
 
+        // ─── Password reset (with full validation) ───
+        if (newPassword) {
+            const { validatePassword, checkBreachedPassword } = require('../helpers/validate');
+            const pwCheck = validatePassword(newPassword);
+            if (!pwCheck.valid) {
+                return res.status(400).json({ error: `Contraseña: ${pwCheck.error}` });
+            }
+            const breach = await checkBreachedPassword(newPassword);
+            if (breach.breached) {
+                return res.status(400).json({ error: `Esta contraseña aparece en ${breach.count?.toLocaleString() || 'múltiples'} filtraciones de datos. Elige otra.` });
+            }
+        }
+
         // ─── Supabase sync ───
         if (user.supabase_uid && isSupabaseConfigured()) {
             // Sync role to user_roles in Supabase
@@ -191,15 +209,15 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
                     .eq('user_id', user.supabase_uid);
             }
             // Password reset via Supabase Admin
-            if (newPassword && newPassword.length >= 8 && supabaseAdmin) {
+            if (newPassword && supabaseAdmin) {
                 const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(
                     user.supabase_uid,
                     { password: newPassword }
                 );
                 if (pwErr) log.error('Supabase password reset error', { error: pwErr.message });
             }
-        } else if (newPassword && newPassword.length >= 8) {
-            // SQLite fallback password reset
+        } else if (newPassword) {
+            // Local fallback password reset
             const hash = await bcrypt.hash(newPassword, 10);
             await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
         }

@@ -86,6 +86,36 @@ function validatePassword(password) {
     return { valid: true };
 }
 
+/**
+ * Check if a password has been exposed in known data breaches.
+ * Uses HaveIBeenPwned Passwords API with k-anonymity (only first 5 chars of SHA-1 sent).
+ * Returns { breached: boolean, count?: number, error?: string }
+ */
+async function checkBreachedPassword(password) {
+    const crypto = require('crypto');
+    const sha1 = crypto.createHash('sha1').update(password).digest('hex').toUpperCase();
+    const prefix = sha1.substring(0, 5);
+    const suffix = sha1.substring(5);
+
+    try {
+        const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+            headers: { 'User-Agent': 'ValueStrategy-Hub-BreachCheck' },
+            signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return { breached: false }; // fail open — don't block user on API error
+        const text = await res.text();
+        for (const line of text.split('\n')) {
+            const [hashSuffix, count] = line.trim().split(':');
+            if (hashSuffix === suffix) {
+                return { breached: true, count: parseInt(count, 10) };
+            }
+        }
+        return { breached: false };
+    } catch {
+        return { breached: false }; // fail open on network error
+    }
+}
+
 module.exports = {
     isNonEmptyString,
     isOptionalString,
@@ -94,4 +124,5 @@ module.exports = {
     isOneOf,
     validateBody,
     validatePassword,
+    checkBreachedPassword,
 };

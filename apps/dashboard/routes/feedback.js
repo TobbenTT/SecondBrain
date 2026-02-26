@@ -131,6 +131,55 @@ router.post('/import', async (req, res) => {
     }
 });
 
+// ─── Bulk create feedback (multiple items, no attachments) ───────────────────
+router.post('/bulk', async (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'items array required' });
+    }
+    if (items.length > 20) {
+        return res.status(400).json({ error: 'Máximo 20 feedbacks a la vez' });
+    }
+
+    const validCategories = ['mejora', 'bug', 'feature', 'otro'];
+    const validPriorities = ['baja', 'media', 'alta'];
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < items.length; i++) {
+        const { title, content, category, priority } = items[i];
+        if (!title || !title.trim() || !content || !content.trim()) {
+            errors.push(`Item ${i + 1}: titulo y descripcion requeridos`);
+            continue;
+        }
+        if (title.length > 200) { errors.push(`Item ${i + 1}: titulo muy largo (max 200)`); continue; }
+        if (content.length > 5000) { errors.push(`Item ${i + 1}: descripcion muy larga (max 5000)`); continue; }
+
+        try {
+            const result = await run(
+                `INSERT INTO feedback (username, title, content, category, priority) VALUES (?, ?, ?, ?, ?)`,
+                [
+                    user.username,
+                    title.trim(),
+                    content.trim(),
+                    validCategories.includes(category) ? category : 'mejora',
+                    validPriorities.includes(priority) ? priority : 'media'
+                ]
+            );
+            const row = await get('SELECT * FROM feedback WHERE id = ?', [result.lastID]);
+            created.push(row);
+        } catch (err) {
+            log.error('Bulk feedback insert error', { error: err.message, index: i });
+            errors.push(`Item ${i + 1}: error interno`);
+        }
+    }
+
+    res.json({ created: created.length, errors, items: created });
+});
+
 // ─── Create feedback (with optional attachments) ────────────────────────────
 router.post('/', upload.array('attachments', 5), async (req, res) => {
     const user = req.session?.user;

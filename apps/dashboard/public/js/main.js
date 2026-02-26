@@ -7697,8 +7697,10 @@ function renderFeedback() {
     const list = document.getElementById('feedbackList');
     if (!list) return;
 
-    let items = _allFeedback;
+    let items = [..._allFeedback];
     if (_fbFilter !== 'all') items = items.filter(fb => fb.status === _fbFilter);
+    const prioOrder = { alta: 0, media: 1, baja: 2 };
+    items.sort((a, b) => (prioOrder[a.priority] ?? 1) - (prioOrder[b.priority] ?? 1));
 
     if (items.length === 0) {
         list.innerHTML = `<div class="archivos-empty"><div class="empty-icon">💬</div><p>${_fbFilter === 'all' ? 'No hay feedback aun. Se el primero en enviar una sugerencia.' : 'No hay feedback con este estado.'}</p></div>`;
@@ -7840,10 +7842,68 @@ function closeFbLightbox() {
     if (lb) { lb.style.display = 'none'; document.getElementById('fbLightboxImg').src = ''; }
 }
 
+// ─── Feedback queue for bulk submissions ─────────────────────────────────────
+let _fbQueue = [];
+
+function _renderFbQueue() {
+    const list = document.getElementById('fbQueueList');
+    if (!list) return;
+    if (_fbQueue.length === 0) { list.style.display = 'none'; list.innerHTML = ''; return; }
+    list.style.display = 'block';
+    const catIcons = { mejora: '💡', bug: '🐛', feature: '🚀', otro: '📝' };
+    const prioColors = { alta: '#ef4444', media: '#f59e0b', baja: '#22c55e' };
+    list.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">En cola (${_fbQueue.length}):</div>` +
+        _fbQueue.map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-card);border-radius:8px;margin-bottom:4px;border-left:3px solid ${prioColors[item.priority] || '#666'};">
+            <span>${catIcons[item.category] || '📝'}</span>
+            <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title)}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.content.substring(0, 80))}${item.content.length > 80 ? '...' : ''}</div>
+            </div>
+            <button type="button" onclick="_fbQueue.splice(${i},1);_renderFbQueue();_updateFbButtons();" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;" title="Quitar">✕</button>
+        </div>`).join('');
+}
+
+function _updateFbButtons() {
+    const btn = document.getElementById('btnSaveFeedback');
+    const uploadZone = document.getElementById('fbUploadZone');
+    if (_fbQueue.length > 0) {
+        if (btn) btn.textContent = `Enviar ${_fbQueue.length + 1} Feedbacks`;
+        if (uploadZone) uploadZone.style.display = 'none';
+    } else {
+        if (btn) btn.textContent = 'Enviar Feedback';
+        if (uploadZone) uploadZone.style.display = '';
+    }
+}
+
+function queueFeedbackItem() {
+    const title = document.getElementById('fbTitle')?.value?.trim();
+    const content = document.getElementById('fbContent')?.value?.trim();
+    if (!title || !content) { showToast('Titulo y descripcion requeridos', 'error'); return; }
+    if (title.length > 200) { showToast('Titulo muy largo (max 200)', 'error'); return; }
+
+    _fbQueue.push({
+        title,
+        content,
+        category: document.getElementById('fbCategory')?.value || 'mejora',
+        priority: document.getElementById('fbPriority')?.value || 'media'
+    });
+
+    // Clear form fields for next item
+    document.getElementById('fbTitle').value = '';
+    document.getElementById('fbContent').value = '';
+    document.getElementById('fbTitle').focus();
+    _renderFbQueue();
+    _updateFbButtons();
+    showToast(`Agregado a la cola (${_fbQueue.length})`, 'success');
+}
+
 // ─── Modal open/close ───────────────────────────────────────────────────────
 function openFeedbackModal() {
     _fbPendingFiles = [];
+    _fbQueue = [];
     _renderFbPreviews();
+    _renderFbQueue();
+    _updateFbButtons();
     const m = document.getElementById('feedbackModal');
     if (m) m.style.display = 'block';
 }
@@ -7854,7 +7914,10 @@ function closeFeedbackModal() {
         m.style.display = 'none';
         document.getElementById('feedbackForm')?.reset();
         _fbPendingFiles = [];
+        _fbQueue = [];
         _renderFbPreviews();
+        _renderFbQueue();
+        _updateFbButtons();
     }
 }
 
@@ -7870,7 +7933,7 @@ function closeFeedbackRespondModal() {
     if (m) m.style.display = 'none';
 }
 
-// ─── Save new feedback (FormData with files) ────────────────────────────────
+// ─── Save new feedback (single with files OR bulk without files) ─────────────
 (function() {
     document.addEventListener('DOMContentLoaded', () => {
         initFbUploadZone();
@@ -7882,27 +7945,60 @@ function closeFeedbackRespondModal() {
             if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
             try {
-                const fd = new FormData();
-                fd.append('title', document.getElementById('fbTitle').value);
-                fd.append('content', document.getElementById('fbContent').value);
-                fd.append('category', document.getElementById('fbCategory').value);
-                fd.append('priority', document.getElementById('fbPriority').value);
-                _fbPendingFiles.forEach(f => fd.append('attachments', f));
+                // Collect current form item
+                const currentTitle = document.getElementById('fbTitle').value.trim();
+                const currentContent = document.getElementById('fbContent').value.trim();
+                const currentCategory = document.getElementById('fbCategory').value;
+                const currentPriority = document.getElementById('fbPriority').value;
 
-                const res = await fetch('/api/feedback', { method: 'POST', body: fd });
-                if (res.ok) {
-                    closeFeedbackModal();
-                    showToast(_fbPendingFiles.length > 0 ? 'Feedback enviado con adjuntos' : 'Feedback enviado', 'success');
-                    _fbPendingFiles = [];
-                    loadFeedback();
+                if (!currentTitle || !currentContent) {
+                    showToast('Titulo y descripcion requeridos', 'error');
+                    return;
+                }
+
+                const currentItem = { title: currentTitle, content: currentContent, category: currentCategory, priority: currentPriority };
+
+                if (_fbQueue.length > 0) {
+                    // ─── Bulk mode: send all queued + current via /api/feedback/bulk ───
+                    const allItems = [..._fbQueue, currentItem];
+                    const res = await fetch('/api/feedback/bulk', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items: allItems })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        closeFeedbackModal();
+                        showToast(`${data.created} feedbacks enviados`, 'success');
+                        if (data.errors?.length > 0) showToast(data.errors.join('; '), 'warning');
+                        loadFeedback();
+                    } else {
+                        showToast(data.error || 'Error', 'error');
+                    }
                 } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Error', 'error');
+                    // ─── Single mode: use FormData (supports attachments) ───
+                    const fd = new FormData();
+                    fd.append('title', currentTitle);
+                    fd.append('content', currentContent);
+                    fd.append('category', currentCategory);
+                    fd.append('priority', currentPriority);
+                    _fbPendingFiles.forEach(f => fd.append('attachments', f));
+
+                    const res = await fetch('/api/feedback', { method: 'POST', body: fd });
+                    if (res.ok) {
+                        closeFeedbackModal();
+                        showToast(_fbPendingFiles.length > 0 ? 'Feedback enviado con adjuntos' : 'Feedback enviado', 'success');
+                        _fbPendingFiles = [];
+                        loadFeedback();
+                    } else {
+                        const err = await res.json();
+                        showToast(err.error || 'Error', 'error');
+                    }
                 }
             } catch (err) {
                 showToast('Error de conexion', 'error');
             } finally {
-                if (btn) { btn.disabled = false; btn.textContent = 'Enviar Feedback'; }
+                if (btn) { btn.disabled = false; _updateFbButtons(); }
             }
         });
     });
