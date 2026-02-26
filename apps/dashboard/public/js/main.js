@@ -453,24 +453,95 @@ function _renderHomeTeam(allUsers) {
     `).join('');
 }
 
+// ── Gallery state ────────────────────────────────────────────────────────────
+let _galleryPhotos = [];
+let _galleryFilter = 'all';
+let _lightboxIndex = -1;
+
 function _renderHomeGallery(photos) {
     const grid = document.getElementById('homeGalleryGrid');
     if (!grid) return;
-    if (!photos || photos.length === 0) {
-        grid.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">Sin fotos aun — sube la primera!</p>';
+    if (photos) _galleryPhotos = photos;
+
+    const filtered = _galleryFilter === 'all'
+        ? _galleryPhotos
+        : _galleryPhotos.filter(p => p.category === _galleryFilter);
+
+    if (!filtered || filtered.length === 0) {
+        const isFiltered = _galleryFilter !== 'all' && _galleryPhotos.length > 0;
+        grid.innerHTML = `<div class="gallery-empty">
+            <div class="gallery-empty-icon">${isFiltered ? '🔍' : '📸'}</div>
+            <p>${isFiltered ? 'Sin fotos en esta categoria' : 'Sin fotos aun — sube la primera!'}</p>
+            ${!isFiltered && (window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo' || window.__USER__?.role === 'manager')
+                ? '<button class="btn btn-sm" onclick="openGalleryUpload()" style="margin-top:8px;">+ Subir Foto</button>' : ''}
+        </div>`;
         return;
     }
-    grid.innerHTML = photos.map(p => `
-        <div class="gallery-item" title="${escapeHtml(p.caption || '')}">
+    const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo';
+    grid.innerHTML = filtered.map((p, i) => `
+        <div class="gallery-item" onclick="openLightbox(${_galleryPhotos.indexOf(p)})" title="${escapeHtml(p.caption || '')}">
             <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.caption || 'Foto')}" loading="lazy">
             <div class="gallery-caption">
-                <span>${escapeHtml(p.caption || '')}</span>
+                <span class="gallery-caption-text">${escapeHtml(p.caption || '')}</span>
                 <span class="gallery-category">${escapeHtml(p.category)}</span>
             </div>
-            ${(window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo') ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
+            ${canDelete ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
         </div>
     `).join('');
 }
+
+function openLightbox(index) {
+    _lightboxIndex = index;
+    const p = _galleryPhotos[index];
+    if (!p) return;
+    const lb = document.getElementById('galleryLightbox');
+    const img = document.getElementById('lightboxImg');
+    const info = document.getElementById('lightboxInfo');
+    img.src = p.url;
+    img.alt = p.caption || 'Foto';
+    info.innerHTML = `<div>${escapeHtml(p.caption || '')}</div><span class="gallery-category">${escapeHtml(p.category)}</span>`;
+    lb.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    const lb = document.getElementById('galleryLightbox');
+    lb.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function navigateLightbox(dir) {
+    if (_galleryPhotos.length === 0) return;
+    _lightboxIndex = (_lightboxIndex + dir + _galleryPhotos.length) % _galleryPhotos.length;
+    const p = _galleryPhotos[_lightboxIndex];
+    document.getElementById('lightboxImg').src = p.url;
+    document.getElementById('lightboxImg').alt = p.caption || 'Foto';
+    document.getElementById('lightboxInfo').innerHTML = `<div>${escapeHtml(p.caption || '')}</div><span class="gallery-category">${escapeHtml(p.category)}</span>`;
+}
+
+// Gallery filter tabs
+document.addEventListener('click', e => {
+    const tab = e.target.closest('.gallery-filter-tab');
+    if (!tab) return;
+    document.querySelectorAll('.gallery-filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    _galleryFilter = tab.dataset.filter;
+    _renderHomeGallery();
+});
+
+// Lightbox keyboard navigation
+document.addEventListener('keydown', e => {
+    const lb = document.getElementById('galleryLightbox');
+    if (!lb || !lb.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') navigateLightbox(-1);
+    if (e.key === 'ArrowRight') navigateLightbox(1);
+});
+
+// Close lightbox on backdrop click
+document.addEventListener('click', e => {
+    if (e.target.id === 'galleryLightbox') closeLightbox();
+});
 
 async function loadHomeTeam() { _renderHomeTeam(await getCachedUsers()); }
 

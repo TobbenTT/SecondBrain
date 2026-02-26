@@ -347,32 +347,55 @@
             <div class="home-gallery-section" id="homeGallerySection">
                 <div class="home-gallery-header">
                     <h3 class="home-section-title">Galeria</h3>
-                    <% if (user && (user.role === 'admin' || user.role === 'ceo' || user.role === 'manager')) { %>
-                    <button class="btn btn-sm" onclick="openGalleryUpload()">+ Subir Foto</button>
-                    <% } %>
-                </div>
-                <div class="home-gallery-grid" id="homeGalleryGrid"></div>
-                <div id="galleryUploadForm" style="display:none;margin-top:12px;">
-                    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
-                        <div style="flex:1;min-width:200px;">
-                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Foto</label>
-                            <input type="file" id="galleryFileInput" accept="image/*" class="search-input-sm" style="width:100%;">
+                    <div class="gallery-header-actions">
+                        <div class="gallery-filter-tabs" id="galleryFilterTabs">
+                            <button class="gallery-filter-tab active" data-filter="all">Todas</button>
+                            <button class="gallery-filter-tab" data-filter="equipo">Equipo</button>
+                            <button class="gallery-filter-tab" data-filter="evento">Evento</button>
+                            <button class="gallery-filter-tab" data-filter="reunion">Reunion</button>
+                            <button class="gallery-filter-tab" data-filter="oficina">Oficina</button>
                         </div>
-                        <div style="flex:1;min-width:150px;">
-                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Descripcion</label>
-                            <input type="text" id="galleryCaptionInput" placeholder="Descripcion..." class="search-input-sm" style="width:100%;">
-                        </div>
-                        <select id="galleryCategoryInput" class="gtd-filter-select">
-                            <option value="general">General</option>
-                            <option value="equipo">Equipo</option>
-                            <option value="evento">Evento</option>
-                            <option value="reunion">Reunion</option>
-                            <option value="oficina">Oficina</option>
-                        </select>
-                        <button class="btn btn-sm btn-primary" onclick="uploadGalleryPhoto()">Subir</button>
-                        <button class="btn btn-sm" onclick="document.getElementById('galleryUploadForm').style.display='none'">Cancelar</button>
+                        <% if (user && (user.role === 'admin' || user.role === 'ceo' || user.role === 'manager')) { %>
+                        <button class="btn btn-sm" onclick="openGalleryUpload()">+ Subir Foto</button>
+                        <% } %>
                     </div>
                 </div>
+                <div class="home-gallery-grid" id="homeGalleryGrid"></div>
+                <div id="galleryUploadForm" class="gallery-upload-form" style="display:none;">
+                    <div class="gallery-upload-row">
+                        <div class="gallery-upload-field">
+                            <label>Foto</label>
+                            <input type="file" id="galleryFileInput" accept="image/*" class="search-input-sm" style="width:100%;">
+                        </div>
+                        <div class="gallery-upload-field">
+                            <label>Descripcion</label>
+                            <input type="text" id="galleryCaptionInput" placeholder="Ej: Reunion de equipo..." class="search-input-sm" style="width:100%;">
+                        </div>
+                        <div class="gallery-upload-field" style="min-width:120px;flex:0;">
+                            <label>Categoria</label>
+                            <select id="galleryCategoryInput" class="gtd-filter-select" style="width:100%;">
+                                <option value="general">General</option>
+                                <option value="equipo">Equipo</option>
+                                <option value="evento">Evento</option>
+                                <option value="reunion">Reunion</option>
+                                <option value="oficina">Oficina</option>
+                            </select>
+                        </div>
+                        <div class="gallery-upload-actions">
+                            <button class="btn btn-sm btn-primary" onclick="uploadGalleryPhoto()">Subir</button>
+                            <button class="btn btn-sm" onclick="document.getElementById('galleryUploadForm').style.display='none'">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gallery Lightbox -->
+            <div class="gallery-lightbox" id="galleryLightbox">
+                <button class="gallery-lightbox-close" onclick="closeLightbox()">&times;</button>
+                <button class="gallery-lightbox-nav prev" onclick="navigateLightbox(-1)">&#8249;</button>
+                <img id="lightboxImg" src="" alt="">
+                <button class="gallery-lightbox-nav next" onclick="navigateLightbox(1)">&#8250;</button>
+                <div class="gallery-lightbox-info" id="lightboxInfo"></div>
             </div>
 
             <!-- Quick Capture -->

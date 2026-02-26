@@ -9303,6 +9303,8 @@ select option {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .home-gallery-header .home-section-title {
@@ -9310,27 +9312,62 @@ select option {
     text-align: left;
 }
 
+.gallery-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gallery-filter-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+}
+
+.gallery-filter-tab {
+    padding: 4px 12px;
+    border-radius: var(--radius-xs, 4px);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.gallery-filter-tab:hover {
+    color: var(--text-primary);
+}
+
+.gallery-filter-tab.active {
+    background: var(--accent);
+    color: #fff;
+}
+
 .home-gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
 }
 
 .gallery-item {
     position: relative;
-    border-radius: var(--radius-sm);
+    border-radius: 12px;
     overflow: hidden;
     aspect-ratio: 4 / 3;
     background: var(--bg-card);
     border: 1px solid var(--border);
     cursor: pointer;
-    transition: var(--transition);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .gallery-item:hover {
     border-color: var(--accent);
-    box-shadow: var(--shadow-hover);
-    transform: scale(1.02);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transform: translateY(-4px);
 }
 
 .gallery-item img {
@@ -9338,6 +9375,11 @@ select option {
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.5s ease;
+}
+
+.gallery-item:hover img {
+    transform: scale(1.05);
 }
 
 .gallery-caption {
@@ -9345,25 +9387,33 @@ select option {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
-    padding: 24px 10px 8px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    padding: 32px 12px 10px;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: #fff;
     opacity: 0;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.3s ease;
 }
 
 .gallery-item:hover .gallery-caption {
     opacity: 1;
 }
 
+.gallery-caption-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+}
+
 .gallery-category {
     background: rgba(255, 255, 255, 0.2);
-    padding: 1px 7px;
-    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    padding: 2px 10px;
+    border-radius: 10px;
     font-size: 0.65rem;
     text-transform: capitalize;
     flex-shrink: 0;
@@ -9371,18 +9421,19 @@ select option {
 
 .gallery-delete-btn {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 24px;
-    height: 24px;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: rgba(231, 76, 60, 0.85);
+    backdrop-filter: blur(4px);
     border: none;
     color: #fff;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, transform 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -9395,7 +9446,176 @@ select option {
 
 .gallery-delete-btn:hover {
     background: var(--danger);
+    transform: scale(1.15);
 }
+
+/* Gallery empty state */
+.gallery-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+    text-align: center;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    grid-column: 1 / -1;
+}
+
+.gallery-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.gallery-empty p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.gallery-empty .btn {
+    margin-top: 12px;
+}
+
+/* Gallery upload form */
+.gallery-upload-form {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.gallery-upload-row {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.gallery-upload-field {
+    flex: 1;
+    min-width: 160px;
+}
+
+.gallery-upload-field label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.gallery-upload-actions {
+    display: flex;
+    gap: 6px;
+    align-items: end;
+}
+
+/* Lightbox */
+.gallery-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+
+.gallery-lightbox.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.gallery-lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.gallery-lightbox.active img {
+    transform: scale(1);
+}
+
+.gallery-lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.gallery-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.gallery-lightbox-info {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+}
+
+.gallery-lightbox-info .gallery-category {
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.gallery-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.gallery-lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.gallery-lightbox-nav.prev { left: 20px; }
+.gallery-lightbox-nav.next { right: 20px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    REUNION: Links a Proyectos/Áreas
@@ -9580,8 +9800,18 @@ select option {
         font-size: 1.2rem;
     }
     .home-gallery-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
     }
+    .gallery-filter-tabs {
+        order: 2;
+        width: 100%;
+        overflow-x: auto;
+        justify-content: flex-start;
+    }
+    .gallery-lightbox-nav { display: none; }
+    .gallery-upload-row { flex-direction: column; }
+    .gallery-upload-field { min-width: 100% !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -11117,7 +11347,7 @@ select option {
     }
 
     /* ─── Gallery ──────────────────────────────────────────────────────── */
-    .gallery-grid {
+    .home-gallery-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
@@ -11223,7 +11453,7 @@ select option {
         padding: 12px;
     }
 
-    .gallery-grid {
+    .home-gallery-grid {
         grid-template-columns: 1fr;
     }
 
