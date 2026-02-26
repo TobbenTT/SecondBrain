@@ -286,6 +286,66 @@ app.post('/webhook/fireflies', async (req, res) => {
     }
 });
 
+// ─── Telegram Webhook (incoming messages → create ideas) ─────────────────────
+const telegram = require('./services/telegram');
+const { processAndSaveIdea } = require('./helpers/ideaProcessor');
+app.post('/webhook/telegram/:token', async (req, res) => {
+    // Authenticate: token in URL must match our bot token
+    if (req.params.token !== telegram.getToken()) {
+        return res.sendStatus(403);
+    }
+    res.sendStatus(200); // Respond immediately to Telegram
+
+    try {
+        const msg = req.body && req.body.message;
+        if (!msg || !msg.text || msg.from.is_bot) return;
+
+        const chatId = msg.chat.id;
+        const text = msg.text.trim();
+
+        // /start — welcome message
+        if (text === '/start' || text === '/start@VCS_HubBot') {
+            return telegram.reply(chatId,
+                '👋 <b>VCS Hub Bot</b>\n\n' +
+                'Envia ideas al Hub con:\n' +
+                '<code>/idea Tu idea aqui</code>\n\n' +
+                'Escribe /help para mas info.');
+        }
+
+        // /help — usage instructions
+        if (text === '/help' || text === '/help@VCS_HubBot') {
+            return telegram.reply(chatId,
+                '📖 <b>Comandos disponibles</b>\n\n' +
+                '<code>/idea Texto de la idea</code> — Crea una nueva idea en el Hub\n' +
+                '<code>/help</code> — Muestra este mensaje\n\n' +
+                'La idea se procesa automaticamente con IA (clasificacion, prioridad, area).\n' +
+                'Puedes verla en el dashboard: https://aiprowork.com');
+        }
+
+        // /idea — create idea
+        const ideaMatch = text.match(/^\/idea(?:@VCS_HubBot)?\s+(.+)/s);
+        if (!ideaMatch) return; // Ignore all other messages
+
+        const ideaText = ideaMatch[1].trim();
+        if (ideaText.length < 3 || ideaText.length > 10000) {
+            return telegram.reply(chatId, 'La idea debe tener entre 3 y 10.000 caracteres.');
+        }
+
+        const sender = msg.from.first_name || msg.from.username || 'telegram';
+
+        const result = await run('INSERT INTO ideas (text, code_stage, created_by) VALUES (?, ?, ?)',
+            [ideaText, 'captured', `tg:${sender}`]);
+        await processAndSaveIdea(result.lastID, ideaText, `tg:${sender}`);
+
+        const preview = ideaText.length > 80 ? ideaText.substring(0, 80) + '...' : ideaText;
+        await telegram.reply(chatId, `✅ Idea guardada: "${preview}"`);
+
+        log.info('Idea created from Telegram', { ideaId: result.lastID, sender });
+    } catch (err) {
+        log.error('Telegram webhook error', { error: err.message });
+    }
+});
+
 // ─── Public Routes ───────────────────────────────────────────────────────────
 app.use('/login', loginLimiter);
 app.use(authRoutes);
@@ -388,6 +448,12 @@ if (process.env.NODE_ENV !== 'test') {
             const { startDigestScheduler } = require('./services/digest');
             startDigestScheduler();
         } catch (_) {}
+
+        // Register Telegram webhook for incoming ideas
+        const appDomain = (process.env.APP_DOMAIN || '').trim();
+        if (appDomain) {
+            telegram.setupWebhook(appDomain).catch(() => {});
+        }
 
         // Audit log retention: purge logs > 90 days (runs daily at 2 AM)
         try {
