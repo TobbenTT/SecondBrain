@@ -6,6 +6,7 @@ const multer = require('multer');
 const { get, run } = require('../database');
 const log = require('../helpers/logger');
 const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
+const { shouldRequire2FA } = require('../helpers/twofa');
 
 const router = express.Router();
 
@@ -119,6 +120,28 @@ router.post('/login', async (req, res) => {
         const user = await get('SELECT * FROM users WHERE username = ?', [identifier.toLowerCase()]);
 
         if (user && await bcrypt.compare(password, user.password_hash)) {
+            // Record successful login attempt
+            await run(
+                'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
+                [user.id, user.username, req.ip, true]
+            );
+
+            // Check if 2FA is required
+            const need2FA = await shouldRequire2FA(user, req);
+
+            if (need2FA) {
+                req.session.pending2FA = {
+                    userId: user.id,
+                    username: user.username,
+                    role: user.role,
+                    department: user.department || '',
+                    expertise: user.expertise || '',
+                    avatar: user.avatar || null
+                };
+                return res.redirect('/2fa');
+            }
+
+            // No 2FA needed — complete login normally
             req.session.user = {
                 id: user.id,
                 username: user.username,
@@ -130,6 +153,12 @@ router.post('/login', async (req, res) => {
             req.session.authenticated = true;
             res.redirect('/');
         } else {
+            // Record failed login attempt
+            const failUser = await get('SELECT id FROM users WHERE username = ?', [identifier.toLowerCase()]);
+            await run(
+                'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
+                [failUser?.id || null, identifier.toLowerCase(), req.ip, false]
+            );
             res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
         }
     } catch (err) {

@@ -24,6 +24,15 @@ async function apiKeyAuth(req, res, next) {
 
 function requireAuth(req, res, next) {
     if (req.isApiRequest) return next();
+
+    // Block sessions with pending 2FA (password passed but 2FA not yet verified)
+    if (req.session && req.session.pending2FA && !req.session.authenticated) {
+        if (req.path.startsWith('/api/')) {
+            return res.status(401).json({ error: '2FA verification required' });
+        }
+        return res.redirect('/2fa');
+    }
+
     if (req.session && req.session.user) {
         return next();
     }

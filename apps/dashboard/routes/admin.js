@@ -86,8 +86,8 @@ router.get('/users', async (req, res) => {
             // If no roles found, fall through to SQLite
         }
 
-        // ─── SQLite fallback ───
-        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users');
+        // ─── PostgreSQL fallback ───
+        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, twofa_enabled, twofa_enforced, created_at FROM users');
         res.json(users);
     } catch (_err) {
         log.error('List users error', { error: _err.message, stack: _err.stack });
@@ -227,6 +227,18 @@ router.put('/users/:id/avatar', requireAdmin, avatarUpload.single('avatar'), asy
     } catch (err) {
         log.error('Admin avatar upload error', { error: err.message });
         res.status(500).json({ error: 'Failed to upload avatar' });
+    }
+});
+
+// Enforce/unenforce 2FA for a user (admin only)
+router.put('/users/:id/enforce-2fa', requireAdmin, async (req, res) => {
+    try {
+        const { enforce } = req.body;
+        await run('UPDATE users SET twofa_enforced = ? WHERE id = ?', [!!enforce, req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Enforce 2FA error', { error: err.message });
+        res.status(500).json({ error: 'Failed to update 2FA enforcement' });
     }
 });
 

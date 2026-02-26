@@ -84,6 +84,7 @@ async function initDatabase() {
         await seedConsultor();
         await migrateContextToPara();
         await migrateAddSoftDelete();
+        await migrate2FA();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -231,6 +232,58 @@ async function migrateAddSoftDelete() {
     for (const table of tables) {
         await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
     }
+}
+
+async function migrate2FA() {
+    // Columns on users table
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_enabled BOOLEAN DEFAULT FALSE");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_enforced BOOLEAN DEFAULT FALSE");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_twofa_at TIMESTAMP");
+
+    // TOTP secrets
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_totp_secrets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        secret_encrypted TEXT NOT NULL,
+        verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+    )`);
+
+    // Recovery codes (single-use backup)
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_recovery_codes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code_hash TEXT NOT NULL,
+        used_at TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_recovery_user ON user_recovery_codes(user_id)");
+
+    // Trusted devices (skip 2FA for known device+IP)
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_trusted_devices (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_hash TEXT NOT NULL,
+        ip_address TEXT NOT NULL,
+        label TEXT,
+        last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_trusted_user ON user_trusted_devices(user_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_trusted_lookup ON user_trusted_devices(user_id, device_hash, ip_address)");
+
+    // Login attempts (risk assessment)
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_login_attempts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        username TEXT NOT NULL,
+        ip_address TEXT,
+        success BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_login_attempts_user ON user_login_attempts(user_id, created_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON user_login_attempts(ip_address, created_at)");
 }
 
 // Start initialization

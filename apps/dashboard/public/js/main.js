@@ -7826,6 +7826,7 @@ async function openProfileModal() {
         if (preview) preview.innerHTML = _avatarHtml(p.avatar, p.username, 96);
 
         modal.style.display = 'block';
+        loadTwofaStatus(); // Load 2FA status when profile opens
     } catch (err) {
         showToast('Error al cargar perfil', 'error');
     }
@@ -7911,6 +7912,158 @@ async function changeOwnPassword() {
         }
     } catch (err) {
         showToast('Error al cambiar contraseña', 'error');
+    }
+}
+
+// ─── 2FA Management (Profile) ───────────────────────────────────────────────
+
+async function loadTwofaStatus() {
+    const container = document.getElementById('twofaContent');
+    if (!container) return;
+    try {
+        const res = await fetch('/api/twofa/status');
+        if (!res.ok) { container.innerHTML = '<div style="color:#ef4444;padding:12px;">Error al cargar estado 2FA</div>'; return; }
+        const data = await res.json();
+
+        if (!data.available) {
+            container.innerHTML = '<div style="color:#94a3b8;padding:12px;">2FA no disponible en este entorno</div>';
+            return;
+        }
+
+        if (!data.enabled) {
+            container.innerHTML = `
+                <div style="padding:8px 0;">
+                    <p style="color:#64748b;font-size:0.85rem;margin-bottom:12px;">Protege tu cuenta con un segundo factor de autenticacion usando Google Authenticator o Microsoft Authenticator.</p>
+                    ${data.enforced ? '<div style="background:#fef3c7;color:#92400e;padding:8px 12px;border-radius:6px;font-size:0.85rem;margin-bottom:12px;">Tu administrador requiere 2FA para tu cuenta.</div>' : ''}
+                    <button class="btn btn-sm" onclick="setupTwofa()" style="background:#0052cc;color:#fff;">Activar 2FA</button>
+                </div>`;
+            return;
+        }
+
+        // 2FA is enabled
+        let devicesHtml = '';
+        if (data.trustedDevices.length > 0) {
+            devicesHtml = '<div style="margin-top:12px;"><strong style="font-size:0.8rem;color:#64748b;">Dispositivos confiables:</strong><ul style="list-style:none;padding:0;margin:8px 0;">';
+            for (const d of data.trustedDevices) {
+                const exp = new Date(d.expires_at);
+                const expStr = exp < new Date() ? '<span style="color:#ef4444;">expirado</span>' : `hasta ${exp.toLocaleDateString()}`;
+                devicesHtml += `<li style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">
+                    <span>${d.label || 'Dispositivo'} <span style="color:#94a3b8;">(${d.ip_address})</span> — ${expStr}</span>
+                    <button class="btn btn-sm" onclick="removeTrustedDevice(${d.id})" style="font-size:0.75rem;padding:2px 8px;background:#fee2e2;color:#b91c1c;border:none;cursor:pointer;">X</button>
+                </li>`;
+            }
+            devicesHtml += '</ul></div>';
+        }
+
+        container.innerHTML = `
+            <div style="padding:8px 0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <span style="background:#dcfce7;color:#16a34a;padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600;">2FA Activo</span>
+                    ${data.enforced ? '<span style="background:#dbeafe;color:#2563eb;padding:4px 10px;border-radius:20px;font-size:0.75rem;">Requerido por admin</span>' : ''}
+                </div>
+                <p style="color:#64748b;font-size:0.85rem;">Codigos de recuperacion restantes: <strong>${data.recoveryCodesRemaining}</strong></p>
+                ${devicesHtml}
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
+                    <button class="btn btn-sm" onclick="disableTwofa()" style="background:#fee2e2;color:#b91c1c;font-size:0.8rem;" ${data.enforced ? 'disabled title="Obligatorio por admin"' : ''}>Desactivar 2FA</button>
+                </div>
+            </div>`;
+    } catch (err) {
+        container.innerHTML = '<div style="color:#ef4444;padding:12px;">Error de conexion</div>';
+    }
+}
+
+async function setupTwofa() {
+    const container = document.getElementById('twofaContent');
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Generando codigo QR...</div>';
+    try {
+        const res = await fetch('/api/twofa/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error', 'error'); loadTwofaStatus(); return; }
+
+        container.innerHTML = `
+            <div style="padding:8px 0;">
+                <p style="font-size:0.85rem;color:#475569;margin-bottom:12px;">1. Escanea este codigo QR con tu app autenticadora:</p>
+                <div style="text-align:center;margin-bottom:16px;">
+                    <img src="${data.qrCodeDataUrl}" alt="QR Code" style="width:200px;height:200px;border:2px solid #e2e8f0;border-radius:8px;">
+                </div>
+                <p style="font-size:0.8rem;color:#94a3b8;margin-bottom:4px;">O ingresa esta clave manualmente:</p>
+                <div style="background:#f8fafc;padding:8px 12px;border-radius:6px;font-family:monospace;font-size:0.85rem;word-break:break-all;margin-bottom:16px;cursor:pointer;" onclick="navigator.clipboard.writeText('${data.manualEntryKey}');showToast('Clave copiada','success');" title="Click para copiar">${data.manualEntryKey}</div>
+                <p style="font-size:0.85rem;color:#475569;margin-bottom:8px;">2. Ingresa el codigo de 6 digitos que muestra la app:</p>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="twofaVerifyCode" placeholder="000000" maxlength="6" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;font-size:1.2rem;font-family:monospace;text-align:center;letter-spacing:4px;width:160px;" inputmode="numeric">
+                    <button class="btn btn-sm" onclick="verifyTwofaSetup()" style="background:#0052cc;color:#fff;">Verificar</button>
+                    <button class="btn btn-sm" onclick="loadTwofaStatus()" style="background:#f1f5f9;color:#475569;">Cancelar</button>
+                </div>
+            </div>`;
+        document.getElementById('twofaVerifyCode').focus();
+    } catch (err) {
+        showToast('Error al generar QR', 'error');
+        loadTwofaStatus();
+    }
+}
+
+async function verifyTwofaSetup() {
+    const code = document.getElementById('twofaVerifyCode')?.value;
+    if (!code || code.length < 6) { showToast('Ingresa el codigo de 6 digitos', 'warning'); return; }
+    try {
+        const res = await fetch('/api/twofa/verify-setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: code })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Codigo invalido', 'error'); return; }
+
+        // Show recovery codes
+        const container = document.getElementById('twofaContent');
+        const codesHtml = data.recoveryCodes.map(c => `<code style="display:inline-block;background:#f8fafc;padding:4px 10px;margin:3px;border-radius:4px;font-size:0.9rem;border:1px solid #e2e8f0;">${c}</code>`).join('');
+        container.innerHTML = `
+            <div style="padding:12px 0;">
+                <div style="background:#dcfce7;color:#16a34a;padding:12px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;">2FA activado correctamente</div>
+                <div style="background:#fefce8;border:1px solid #fde047;padding:16px;border-radius:8px;margin-bottom:16px;">
+                    <p style="font-weight:600;color:#854d0e;margin-bottom:8px;">Guarda estos codigos de recuperacion</p>
+                    <p style="font-size:0.85rem;color:#92400e;margin-bottom:12px;">Si pierdes acceso a tu app autenticadora, puedes usar estos codigos para entrar. Cada uno funciona una sola vez.</p>
+                    <div style="text-align:center;margin-bottom:12px;">${codesHtml}</div>
+                    <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.recoveryCodes.join('\\n')}');showToast('Codigos copiados','success');" style="width:100%;background:#854d0e;color:#fff;">Copiar codigos</button>
+                </div>
+                <button class="btn btn-sm" onclick="loadTwofaStatus()" style="width:100%;background:#0052cc;color:#fff;">He guardado mis codigos</button>
+            </div>`;
+        showToast('2FA activado', 'success');
+    } catch (err) {
+        showToast('Error al verificar', 'error');
+    }
+}
+
+async function disableTwofa() {
+    const pw = prompt('Ingresa tu contrasena actual para desactivar 2FA:');
+    if (!pw) return;
+    try {
+        const res = await fetch('/api/twofa/disable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: pw })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('2FA desactivado', 'success');
+            loadTwofaStatus();
+        } else {
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al desactivar 2FA', 'error');
+    }
+}
+
+async function removeTrustedDevice(id) {
+    try {
+        const res = await fetch(`/api/twofa/trusted-devices/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Dispositivo eliminado', 'success');
+            loadTwofaStatus();
+        }
+    } catch (err) {
+        showToast('Error', 'error');
     }
 }
 
@@ -8199,6 +8352,11 @@ async function deleteAdminUser(id, username) {
 window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
 window.changeOwnPassword = changeOwnPassword;
+window.setupTwofa = setupTwofa;
+window.verifyTwofaSetup = verifyTwofaSetup;
+window.disableTwofa = disableTwofa;
+window.removeTrustedDevice = removeTrustedDevice;
+window.loadTwofaStatus = loadTwofaStatus;
 window.loadAdminUsers = loadAdminUsers;
 window.openUserEditModal = openUserEditModal;
 window.closeUserEditModal = closeUserEditModal;

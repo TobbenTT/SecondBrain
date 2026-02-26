@@ -33,6 +33,7 @@ const reviewRoutes = require('./routes/review');
 const reunionesRoutes = require('./routes/reuniones');
 const feedbackRoutes = require('./routes/feedback');
 const uploadRoutes = require('./routes/upload');
+const { publicRouter: twofaPublicRoutes, protectedRouter: twofaProtectedRoutes } = require('./routes/twofa');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -247,6 +248,7 @@ app.post('/webhook/fireflies', async (req, res) => {
 // ─── Public Routes ───────────────────────────────────────────────────────────
 app.use('/login', loginLimiter);
 app.use(authRoutes);
+app.use(twofaPublicRoutes); // GET /2fa, POST /2fa (before requireAuth)
 
 // ─── CSRF Protection for API routes ─────────────────────────────────────────
 // HTML forms can only submit GET/POST. For POST, we require application/json
@@ -287,6 +289,7 @@ app.use('/api', adminRoutes);     // /api/users, /api/projects, /api/search, /ap
 app.use('/api/comments', commentsRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/twofa', twofaProtectedRoutes);
 
 // ─── Error Page Helper ──────────────────────────────────────────────────────
 const ERROR_META = {

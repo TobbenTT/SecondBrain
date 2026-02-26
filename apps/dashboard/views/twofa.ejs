@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificacion 2FA | PMO Corporate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { height: 100%; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .container { display: flex; height: 100vh; width: 100%; }
+
+        .left-panel {
+            flex: 1.2;
+            background-color: #0052cc;
+            color: #fff;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 80px;
+            overflow: hidden;
+        }
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+        }
+        .left-panel::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: -50px;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+
+        .brand-header {
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-header .vsc-badge { font-size: 0.8rem; font-weight: 800; opacity: 0.8; }
+
+        .brand-content { z-index: 2; }
+        .brand-icon { font-size: 4rem; margin-bottom: 20px; }
+        .brand-title { font-size: 2.5rem; font-weight: 700; line-height: 1.2; margin-bottom: 16px; }
+        .brand-subtitle { font-size: 1rem; opacity: 0.8; font-weight: 400; max-width: 350px; line-height: 1.5; }
+
+        .brand-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .right-panel {
+            flex: 1;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .twofa-box { width: 100%; max-width: 420px; padding: 40px; }
+
+        .twofa-header { margin-bottom: 32px; }
+        .twofa-header h2 { font-size: 1.8rem; font-weight: 700; color: #1a202c; margin-bottom: 8px; }
+        .twofa-header p { font-size: 0.9rem; color: #64748b; line-height: 1.5; }
+        .twofa-header .user-badge {
+            display: inline-block;
+            background: #f0f4ff;
+            color: #0052cc;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .form-group { margin-bottom: 24px; }
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .code-input {
+            width: 100%;
+            padding: 18px 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1a202c;
+            outline: none;
+            transition: all 0.2s;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            letter-spacing: 8px;
+        }
+        .code-input:focus {
+            background: #fff;
+            border-color: #0052cc;
+            box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
+        }
+        .code-input::placeholder { color: #cbd5e1; letter-spacing: 8px; font-size: 1.4rem; }
+
+        .trust-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+            cursor: pointer;
+        }
+        .trust-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #0052cc;
+        }
+        .trust-checkbox label {
+            font-size: 0.85rem;
+            color: #475569;
+            cursor: pointer;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background-color: #0047BA;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-submit:hover { background-color: #003a9a; }
+
+        .error-message {
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .recovery-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        .recovery-link a {
+            color: #0047BA;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .recovery-link a:hover { text-decoration: underline; }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.85rem;
+        }
+        .back-link a { color: #94a3b8; text-decoration: none; }
+        .back-link a:hover { color: #64748b; text-decoration: underline; }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; height: auto; min-height: 100vh; overflow-y: auto; }
+            .left-panel { padding: 40px; min-height: 200px; flex: none; align-items: center; text-align: center; }
+            .brand-header { position: static; margin-bottom: 16px; }
+            .brand-footer { display: none; }
+            .brand-title { font-size: 1.8rem; }
+            .brand-icon { font-size: 3rem; }
+            .right-panel { padding: 40px 20px; flex: 1; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="brand-header">
+                ValueStrategy Consulting <span class="vsc-badge">vsc</span>
+            </div>
+            <div class="brand-content">
+                <div class="brand-icon">&#x1F6E1;</div>
+                <h1 class="brand-title">Verificacion<br>de Seguridad</h1>
+                <p class="brand-subtitle">Ingresa el codigo de tu aplicacion autenticadora para acceder al sistema.</p>
+            </div>
+            <div class="brand-footer">
+                VALUESTRATEGY CONSULTING &copy; 2025
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="twofa-box">
+                <div class="twofa-header">
+                    <h2>Codigo de Verificacion</h2>
+                    <p>Abre tu app autenticadora (Google Authenticator, Microsoft Authenticator) e ingresa el codigo de 6 digitos.</p>
+                    <span class="user-badge"><%= username %></span>
+                </div>
+
+                <% if (error) { %>
+                <div class="error-message"><%= error %></div>
+                <% } %>
+
+                <form action="/2fa" method="POST">
+                    <div class="form-group">
+                        <label class="form-label" id="codeLabel">CODIGO DE 6 DIGITOS</label>
+                        <input type="text" name="token" class="code-input"
+                               placeholder="000000" maxlength="10"
+                               autocomplete="one-time-code" inputmode="numeric"
+                               required autofocus>
+                    </div>
+
+                    <div class="trust-checkbox">
+                        <input type="checkbox" name="trustDevice" id="trustDevice" value="1">
+                        <label for="trustDevice">Confiar en este dispositivo por 30 dias</label>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Verificar</button>
+                </form>
+
+                <div class="recovery-link">
+                    ¿Sin acceso a tu app? <a href="#" onclick="toggleRecovery(); return false;">Usar codigo de recuperacion</a>
+                </div>
+
+                <div class="back-link">
+                    <a href="/login">Volver al inicio de sesion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let recoveryMode = false;
+        function toggleRecovery() {
+            recoveryMode = !recoveryMode;
+            const input = document.querySelector('.code-input');
+            const label = document.getElementById('codeLabel');
+            if (recoveryMode) {
+                label.textContent = 'CODIGO DE RECUPERACION';
+                input.placeholder = 'a1b2c3d4';
+                input.maxLength = 10;
+                input.inputMode = 'text';
+            } else {
+                label.textContent = 'CODIGO DE 6 DIGITOS';
+                input.placeholder = '000000';
+                input.maxLength = 10;
+                input.inputMode = 'numeric';
+            }
+            input.value = '';
+            input.focus();
+        }
+    </script>
+</body>
+
+</html>
