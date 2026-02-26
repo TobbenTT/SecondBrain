@@ -9773,7 +9773,7 @@ function renderAdminFilesActive(files) {
     if (!tbody) return;
 
     if (files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Sin archivos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">Sin archivos</td></tr>';
         return;
     }
 
@@ -9781,30 +9781,28 @@ function renderAdminFilesActive(files) {
         const date = f.modified ? new Date(f.modified).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
         const encoded = encodeURIComponent(f.name);
         const safeName = escapeHtml(f.name).replace(/'/g, "\\'");
+        const uploaderTip = f.uploadedBy ? `\nSubido por: ${f.uploadedBy}` : '';
         let actions = '';
 
         if (f.type === 'app' && f.dynamicUrl) {
-            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-action-btn af-view">▶ Abrir</a>`;
+            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-icon-btn af-view" title="Abrir">▶</a>`;
         } else if (f.extension !== '.app') {
-            actions += `<a href="/archivo/${encoded}" target="_blank" class="af-action-btn af-view">👁 Ver</a>`;
+            actions += `<a href="/archivo/${encoded}" target="_blank" class="af-icon-btn af-view" title="Ver">👁</a>`;
         }
 
         if (f.hasDynamic && f.dynamicUrl && f.type !== 'app') {
-            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-action-btn af-dynamic">⚡ Dinamica</a>`;
+            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-icon-btn af-dynamic" title="Pagina dinamica">⚡</a>`;
         }
 
         if (f.extension !== '.app') {
-            actions += `<a href="/descargar/${encoded}" class="af-action-btn af-download">↓ Descargar</a>`;
-            actions += `<button onclick="adminDeleteFile('${safeName}')" class="af-action-btn af-delete">✕ Eliminar</button>`;
+            actions += `<a href="/descargar/${encoded}" class="af-icon-btn af-download" title="Descargar">⬇</a>`;
+            actions += `<button onclick="adminDeleteFile('${safeName}')" class="af-icon-btn af-delete" title="Eliminar">🗑</button>`;
         }
 
-        const uploader = f.uploadedBy || '—';
-
         return `<tr class="au-row">
-            <td><div class="af-file-name"><span class="af-file-icon">${_afFileIcon(f.extension)}</span><span class="af-file-text" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span></div></td>
+            <td><div class="af-file-name"><span class="af-file-icon">${_afFileIcon(f.extension)}</span><span class="af-file-text" title="${escapeHtml(f.name)}${uploaderTip}">${escapeHtml(f.name)}</span></div></td>
             <td>${_afExtBadge(f.extension)}</td>
             <td style="font-size:0.82rem;white-space:nowrap;">${escapeHtml(f.sizeFormatted)}</td>
-            <td style="font-size:0.82rem;">${escapeHtml(uploader)}</td>
             <td style="font-size:0.82rem;white-space:nowrap;">${date}</td>
             <td><div class="af-actions-cell">${actions}</div></td>
         </tr>`;
@@ -9814,7 +9812,7 @@ function renderAdminFilesActive(files) {
 async function loadAdminFilesActive() {
     const tbody = document.getElementById('afActiveTbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;"><div class="spinner-sm"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner-sm"></div></td></tr>';
     try {
         const res = await fetch('/api/archivos');
         if (!res.ok) throw new Error('Failed');
@@ -9823,7 +9821,7 @@ async function loadAdminFilesActive() {
         renderAdminFilesActive(_afAllFiles);
     } catch (err) {
         console.error('Admin files load error:', err);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar archivos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar archivos</td></tr>';
     }
 }
 
@@ -9867,8 +9865,8 @@ async function loadAdminFilesTrash() {
                 <td style="font-size:0.82rem;white-space:nowrap;">${escapeHtml(f.sizeFormatted)}</td>
                 <td style="font-size:0.82rem;white-space:nowrap;">${date}</td>
                 <td><div class="af-actions-cell">
-                    <button onclick="restoreTrashFile('${safeName}')" class="af-action-btn af-restore">↩ Restaurar</button>
-                    <button onclick="deleteTrashFile('${safeName}')" class="af-action-btn af-delete">✕ Eliminar</button>
+                    <button onclick="restoreTrashFile('${safeName}')" class="af-icon-btn af-restore" title="Restaurar">↩</button>
+                    <button onclick="deleteTrashFile('${safeName}')" class="af-icon-btn af-delete" title="Eliminar permanentemente">🗑</button>
                 </div></td>
             </tr>`;
         }).join('');
