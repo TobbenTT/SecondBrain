@@ -2144,8 +2144,14 @@
                 <button class="btn-outline" id="afTabTrash" onclick="switchAdminFilesTab('trash')" style="font-size:0.85rem;">Papelera</button>
             </div>
 
+            <!-- Search -->
+            <div id="afSearchWrap" style="margin-bottom:12px;">
+                <input type="text" id="afSearchInput" placeholder="Buscar archivos..." oninput="filterAdminFiles()" style="width:100%;max-width:400px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+            </div>
+
             <!-- Active files table -->
             <div id="afActivePanel">
+                <div style="margin-bottom:8px;font-size:0.82rem;color:var(--text-muted);" id="afActiveCount"></div>
                 <div class="au-table-wrap">
                     <table class="au-table">
                         <thead>
@@ -2153,13 +2159,12 @@
                                 <th>Archivo</th>
                                 <th>Tipo</th>
                                 <th>Tamano</th>
-                                <th>Subido por</th>
                                 <th>Fecha</th>
-                                <th>Dinamica</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="afActiveTbody">
-                            <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
+                            <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
