@@ -730,25 +730,42 @@ async function loadDigestWidget() {
         const res = await fetch('/api/digest/latest');
         if (!res.ok) return;
         const { digest } = await res.json();
+        const isAdmin = window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo';
+
         if (!digest) {
-            container.innerHTML = `<div class="digest-empty">
-                <span style="font-size:1.5rem;">📋</span>
-                <p style="color:var(--text-muted);font-size:0.85rem;margin:8px 0 0;">Sin digest disponible. Se genera automaticamente cada dia a las 8 AM.</p>
+            container.innerHTML = `
+            <div class="digest-widget-wrapper">
+                <div class="digest-title-row">
+                    <h3 class="home-section-title" style="margin:0;">Digest del Dia</h3>
+                    ${isAdmin ? '<button class="btn btn-sm btn-outline" onclick="triggerDigestManual()" style="font-size:0.7rem;padding:2px 8px;">Generar ahora</button>' : ''}
+                </div>
+                <div class="digest-empty">
+                    <span style="font-size:1.5rem;">📋</span>
+                    <p style="color:var(--text-muted);font-size:0.85rem;margin:8px 0 0;">Sin digest disponible. Se genera automaticamente cada dia a las 8 AM.</p>
+                </div>
             </div>`;
             return;
         }
 
         const date = new Date(digest.created_at).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
-        const via = digest.delivered_via === 'email' ? ' (enviado por email)' : '';
+        const via = digest.delivered_via === 'email' ? ' · enviado por email' : '';
         const contentPreview = (digest.summary || digest.content.substring(0, 200)) + '...';
 
         container.innerHTML = `
-            <div class="digest-card">
-                <div class="digest-header">
-                    <span class="digest-date">${date}${via}</span>
-                    <button class="btn btn-sm" onclick="showFullDigest(${digest.id})" style="font-size:0.75rem;padding:3px 10px;">Ver completo</button>
+            <div class="digest-widget-wrapper">
+                <div class="digest-title-row">
+                    <h3 class="home-section-title" style="margin:0;">Digest del Dia</h3>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        ${isAdmin ? '<button class="btn btn-sm btn-outline" onclick="triggerDigestManual()" style="font-size:0.7rem;padding:2px 8px;">Regenerar</button>' : ''}
+                    </div>
                 </div>
-                <div class="digest-preview">${escapeHtml(contentPreview)}</div>
+                <div class="digest-card">
+                    <div class="digest-header">
+                        <span class="digest-date">${date}${via}</span>
+                        <button class="btn btn-sm" onclick="showFullDigest(${digest.id})" style="font-size:0.75rem;padding:3px 10px;">Ver completo</button>
+                    </div>
+                    <div class="digest-preview">${escapeHtml(contentPreview)}</div>
+                </div>
             </div>`;
     } catch (_) {}
 }
@@ -783,11 +800,14 @@ function createGenericModal() {
 
 async function triggerDigestManual() {
     try {
+        showToast('Generando digest...', 'info');
         const res = await fetch('/api/digest/trigger', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const data = await res.json();
-        showToast(data.message || 'Digest disparado', 'success');
+        showToast(data.message || 'Digest generado', 'success');
+        // Reload widget after a short delay to let the digest generate
+        setTimeout(() => loadDigestWidget(), 3000);
     } catch (err) {
-        showToast('Error', 'error');
+        showToast('Error al generar digest', 'error');
     }
 }
 

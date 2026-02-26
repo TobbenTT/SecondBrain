@@ -75,8 +75,16 @@ router.post('/webhook/reuniones', async (req, res) => {
         // Auto-link to projects/areas by keyword matching
         await autoLinkReunion(reunionId, { titulo, puntos_clave, acuerdos, compromisos });
 
-        log.info('Meeting saved via webhook', { id: reunionId, titulo });
-        res.json({ success: true, id: reunionId, message: 'Meeting saved and notifications sent' });
+        // Auto-generate inbox tasks from compromisos, acuerdos, entregables
+        let autoTasks = [];
+        try {
+            autoTasks = await autoGenerateTasksFromMeeting(reunionId, req.body, 'sistema');
+        } catch (err) {
+            log.error('Auto-generate tasks from webhook failed', { reunionId, error: err.message });
+        }
+
+        log.info('Meeting saved via webhook', { id: reunionId, titulo, autoTasks: autoTasks.length });
+        res.json({ success: true, id: reunionId, tasksCreated: autoTasks.length, message: 'Meeting saved, notifications sent, tasks generated' });
     } catch (err) {
         log.error('Webhook reuniones error', { error: err.message });
         res.status(500).json({ error: 'Failed to process meeting' });
@@ -515,7 +523,74 @@ router.delete('/reuniones/:id', async (req, res) => {
     }
 });
 
-// ─── Generate Tasks from Meeting Commitments ────────────────────────────────
+// ─── Core: extract tasks from a meeting's compromisos/acuerdos/entregables ──
+
+async function autoGenerateTasksFromMeeting(reunionId, reunionData, createdBy) {
+    const compromisos = Array.isArray(reunionData.compromisos) ? reunionData.compromisos : safeJsonParse(reunionData.compromisos, []);
+    const acuerdos = Array.isArray(reunionData.acuerdos) ? reunionData.acuerdos : safeJsonParse(reunionData.acuerdos, []);
+    const entregables = Array.isArray(reunionData.entregables) ? reunionData.entregables : safeJsonParse(reunionData.entregables, []);
+
+    const items = [];
+
+    for (const c of compromisos) {
+        const text = typeof c === 'string' ? c : (c.texto || c.description || c.compromiso || c.tarea || JSON.stringify(c));
+        const responsible = typeof c === 'object' ? (c.responsable || c.assigned_to || c.quien || null) : null;
+        if (!text || text.length < 3) continue;
+
+        const result = await run(
+            `INSERT INTO ideas (text, code_stage, ai_type, ai_category, assigned_to, priority, created_by, needs_review, source_reunion_id)
+             VALUES (?, 'captured', 'Tarea', 'Compromiso de Reunión', ?, 'media', ?, 1, ?)`,
+            [text.trim(), responsible, createdBy, reunionId]
+        );
+        await run(
+            `INSERT INTO inbox_log (source, input_text, ai_classification, routed_to, needs_review, original_idea_id)
+             VALUES ('reunion', ?, 'Tarea', ?, 1, ?)`,
+            [text.trim(), responsible, result.lastID]
+        );
+        items.push({ id: result.lastID, text: text.trim(), type: 'compromiso' });
+    }
+
+    for (const a of acuerdos) {
+        const text = typeof a === 'string' ? a : (a.texto || a.description || a.acuerdo || JSON.stringify(a));
+        if (!text || text.length < 3) continue;
+
+        const result = await run(
+            `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
+             VALUES (?, 'captured', 'Tarea', 'Acuerdo de Reunión', ?, 1, ?)`,
+            [text.trim(), createdBy, reunionId]
+        );
+        await run(
+            `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
+             VALUES ('reunion', ?, 'Tarea', 1, ?)`,
+            [text.trim(), result.lastID]
+        );
+        items.push({ id: result.lastID, text: text.trim(), type: 'acuerdo' });
+    }
+
+    for (const e of entregables) {
+        const text = typeof e === 'string' ? e : (e.texto || e.description || e.entregable || JSON.stringify(e));
+        if (!text || text.length < 3) continue;
+
+        const result = await run(
+            `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
+             VALUES (?, 'captured', 'Tarea', 'Entregable de Reunión', ?, 1, ?)`,
+            [text.trim(), createdBy, reunionId]
+        );
+        await run(
+            `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
+             VALUES ('reunion', ?, 'Tarea', 1, ?)`,
+            [text.trim(), result.lastID]
+        );
+        items.push({ id: result.lastID, text: text.trim(), type: 'entregable' });
+    }
+
+    if (items.length > 0) {
+        log.info('Tasks auto-generated from meeting', { reunion_id: reunionId, count: items.length });
+    }
+    return items;
+}
+
+// ─── Generate Tasks from Meeting (manual endpoint) ──────────────────────────
 router.post('/reuniones/:id/generate-tasks', async (req, res) => {
     const user = req.session?.user;
     if (!user) return res.status(401).json({ error: 'Authentication required' });
@@ -524,7 +599,6 @@ router.post('/reuniones/:id/generate-tasks', async (req, res) => {
         const reunion = await get('SELECT * FROM reuniones WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
 
-        // Check if tasks were already generated from this meeting
         const existing = await get(
             "SELECT COUNT(*) as count FROM ideas WHERE ai_category LIKE '%Reunión' AND source_reunion_id = ?",
             [req.params.id]
@@ -536,68 +610,7 @@ router.post('/reuniones/:id/generate-tasks', async (req, res) => {
             });
         }
 
-        const compromisos = safeJsonParse(reunion.compromisos, []);
-        const acuerdos = safeJsonParse(reunion.acuerdos, []);
-        const entregables = safeJsonParse(reunion.entregables, []);
-
-        const items = [];
-
-        // Create ideas from compromisos
-        for (const c of compromisos) {
-            const text = typeof c === 'string' ? c : (c.texto || c.description || c.compromiso || JSON.stringify(c));
-            const responsible = typeof c === 'object' ? (c.responsable || c.assigned_to || null) : null;
-            if (!text || text.length < 3) continue;
-
-            const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, assigned_to, priority, created_by, needs_review, source_reunion_id)
-                 VALUES (?, 'captured', 'Tarea', 'Compromiso de Reunión', ?, 'media', ?, 1, ?)`,
-                [text.trim(), responsible, user.username, req.params.id]
-            );
-            await run(
-                `INSERT INTO inbox_log (source, input_text, ai_classification, routed_to, needs_review, original_idea_id)
-                 VALUES ('reunion', ?, 'Tarea', ?, 1, ?)`,
-                [text.trim(), responsible, result.lastID]
-            );
-            items.push({ id: result.lastID, text: text.trim(), type: 'compromiso' });
-        }
-
-        // Create ideas from acuerdos
-        for (const a of acuerdos) {
-            const text = typeof a === 'string' ? a : (a.texto || a.description || a.acuerdo || JSON.stringify(a));
-            if (!text || text.length < 3) continue;
-
-            const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
-                 VALUES (?, 'captured', 'Tarea', 'Acuerdo de Reunión', ?, 1, ?)`,
-                [text.trim(), user.username, req.params.id]
-            );
-            await run(
-                `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
-                 VALUES ('reunion', ?, 'Tarea', 1, ?)`,
-                [text.trim(), result.lastID]
-            );
-            items.push({ id: result.lastID, text: text.trim(), type: 'acuerdo' });
-        }
-
-        // Create ideas from entregables
-        for (const e of entregables) {
-            const text = typeof e === 'string' ? e : (e.texto || e.description || e.entregable || JSON.stringify(e));
-            if (!text || text.length < 3) continue;
-
-            const result = await run(
-                `INSERT INTO ideas (text, code_stage, ai_type, ai_category, created_by, needs_review, source_reunion_id)
-                 VALUES (?, 'captured', 'Tarea', 'Entregable de Reunión', ?, 1, ?)`,
-                [text.trim(), user.username, req.params.id]
-            );
-            await run(
-                `INSERT INTO inbox_log (source, input_text, ai_classification, needs_review, original_idea_id)
-                 VALUES ('reunion', ?, 'Tarea', 1, ?)`,
-                [text.trim(), result.lastID]
-            );
-            items.push({ id: result.lastID, text: text.trim(), type: 'entregable' });
-        }
-
-        log.info('Tasks generated from meeting', { reunion_id: req.params.id, count: items.length });
+        const items = await autoGenerateTasksFromMeeting(req.params.id, reunion, user.username);
         res.json({ success: true, created: items.length, items });
     } catch (err) {
         log.error('Generate tasks error', { error: err.message });

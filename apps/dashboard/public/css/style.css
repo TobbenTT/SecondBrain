@@ -9870,6 +9870,16 @@ select option {
 /* ═══════════════════════════════════════════════════════════════════════════
    DAILY DIGEST WIDGET
    ═══════════════════════════════════════════════════════════════════════════ */
+.digest-widget-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.digest-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 .digest-card {
     background: var(--bg-panel);
     border: 1px solid var(--border);
