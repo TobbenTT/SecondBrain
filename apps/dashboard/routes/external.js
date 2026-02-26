@@ -6,6 +6,7 @@ const { validateBody } = require('../helpers/validate');
 const aiService = require('../services/ai');
 const { processAndSaveIdea } = require('../helpers/ideaProcessor');
 const { requireAdmin } = require('../middleware/authorize');
+const { auditLog } = require('../helpers/audit');
 
 const router = express.Router();
 
@@ -197,6 +198,7 @@ router.post('/keys', validateBody({
         const key = 'sb_' + crypto.randomBytes(24).toString('hex');
         await run('INSERT INTO api_keys (key, name, username, permissions) VALUES (?, ?, ?, ?)',
             [key, name, username || 'david', 'read,write']);
+        auditLog('api_key_create', { actor: req.session?.user?.username || 'system', target: name, ip: req.ip, userAgent: req.headers['user-agent'], details: { username: username || 'david' } });
         res.json({ success: true, key, name });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to create API key' });
@@ -205,7 +207,9 @@ router.post('/keys', validateBody({
 
 router.delete('/keys/:id', requireAdmin, async (req, res) => {
     try {
+        const keyInfo = await get('SELECT name FROM api_keys WHERE id = ?', [req.params.id]);
         await run('DELETE FROM api_keys WHERE id = ?', [req.params.id]);
+        auditLog('api_key_delete', { actor: req.session?.user?.username || 'system', target: keyInfo?.name || req.params.id, ip: req.ip, userAgent: req.headers['user-agent'] });
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to delete API key' });

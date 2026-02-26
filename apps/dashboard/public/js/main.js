@@ -132,7 +132,8 @@ const SECTION_META = {
     'feedback': { title: 'Sugerencias y Mejoras', subtitle: 'Observaciones del equipo sobre la plataforma' },
     'admin-users': { title: 'Gestión de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
     'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas y Skills' },
-    'herramientas': { title: 'Herramientas y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' }
+    'herramientas': { title: 'Herramientas y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' },
+    'audit-log': { title: 'Registro de Auditoria', subtitle: 'Eventos de seguridad del sistema' }
 };
 
 
@@ -196,6 +197,7 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'reuniones') loadReuniones();
     if (sectionId === 'feedback') loadFeedback();
     if (sectionId === 'admin-users') loadAdminUsers();
+    if (sectionId === 'audit-log') loadAuditLog();
     if (sectionId === 'herramientas') loadHerramientas();
     if (sectionId === 'graph-view') { loadScript(CDN_D3).then(() => loadGraphView()); }
     if (sectionId === 'inbox') { if (!_lazyInited.inbox) { _lazyInited.inbox = true; initInboxTriage(); } loadInboxTriage(); }
@@ -8177,7 +8179,7 @@ function renderAdminUsersTable(users) {
             <td>
                 <div class="au-user-cell">
                     ${_avatarHtml(u.avatar, u.username, 36)}
-                    <span class="au-username">${escapeHtml(u.username)}</span>
+                    <span class="au-username">${escapeHtml(u.username)}${u.locked_until && new Date(u.locked_until) > new Date() ? ' <span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;">Bloqueado</span>' : ''}</span>
                 </div>
             </td>
             <td><span class="au-cell-text" style="font-size:0.82rem;opacity:0.8">${escapeHtml(u.email || '—')}</span></td>
@@ -8193,6 +8195,7 @@ function renderAdminUsersTable(users) {
             <td><span class="au-cell-date">${date}</span></td>
             <td>
                 <div class="au-actions">
+                    ${u.locked_until && new Date(u.locked_until) > new Date() ? `<button class="au-btn-edit" onclick="unlockUser(${u.id}, '${escapeHtml(u.username)}')" title="Desbloquear" style="color:#e74c3c;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>` : ''}
                     <button class="au-btn-edit" onclick="openUserEditModal(${u.id})" title="Editar">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
@@ -8416,6 +8419,114 @@ window.verifyTwofaSetup = verifyTwofaSetup;
 window.disableTwofa = disableTwofa;
 window.removeTrustedDevice = removeTrustedDevice;
 window.loadTwofaStatus = loadTwofaStatus;
+async function unlockUser(userId, username) {
+    if (!confirm(`Desbloquear la cuenta de ${username}?`)) return;
+    try {
+        const res = await fetch(`/api/users/${userId}/unlock`, { method: 'PUT' });
+        if (res.ok) {
+            showToast(`Cuenta de ${username} desbloqueada`, 'success');
+            _usersCache = null;
+            loadAdminUsers();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al desbloquear', 'error');
+    }
+}
+
+// ─── Audit Log ──────────────────────────────────────────────────────────────
+
+const _auditEventLabels = {
+    login_success: 'Login exitoso',
+    login_failure: 'Login fallido',
+    account_lock: 'Cuenta bloqueada',
+    account_unlock: 'Cuenta desbloqueada',
+    password_change: 'Cambio de password',
+    '2fa_enable': '2FA activado',
+    '2fa_disable': '2FA desactivado',
+    '2fa_success': '2FA exitoso',
+    '2fa_failure': '2FA fallido',
+    user_create: 'Usuario creado',
+    user_delete: 'Usuario eliminado',
+    role_change: 'Cambio de rol',
+    enforce_2fa: '2FA forzado',
+    api_key_create: 'API key creada',
+    api_key_delete: 'API key eliminada'
+};
+
+const _auditEventColors = {
+    login_success: '#27ae60', login_failure: '#e74c3c',
+    account_lock: '#c0392b', account_unlock: '#2ecc71',
+    password_change: '#f39c12', '2fa_enable': '#3498db',
+    '2fa_disable': '#e67e22', '2fa_success': '#27ae60',
+    '2fa_failure': '#e74c3c', user_create: '#2ecc71',
+    user_delete: '#e74c3c', role_change: '#9b59b6',
+    enforce_2fa: '#3498db', api_key_create: '#1abc9c',
+    api_key_delete: '#e74c3c'
+};
+
+let _auditDebounce = null;
+async function loadAuditLog() {
+    clearTimeout(_auditDebounce);
+    _auditDebounce = setTimeout(_doLoadAuditLog, 300);
+}
+
+async function _doLoadAuditLog() {
+    const tbody = document.getElementById('auditLogTbody');
+    if (!tbody) return;
+
+    const eventType = document.getElementById('auditFilterEvent')?.value || '';
+    const actor = document.getElementById('auditFilterActor')?.value?.trim() || '';
+    const from = document.getElementById('auditFilterFrom')?.value || '';
+    const to = document.getElementById('auditFilterTo')?.value || '';
+
+    const params = new URLSearchParams();
+    if (eventType) params.set('event_type', eventType);
+    if (actor) params.set('actor', actor);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to + 'T23:59:59');
+    params.set('limit', '200');
+
+    try {
+        const res = await fetch('/api/audit-log?' + params.toString());
+        if (!res.ok) throw new Error('Failed to fetch');
+        const rows = await res.json();
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Sin eventos</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            const date = new Date(r.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const label = _auditEventLabels[r.event_type] || r.event_type;
+            const color = _auditEventColors[r.event_type] || '#888';
+            let detailsStr = '';
+            if (r.details) {
+                try {
+                    const d = typeof r.details === 'string' ? JSON.parse(r.details) : r.details;
+                    detailsStr = Object.entries(d).map(([k, v]) => `${k}: ${v}`).join(', ');
+                } catch (_) { detailsStr = String(r.details); }
+            }
+            return `<tr>
+                <td style="font-size:0.82rem;white-space:nowrap;">${date}</td>
+                <td><span style="background:${color}15;color:${color};padding:3px 8px;border-radius:4px;font-size:0.78rem;font-weight:600;">${escapeHtml(label)}</span></td>
+                <td style="font-size:0.82rem;">${escapeHtml(r.actor || '—')}</td>
+                <td style="font-size:0.82rem;">${escapeHtml(r.target || '—')}</td>
+                <td style="font-size:0.82rem;opacity:0.7;">${escapeHtml(r.ip_address || '—')}</td>
+                <td style="font-size:0.78rem;opacity:0.7;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(detailsStr)}">${escapeHtml(detailsStr || '—')}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error('Load audit log error:', err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar auditoria</td></tr>';
+    }
+}
+
+window.unlockUser = unlockUser;
+window.loadAuditLog = loadAuditLog;
 window.loadAdminUsers = loadAdminUsers;
 window.openUserEditModal = openUserEditModal;
 window.closeUserEditModal = closeUserEditModal;

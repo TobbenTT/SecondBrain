@@ -10,6 +10,7 @@ const {
     generateRecoveryCodes, getEncryptionKey,
     TRUST_DURATION_DAYS
 } = require('../helpers/twofa');
+const { auditLog } = require('../helpers/audit');
 
 // ─── Public router (before requireAuth) ─────────────────────────────────────
 const publicRouter = express.Router();
@@ -71,6 +72,21 @@ publicRouter.post('/2fa', async (req, res) => {
                 'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
                 [userId, pending.username, req.ip, false]
             );
+            auditLog('2fa_failure', { actor: pending.username, target: pending.username, ip: req.ip, userAgent: req.headers['user-agent'] });
+
+            // Check if account should be locked (5 fails in 15 min)
+            const recentFails = await get(
+                "SELECT COUNT(*) as cnt FROM user_login_attempts WHERE user_id = ? AND success = FALSE AND created_at > NOW() - INTERVAL '15 minutes'",
+                [userId]
+            );
+            if (parseInt(recentFails.cnt) >= 5) {
+                await run("UPDATE users SET locked_until = NOW() + INTERVAL '30 minutes' WHERE id = ?", [userId]);
+                auditLog('account_lock', { actor: 'system', target: pending.username, ip: req.ip, details: { reason: '2fa_failed_attempts', count: parseInt(recentFails.cnt) } });
+                log.warn('Account locked due to failed 2FA attempts', { username: pending.username, ip: req.ip });
+                delete req.session.pending2FA;
+                return res.redirect('/login');
+            }
+
             return res.render('twofa', { username: pending.username, error: 'Codigo invalido. Intenta de nuevo.' });
         }
 
@@ -110,6 +126,7 @@ publicRouter.post('/2fa', async (req, res) => {
         }
 
         log.info('2FA verification successful', { username: pending.username, usedRecoveryCode });
+        auditLog('2fa_success', { actor: pending.username, target: pending.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { usedRecoveryCode } });
         res.redirect('/');
     } catch (err) {
         log.error('2FA verification error', { userId, error: err.message });
@@ -245,6 +262,7 @@ protectedRouter.post('/verify-setup', async (req, res) => {
         }
 
         log.info('2FA activated', { username: req.session.user.username });
+        auditLog('2fa_enable', { actor: req.session.user.username, target: req.session.user.username, ip: req.ip, userAgent: req.headers['user-agent'] });
 
         res.json({
             success: true,
@@ -285,6 +303,7 @@ protectedRouter.post('/disable', async (req, res) => {
         await run('UPDATE users SET twofa_enabled = FALSE, last_twofa_at = NULL WHERE id = ?', [userId]);
 
         log.info('2FA deactivated', { username: req.session.user.username });
+        auditLog('2fa_disable', { actor: req.session.user.username, target: req.session.user.username, ip: req.ip, userAgent: req.headers['user-agent'] });
         res.json({ success: true });
     } catch (err) {
         log.error('2FA disable error', { error: err.message });

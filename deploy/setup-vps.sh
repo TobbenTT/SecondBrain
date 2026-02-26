@@ -25,12 +25,12 @@ if [ "$EUID" -ne 0 ]; then
     error "Ejecutar como root: sudo ./setup-vps.sh"
 fi
 
-header "1/7 — Actualizar sistema"
+header "1/8 — Actualizar sistema"
 apt update && apt upgrade -y
 apt install -y curl wget git ufw htop nano unzip software-properties-common
 log "Sistema actualizado"
 
-header "2/7 — Instalar Docker"
+header "2/8 — Instalar Docker"
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sh
     systemctl enable docker
@@ -44,7 +44,7 @@ fi
 docker compose version || error "Docker Compose no disponible"
 log "Docker Compose OK"
 
-header "3/7 — Instalar Ollama"
+header "3/8 — Instalar Ollama"
 if ! command -v ollama &> /dev/null; then
     curl -fsSL https://ollama.com/install.sh | sh
     systemctl enable ollama
@@ -58,7 +58,7 @@ fi
 sleep 3
 
 # Detectar GPU para elegir modelo
-header "3b/7 — Detectar hardware y descargar modelo"
+header "3b/8 — Detectar hardware y descargar modelo"
 HAS_GPU=false
 if command -v nvidia-smi &> /dev/null; then
     GPU_MEM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 || echo "0")
@@ -93,7 +93,7 @@ log "Descargando modelo ${SELECTED_MODEL} (puede tardar 5-15 minutos)..."
 ollama pull "${SELECTED_MODEL}"
 log "Modelo ${SELECTED_MODEL} descargado"
 
-header "4/7 — Configurar Ollama para Docker"
+header "4/8 — Configurar Ollama para Docker"
 # Ollama necesita escuchar en 0.0.0.0 para que Docker containers lo alcancen
 mkdir -p /etc/systemd/system/ollama.service.d
 cat > /etc/systemd/system/ollama.service.d/override.conf << 'SVCEOF'
@@ -105,7 +105,7 @@ systemctl daemon-reload
 systemctl restart ollama
 log "Ollama configurado para aceptar conexiones de Docker"
 
-header "5/7 — Configurar Firewall (UFW)"
+header "5/8 — Configurar Firewall (UFW)"
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow ssh
@@ -115,12 +115,27 @@ ufw allow 443/tcp      # HTTPS (Nginx + SSL)
 ufw --force enable
 log "Firewall configurado (SSH + HTTP + HTTPS)"
 
-header "6/7 — Instalar Nginx"
+header "6/8 — Instalar Nginx"
 apt install -y nginx
 systemctl enable nginx
 log "Nginx instalado"
 
-header "7/7 — Crear usuario de despliegue"
+header "7/8 — Instalar y configurar fail2ban"
+apt install -y fail2ban
+systemctl enable fail2ban
+
+# Copy SecondBrain fail2ban configs if available
+SCRIPT_DEPLOY_DIR="$(dirname "$0")"
+if [ -f "${SCRIPT_DEPLOY_DIR}/fail2ban/filter.d/secondbrain-login.conf" ]; then
+    cp "${SCRIPT_DEPLOY_DIR}/fail2ban/filter.d/secondbrain-login.conf" /etc/fail2ban/filter.d/
+    cp "${SCRIPT_DEPLOY_DIR}/fail2ban/jail.d/secondbrain.conf" /etc/fail2ban/jail.d/
+    systemctl restart fail2ban
+    log "fail2ban configurado con proteccion de login SecondBrain"
+else
+    log "fail2ban instalado (configurar manualmente con deploy/fail2ban/)"
+fi
+
+header "8/8 — Crear usuario de despliegue"
 if ! id "deployer" &>/dev/null; then
     useradd -m -s /bin/bash -G docker deployer
     log "Usuario 'deployer' creado y agregado al grupo docker"

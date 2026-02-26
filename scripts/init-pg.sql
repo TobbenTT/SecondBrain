@@ -145,6 +145,10 @@ CREATE TABLE IF NOT EXISTS users (
     expertise TEXT,
     avatar TEXT,
     supabase_uid TEXT,
+    twofa_enabled BOOLEAN DEFAULT FALSE,
+    twofa_enforced BOOLEAN DEFAULT FALSE,
+    last_twofa_at TIMESTAMP,
+    locked_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -445,6 +449,18 @@ CREATE TABLE IF NOT EXISTS user_login_attempts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ─── Audit Log (security events) ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    actor TEXT,
+    target TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- INDEXES
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -501,6 +517,12 @@ CREATE INDEX IF NOT EXISTS idx_trusted_user ON user_trusted_devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_trusted_lookup ON user_trusted_devices(user_id, device_hash, ip_address);
 CREATE INDEX IF NOT EXISTS idx_login_attempts_user ON user_login_attempts(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON user_login_attempts(ip_address, created_at);
+
+-- Audit log indexes
+CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor);
+CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 
 -- Soft-delete indexes (partial — only non-null for fast trash queries)
 CREATE INDEX IF NOT EXISTS idx_ideas_deleted ON ideas(deleted_at) WHERE deleted_at IS NOT NULL;

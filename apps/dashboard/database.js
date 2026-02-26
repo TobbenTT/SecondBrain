@@ -85,6 +85,8 @@ async function initDatabase() {
         await migrateContextToPara();
         await migrateAddSoftDelete();
         await migrate2FA();
+        await migrateAccountLockout();
+        await migrateAuditLog();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -284,6 +286,27 @@ async function migrate2FA() {
     )`);
     await pool.query("CREATE INDEX IF NOT EXISTS idx_login_attempts_user ON user_login_attempts(user_id, created_at)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON user_login_attempts(ip_address, created_at)");
+}
+
+async function migrateAccountLockout() {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP");
+}
+
+async function migrateAuditLog() {
+    await pool.query(`CREATE TABLE IF NOT EXISTS audit_log (
+        id SERIAL PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        actor TEXT,
+        target TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        details JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event_type)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at)");
 }
 
 // Start initialization

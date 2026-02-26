@@ -155,6 +155,10 @@
                     <span class="nav-icon">🛠️</span>
                     Herramientas y Licencias
                 </a>
+                <a href="#audit-log" class="nav-link" data-section="audit-log">
+                    <span class="nav-icon">📋</span>
+                    Auditoria
+                </a>
             </div>
             <% } %>
         </nav>
@@ -2064,6 +2068,58 @@
                     </thead>
                     <tbody id="adminUsersTbody">
                         <tr><td colspan="6" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: AUDIT LOG
+             ══════════════════════════════════════════════════════ -->
+        <section class="dashboard-section" id="section-audit-log">
+            <h2 class="section-title" style="display:flex;align-items:center;gap:10px;">
+                <span>📋</span> Registro de Auditoria
+            </h2>
+            <p class="section-subtitle">Eventos de seguridad del sistema — logins, cambios de roles, 2FA, bloqueos</p>
+
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+                <select id="auditFilterEvent" class="au-filter-select" onchange="loadAuditLog()" style="min-width:160px;">
+                    <option value="">Todos los eventos</option>
+                    <option value="login_success">Login exitoso</option>
+                    <option value="login_failure">Login fallido</option>
+                    <option value="account_lock">Cuenta bloqueada</option>
+                    <option value="account_unlock">Cuenta desbloqueada</option>
+                    <option value="password_change">Cambio de password</option>
+                    <option value="2fa_enable">2FA activado</option>
+                    <option value="2fa_disable">2FA desactivado</option>
+                    <option value="2fa_success">2FA exitoso</option>
+                    <option value="2fa_failure">2FA fallido</option>
+                    <option value="user_create">Usuario creado</option>
+                    <option value="user_delete">Usuario eliminado</option>
+                    <option value="role_change">Cambio de rol</option>
+                    <option value="enforce_2fa">2FA forzado</option>
+                    <option value="api_key_create">API key creada</option>
+                    <option value="api_key_delete">API key eliminada</option>
+                </select>
+                <input type="text" id="auditFilterActor" class="au-search" placeholder="Actor..." oninput="loadAuditLog()" style="max-width:150px;">
+                <input type="date" id="auditFilterFrom" class="au-search" onchange="loadAuditLog()" style="max-width:160px;">
+                <input type="date" id="auditFilterTo" class="au-search" onchange="loadAuditLog()" style="max-width:160px;">
+            </div>
+
+            <div class="au-table-wrap">
+                <table class="au-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Evento</th>
+                            <th>Actor</th>
+                            <th>Objetivo</th>
+                            <th>IP</th>
+                            <th>Detalles</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogTbody">
+                        <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Selecciona filtros o carga la seccion</td></tr>
                     </tbody>
                 </table>
             </div>

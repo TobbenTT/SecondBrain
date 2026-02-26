@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─── SecondBrain PostgreSQL Backup ───────────────────────────────────────────
-# Automated pg_dump backups with 30-day retention.
+# Automated pg_dump backups with 30-day retention and optional GPG encryption.
 #
 # Usage:
 #   ./scripts/backup-pg.sh              # Manual backup
@@ -8,6 +8,12 @@
 #
 # Setup (cron - daily at 3 AM):
 #   0 3 * * * /root/SecondBrain/scripts/backup-pg.sh >> /var/log/secondbrain-backup.log 2>&1
+#
+# Restore encrypted backup:
+#   gpg --decrypt backup.sql.gz.gpg | gunzip | docker exec -i secondbrain-postgres psql -U secondbrain -d secondbrain
+#
+# Restore unencrypted backup:
+#   gunzip -c backup.sql.gz | docker exec -i secondbrain-postgres psql -U secondbrain -d secondbrain
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -22,6 +28,7 @@ PG_USER="${PG_USER:-secondbrain}"
 PG_DB="${PG_DB:-secondbrain}"
 RETENTION_DAYS=30
 TAG="${1:-daily}"
+GPG_RECIPIENT="${GPG_RECIPIENT:-backup@aiprowork.com}"
 
 # ─── Functions ───────────────────────────────────────────────────────────────
 timestamp() { date '+%Y-%m-%d %H:%M:%S'; }
@@ -56,25 +63,46 @@ if [ "$FILESIZE" -lt 100 ]; then
     exit 1
 fi
 
+# ─── Encrypt backup with GPG ────────────────────────────────────────────────
+if gpg --list-keys "$GPG_RECIPIENT" &>/dev/null; then
+    log "Encrypting backup with GPG..."
+    gpg --batch --yes --recipient "$GPG_RECIPIENT" --trust-model always \
+        --output "${FILEPATH}.gpg" --encrypt "$FILEPATH"
+
+    if [ -f "${FILEPATH}.gpg" ]; then
+        rm -f "$FILEPATH"
+        FILEPATH="${FILEPATH}.gpg"
+        FILENAME="${FILENAME}.gpg"
+        log "Backup encrypted successfully"
+    else
+        log "WARNING: GPG encryption failed, keeping unencrypted backup"
+    fi
+else
+    log "INFO: GPG key '${GPG_RECIPIENT}' not found — backup NOT encrypted"
+    log "To enable encryption: gpg --gen-key (use email: ${GPG_RECIPIENT})"
+fi
+
 HUMAN_SIZE=$(du -h "$FILEPATH" | cut -f1)
 log "Backup completed: ${FILENAME} (${HUMAN_SIZE})"
 
 # ─── Cleanup old backups ─────────────────────────────────────────────────────
-DELETED=$(find "$BACKUP_DIR" -name "secondbrain_*.sql.gz" -mtime +${RETENTION_DAYS} -type f -print -delete | wc -l)
+DELETED=$(find "$BACKUP_DIR" -name "secondbrain_*.sql.gz*" -mtime +${RETENTION_DAYS} -type f -print -delete | wc -l)
 if [ "$DELETED" -gt 0 ]; then
     log "Cleaned up ${DELETED} backup(s) older than ${RETENTION_DAYS} days"
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
-TOTAL=$(find "$BACKUP_DIR" -name "secondbrain_*.sql.gz" -type f | wc -l)
+TOTAL=$(find "$BACKUP_DIR" -name "secondbrain_*.sql.gz*" -type f | wc -l)
 TOTAL_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
 log "Total backups: ${TOTAL} (${TOTAL_SIZE})"
 
 # ─── Optional: Telegram notification ─────────────────────────────────────────
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
+    ENCRYPTED_TAG=""
+    if echo "$FILENAME" | grep -q "\.gpg$"; then ENCRYPTED_TAG=" 🔒"; fi
     curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
         -d "chat_id=${TELEGRAM_CHAT_ID}" \
-        -d "text=💾 Backup OK: ${FILENAME} (${HUMAN_SIZE})" \
+        -d "text=💾 Backup OK: ${FILENAME} (${HUMAN_SIZE})${ENCRYPTED_TAG}" \
         -d "parse_mode=HTML" \
         > /dev/null 2>&1 || true
 fi

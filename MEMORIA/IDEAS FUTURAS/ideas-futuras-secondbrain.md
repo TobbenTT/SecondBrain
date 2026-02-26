@@ -89,7 +89,7 @@ El dashboard sigue funcionando con SQLite mientras tanto. PostgreSQL corre en pa
 
 ## 3. Seguridad Nivel Consultora Internacional
 
-**Estado:** Investigacion / Roadmap
+**Estado:** PARCIAL en staging (Fase 5, feb 2026). Account lockout, audit log, redes Docker, GPG backups, fail2ban. Pendiente pgAudit, WAF, certificaciones.
 **Prioridad:** Media (importante para certificaciones y licitaciones)
 **Contexto:** VSC es consultora internacional. Clientes en mineria/energia exigen certificaciones.
 
@@ -323,7 +323,7 @@ nginx (TLS 1.3)
 
 ## 9. 2FA Adaptativo (Risk-Based Authentication)
 
-**Estado:** No implementado
+**Estado:** COMPLETADO en staging (Fase 4, feb 2026). TOTP + recovery codes + trusted devices. WebAuthn pendiente.
 **Prioridad:** Media (requerido para ISO 27001)
 
 **Enfoque:** 2FA adaptativo — NO pedir segundo factor siempre, solo cuando hay riesgo.
@@ -495,21 +495,32 @@ Flujo de trabajo:
 - [ ] Verificar que sesiones sobreviven reinicios (pendiente test en VPS)
 - [ ] Pasar a produccion
 
-### Fase 4: 2FA Adaptativo (Idea #9)
+### Fase 4: 2FA Adaptativo (Idea #9) — COMPLETADO en staging
 
-**Probar en staging.**
+- [X] TOTP con Google/Microsoft Authenticator (otplib + qrcode)
+- [X] Secretos TOTP encriptados con AES-256-GCM
+- [X] Codigos de recuperacion (10 single-use, bcrypt-hashed)
+- [X] Dispositivos confiables (30 dias, IP + user-agent hash)
+- [X] 2FA adaptativo (risk-based: IP nueva, dispositivo nuevo, 3+ fallos)
+- [X] QR code con expiracion de 3 minutos
+- [X] Admin puede forzar 2FA por usuario
+- [ ] WebAuthn (huella/PIN/cara) — Fase 4b futura
+- [ ] Probar en staging y pasar a produccion
 
-- Implementar tabla `trusted_devices`
-- WebAuthn como metodo principal (huella digital / PIN / cara via Windows Hello)
-- TOTP como fallback (Microsoft Authenticator / Google Authenticator)
-- Probar flujo completo: login normal, login IP nueva, acciones sensibles
-- Pasar a produccion
+### Fase 5: Seguridad avanzada (Ideas #3 y #4) — COMPLETADO en staging
 
-### Fase 5: Seguridad avanzada (Ideas #3 y #4)
-
-- Rate limiting, fail2ban, redes Docker separadas
-- pgAudit, backups encriptados
-- Preparar documentacion para certificaciones
+- [X] Bloqueo de cuenta tras 5 intentos fallidos en 15 min (lockout 30 min)
+- [X] Tabla audit_log con 15 tipos de eventos de seguridad
+- [X] Visor de auditoria en admin con filtros (evento, actor, fecha)
+- [X] Redes Docker separadas (web + internal) — BD/Redis solo accesibles internamente
+- [X] Backups encriptados con GPG (opcional, auto-detecta key)
+- [X] fail2ban configurado (5 intentos en 10 min → ban 30 min)
+- [X] Admin puede desbloquear cuentas manualmente
+- [X] Rate limiting ya existente (nginx + express-rate-limit)
+- [ ] Generar GPG key en VPS y probar backup encriptado
+- [ ] Copiar configs fail2ban al VPS y verificar
+- [ ] Probar redes Docker con docker compose down && up
+- [ ] Pasar a produccion
 
 ### Fase 6: Features de valor (Ideas #6 y #7)
 
@@ -527,8 +538,8 @@ Timeline visual (actualizado feb 2026):
 Fase 1 ████████████████████  Staging           DONE
 Fase 2 ████████████████████  PostgreSQL local   DONE (staging)
 Fase 3 ████████████████████  Redis sesiones     DONE (staging)
-Fase 4 ░░░░░░░░░░░░████░░░░  2FA adaptativo    SIGUIENTE
-Fase 5 ░░░░░░░░░░░░░░░░████  Seguridad avanzada
-Fase 6 ░░░░░░░░░░░░░░░░░░██  Features de valor
+Fase 4 ████████████████████  2FA adaptativo     DONE (staging)
+Fase 5 ████████████████████  Seguridad avanzada DONE (staging)
+Fase 6 ░░░░░░░░░░░░░░░░░░██  Features de valor SIGUIENTE
 Fase 7 ░░░░░░░░░░░░░░░░░░░░  Largo plazo
 ```

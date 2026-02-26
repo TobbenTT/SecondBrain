@@ -9,6 +9,7 @@ const orchestratorBridge = require('../services/orchestratorBridge');
 const { requireAdmin, denyRole } = require('../middleware/authorize');
 const { avatarUpload, AVATARS_DIR } = require('./auth');
 const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
+const { auditLog } = require('../helpers/audit');
 const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
@@ -87,7 +88,7 @@ router.get('/users', async (req, res) => {
         }
 
         // ─── PostgreSQL fallback ───
-        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, twofa_enabled, twofa_enforced, created_at FROM users');
+        const users = await all('SELECT id, username, role, department, expertise, avatar, supabase_uid, twofa_enabled, twofa_enforced, locked_until, created_at FROM users');
         res.json(users);
     } catch (_err) {
         log.error('List users error', { error: _err.message, stack: _err.stack });
@@ -135,6 +136,7 @@ router.post('/users', requireAdmin, async (req, res) => {
             const created = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users WHERE id = ?', [result.lastID]);
             created.email = email.trim();
             log.info('User created via Supabase', { email: email.trim(), role: safeRole });
+            auditLog('user_create', { actor: req.session.user.username, target: displayName, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'supabase', role: safeRole } });
             return res.json(created);
         }
 
@@ -151,6 +153,7 @@ router.post('/users', requireAdmin, async (req, res) => {
             [username.toLowerCase().trim(), hash, safeRole, (department || '').trim(), (expertise || '').trim()]
         );
         const created = await get('SELECT id, username, role, department, expertise, avatar, created_at FROM users WHERE id = ?', [result.lastID]);
+        auditLog('user_create', { actor: req.session.user.username, target: username.toLowerCase().trim(), ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'local', role: safeRole } });
         res.json(created);
     } catch (err) {
         log.error('Create user error', { error: err.message });
@@ -200,6 +203,9 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
         }
 
         const updated = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid, created_at FROM users WHERE id = ?', [req.params.id]);
+        if (newRole !== user.role) {
+            auditLog('role_change', { actor: req.session.user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { oldRole: user.role, newRole } });
+        }
         res.json(updated);
     } catch (err) {
         log.error('Update user error', { error: err.message });
@@ -234,11 +240,29 @@ router.put('/users/:id/avatar', requireAdmin, avatarUpload.single('avatar'), asy
 router.put('/users/:id/enforce-2fa', requireAdmin, async (req, res) => {
     try {
         const { enforce } = req.body;
+        const targetUser = await get('SELECT username FROM users WHERE id = ?', [req.params.id]);
         await run('UPDATE users SET twofa_enforced = ? WHERE id = ?', [!!enforce, req.params.id]);
+        auditLog('enforce_2fa', { actor: req.session.user.username, target: targetUser?.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { enforce: !!enforce } });
         res.json({ success: true });
     } catch (err) {
         log.error('Enforce 2FA error', { error: err.message });
         res.status(500).json({ error: 'Failed to update 2FA enforcement' });
+    }
+});
+
+// Unlock user account (admin only)
+router.put('/users/:id/unlock', requireAdmin, async (req, res) => {
+    try {
+        const user = await get('SELECT username, locked_until FROM users WHERE id = ?', [req.params.id]);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        await run('UPDATE users SET locked_until = NULL WHERE id = ?', [req.params.id]);
+        auditLog('account_unlock', { actor: req.session.user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'] });
+        log.info('Account unlocked by admin', { target: user.username, admin: req.session.user.username });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Unlock user error', { error: err.message });
+        res.status(500).json({ error: 'Failed to unlock user' });
     }
 });
 
@@ -270,6 +294,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
         }
 
         await run('DELETE FROM users WHERE id = ?', [req.params.id]);
+        auditLog('user_delete', { actor: req.session.user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'] });
         res.json({ deleted: true });
     } catch (err) {
         log.error('Delete user error', { error: err.message });
@@ -1713,6 +1738,32 @@ router.delete('/trash/:table/:id', requireAdmin, async (req, res) => {
     } catch (err) {
         log.error('Trash purge error', { error: err.message });
         res.status(500).json({ error: 'Failed to purge item' });
+    }
+});
+
+// ─── Audit Log Viewer (admin only) ──────────────────────────────────────────
+
+router.get('/audit-log', requireAdmin, async (req, res) => {
+    try {
+        const { event_type, actor, target, from, to, limit: lim } = req.query;
+        const conditions = [];
+        const params = [];
+
+        if (event_type) { conditions.push('event_type = ?'); params.push(event_type); }
+        if (actor) { conditions.push('actor = ?'); params.push(actor); }
+        if (target) { conditions.push('target = ?'); params.push(target); }
+        if (from) { conditions.push('created_at >= ?'); params.push(from); }
+        if (to) { conditions.push('created_at <= ?'); params.push(to); }
+
+        const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+        const rows = await all(
+            `SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT ?`,
+            [...params, parseInt(lim) || 100]
+        );
+        res.json(rows);
+    } catch (err) {
+        log.error('Audit log fetch error', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch audit log' });
     }
 });
 

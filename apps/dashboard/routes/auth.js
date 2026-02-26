@@ -7,6 +7,7 @@ const { get, run } = require('../database');
 const log = require('../helpers/logger');
 const { supabase, supabaseAdmin, isSupabaseConfigured } = require('../services/supabase');
 const { shouldRequire2FA } = require('../helpers/twofa');
+const { auditLog } = require('../helpers/audit');
 
 const router = express.Router();
 
@@ -119,12 +120,31 @@ router.post('/login', async (req, res) => {
         // ─── Local auth (PostgreSQL — staging / dev without Supabase) ─
         const user = await get('SELECT * FROM users WHERE username = ?', [identifier.toLowerCase()]);
 
+        // Check if account is locked
+        if (user && user.locked_until && new Date(user.locked_until) > new Date()) {
+            const minutesLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+            await run(
+                'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
+                [user.id, user.username, req.ip, false]
+            );
+            return res.render('login', {
+                error: `Cuenta bloqueada temporalmente. Intenta en ${minutesLeft} minuto${minutesLeft > 1 ? 's' : ''}.`,
+                csrfToken: '', useLocalAuth
+            });
+        }
+
         if (user && await bcrypt.compare(password, user.password_hash)) {
+            // Clear any previous lock
+            if (user.locked_until) {
+                await run('UPDATE users SET locked_until = NULL WHERE id = ?', [user.id]);
+            }
+
             // Record successful login attempt
             await run(
                 'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
                 [user.id, user.username, req.ip, true]
             );
+            auditLog('login_success', { actor: user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'local' } });
 
             // Check if 2FA is required
             const need2FA = await shouldRequire2FA(user, req);
@@ -159,6 +179,25 @@ router.post('/login', async (req, res) => {
                 'INSERT INTO user_login_attempts (user_id, username, ip_address, success) VALUES (?, ?, ?, ?)',
                 [failUser?.id || null, identifier.toLowerCase(), req.ip, false]
             );
+            auditLog('login_failure', { actor: identifier.toLowerCase(), target: identifier.toLowerCase(), ip: req.ip, userAgent: req.headers['user-agent'] });
+
+            // Check if account should be locked (5 fails in 15 min)
+            if (failUser) {
+                const recentFails = await get(
+                    "SELECT COUNT(*) as cnt FROM user_login_attempts WHERE user_id = ? AND success = FALSE AND created_at > NOW() - INTERVAL '15 minutes'",
+                    [failUser.id]
+                );
+                if (parseInt(recentFails.cnt) >= 5) {
+                    await run("UPDATE users SET locked_until = NOW() + INTERVAL '30 minutes' WHERE id = ?", [failUser.id]);
+                    auditLog('account_lock', { actor: 'system', target: identifier.toLowerCase(), ip: req.ip, details: { reason: 'failed_attempts', count: parseInt(recentFails.cnt) } });
+                    log.warn('Account locked due to failed attempts', { username: identifier, ip: req.ip });
+                    return res.render('login', {
+                        error: 'Cuenta bloqueada temporalmente por multiples intentos fallidos. Intenta en 30 minutos.',
+                        csrfToken: '', useLocalAuth
+                    });
+                }
+            }
+
             res.render('login', { error: 'Credenciales inválidas', csrfToken: '', useLocalAuth });
         }
     } catch (err) {
@@ -270,6 +309,7 @@ router.put('/api/profile/password', async (req, res) => {
                 log.error('Supabase password update error', { error: updateErr.message });
                 return res.status(500).json({ error: 'Failed to change password' });
             }
+            auditLog('password_change', { actor: user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'supabase' } });
             return res.json({ success: true });
         }
 
@@ -280,6 +320,7 @@ router.put('/api/profile/password', async (req, res) => {
         }
         const hash = await bcrypt.hash(newPassword, 10);
         await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
+        auditLog('password_change', { actor: user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'local' } });
         res.json({ success: true });
     } catch (err) {
         log.error('Password change error', { error: err.message });

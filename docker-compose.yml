@@ -10,6 +10,8 @@ services:
       retries: 5
     volumes:
       - sb-redis-data:/data
+    networks:
+      - internal
 
   postgres:
     image: postgres:16-alpine
@@ -27,6 +29,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
   dashboard:
     build: ./apps/dashboard
@@ -72,6 +76,9 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    networks:
+      - web
+      - internal
 
   # Email intelligence service: processes Fireflies webhooks, sends reports
   inteligencia-correos:
@@ -95,6 +102,8 @@ services:
     depends_on:
       dashboard:
         condition: service_healthy
+    networks:
+      - web
 
   # One-shot service: pulls the Ollama model if not already present
   ollama-pull:
@@ -121,6 +130,15 @@ services:
         echo "Done."
       '
     restart: "no"
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
 
 volumes:
   sb-redis-data:
