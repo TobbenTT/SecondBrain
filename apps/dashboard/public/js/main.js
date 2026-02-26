@@ -115,7 +115,7 @@ const SECTION_META = {
     archivos: { title: 'Recursos y Documentos', subtitle: 'Documentos, archivos y material de referencia del equipo' },
     methodologies: { title: 'Metodologias de Trabajo', subtitle: 'Frameworks operativos: CODE, PARA y GTD' },
     ideas: { title: 'Ideas Capturadas', subtitle: 'Registro de ideas — Capturar, Organizar, Destilar y Expresar' },
-    skills: { title: 'Habilidades y SOPs', subtitle: 'Procedimientos, conocimiento técnico y buenas prácticas' },
+    skills: { title: 'Skills', subtitle: 'Procedimientos, conocimiento técnico y buenas prácticas' },
     context: { title: 'Base de Conocimiento', subtitle: 'Información organizada por Proyectos, Áreas, Recursos y Archivo' },
     waiting: { title: 'Delegaciones y Seguimiento', subtitle: 'Tareas delegadas pendientes de respuesta o acción de terceros' },
     reportability: { title: 'Avance del Equipo', subtitle: 'Checklist diario y progreso por consultor' },
@@ -132,7 +132,7 @@ const SECTION_META = {
     'feedback': { title: 'Sugerencias y Mejoras', subtitle: 'Observaciones del equipo sobre la plataforma' },
     'admin-users': { title: 'Gestión de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
     'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas y Skills' },
-    'herramientas': { title: 'Herramientas y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' },
+    'herramientas': { title: 'Suscripciones y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' },
     'audit-log': { title: 'Registro de Auditoria', subtitle: 'Eventos de seguridad del sistema' },
     'admin-files': { title: 'Gestor de Archivos', subtitle: 'Todos los archivos del sistema — subidos, eliminados y papelera' }
 };
@@ -4445,8 +4445,8 @@ function _applyNotificationData(data) {
                 ).join('');
             }
             if (data.user_notifications && data.user_notifications.length > 0) {
-                const typeIcons = { feedback_fixed: '🔧', feedback_rejected: '🔄' };
-                const typeColors = { feedback_fixed: '#8b5cf6', feedback_rejected: '#ef4444' };
+                const typeIcons = { feedback_fixed: '🔧', feedback_rejected: '🔄', comment_on_skill: '💬', comment_on_output: '💬' };
+                const typeColors = { feedback_fixed: '#8b5cf6', feedback_rejected: '#ef4444', comment_on_skill: '#3b82f6', comment_on_output: '#f59e0b' };
                 html += data.user_notifications.map(n => {
                     const icon = typeIcons[n.type] || '🔔';
                     const color = typeColors[n.type] || '#6366f1';
@@ -9487,7 +9487,7 @@ async function loadHerramientas() {
         const tbody = document.getElementById('herrTableBody');
         if (!tbody) return;
         if (!herramientas || herramientas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay herramientas registradas. Agrega la primera.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay suscripciones registradas. Agrega la primera.</td></tr>';
             return;
         }
         tbody.innerHTML = herramientas.map(h => {
@@ -9547,7 +9547,7 @@ async function openHerramientaModal(id) {
     document.getElementById('herrEstado').value = 'activo';
 
     if (id) {
-        title.textContent = 'Editar Herramienta';
+        title.textContent = 'Editar Suscripción';
         try {
             const res = await fetch('/api/herramientas');
             const { herramientas } = await res.json();
@@ -9570,7 +9570,7 @@ async function openHerramientaModal(id) {
             }
         } catch (err) { console.error(err); }
     } else {
-        title.textContent = 'Agregar Herramienta';
+        title.textContent = 'Agregar Suscripción';
     }
     modal.style.display = 'flex';
 }
@@ -9611,14 +9611,14 @@ async function saveHerramienta(e) {
         });
         const data = await res.json();
         if (data.success || data.id) {
-            showToast(id ? 'Herramienta actualizada' : 'Herramienta agregada', 'success');
+            showToast(id ? 'Suscripción actualizada' : 'Suscripción agregada', 'success');
             closeHerramientaModal();
             loadHerramientas();
         } else {
             showToast(data.error || 'Error al guardar', 'error');
         }
     } catch (err) {
-        showToast('Error al guardar herramienta', 'error');
+        showToast('Error al guardar suscripción', 'error');
     }
 }
 
@@ -9628,13 +9628,13 @@ async function deleteHerramienta(id, nombre) {
         const res = await fetch(`/api/herramientas/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            showToast('Herramienta eliminada', 'success');
+            showToast('Suscripción eliminada', 'success');
             loadHerramientas();
         } else {
             showToast(data.error || 'Error al eliminar', 'error');
         }
     } catch (err) {
-        showToast('Error al eliminar herramienta', 'error');
+        showToast('Error al eliminar suscripción', 'error');
     }
 }
 

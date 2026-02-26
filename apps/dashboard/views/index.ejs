@@ -90,7 +90,7 @@
                 </a>
                 <a href="#skills" class="nav-link" data-section="skills">
                     <span class="nav-icon">📚</span>
-                    Habilidades y SOPs
+                    Skills
                 </a>
             </div>
             <div class="nav-section">
@@ -154,7 +154,7 @@
                 </a>
                 <a href="#herramientas" class="nav-link" data-section="herramientas">
                     <span class="nav-icon">🛠️</span>
-                    Herramientas y Licencias
+                    Suscripciones y Licencias
                 </a>
                 <a href="#audit-log" class="nav-link" data-section="audit-log">
                     <span class="nav-icon">📋</span>
@@ -255,7 +255,7 @@
                     <div class="home-hero-divider"></div>
                     <p class="home-hero-tagline">
                         Plataforma centralizada para gestionar proyectos, documentacion,
-                        metodologias y herramientas del equipo.
+                        metodologias y skills del equipo.
                     </p>
                 </div>
             </div>
@@ -1203,7 +1203,7 @@
         <section class="dashboard-section" id="section-skills">
             <div class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">📚 Biblioteca de Habilidades</h2>
+                    <h2 class="panel-title">📚 Skills</h2>
                     <div class="panel-controls">
                         <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input" autocomplete="off">
                     </div>
@@ -2215,20 +2215,20 @@
              SECTION: HERRAMIENTAS CONTRATADAS
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-herramientas">
-            <h2 class="section-title">Herramientas Contratadas</h2>
+            <h2 class="section-title">Suscripciones y Licencias</h2>
             <p class="section-subtitle">Suscripciones y licencias de software — contexto para el Finance Agent</p>
 
             <div class="herr-stats" id="herrStats"></div>
 
             <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
-                <button class="btn-primary" onclick="openHerramientaModal()">+ Agregar Herramienta</button>
+                <button class="btn-primary" onclick="openHerramientaModal()">+ Agregar Suscripción</button>
             </div>
 
             <div class="herr-table-wrap">
                 <table class="herr-table">
                     <thead>
                         <tr>
-                            <th>Herramienta</th>
+                            <th>Software</th>
                             <th>Proveedor</th>
                             <th>Categoria</th>
                             <th>Costo</th>
@@ -2245,10 +2245,10 @@
             </div>
         </section>
 
-        <!-- Herramienta Modal -->
+        <!-- Suscripción Modal -->
         <div id="herrModal" class="modal" style="display:none;">
             <div class="modal-content" style="max-width:620px;">
-                <h3 class="modal-title" id="herrModalTitle">Agregar Herramienta</h3>
+                <h3 class="modal-title" id="herrModalTitle">Agregar Suscripción</h3>
                 <span class="close-modal" onclick="closeHerramientaModal()">&times;</span>
                 <div class="modal-body">
                     <form id="herrForm" onsubmit="saveHerramienta(event)">
