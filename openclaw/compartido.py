@@ -234,8 +234,8 @@ def hablar(texto):
 
 def enviar_telegram(mensaje):
     """Envia notificacion por Telegram Bot API. Falla silenciosamente."""
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    bot_token = os.getenv("TELEGRAM_OPENCLAW_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_OPENCLAW_CHAT_ID", "").strip()
 
     if not bot_token or not chat_id:
         return
