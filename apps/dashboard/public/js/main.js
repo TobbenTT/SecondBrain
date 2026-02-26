@@ -7983,7 +7983,7 @@ async function setupTwofa() {
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Error', 'error'); loadTwofaStatus(); return; }
 
-        const expiresAt = Date.now() + 10 * 60 * 1000; // 10 min from now
+        const expiresAt = Date.now() + 3 * 60 * 1000; // 3 min from now
 
         container.innerHTML = `
             <div style="padding:8px 0;">

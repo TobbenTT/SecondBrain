@@ -215,9 +215,9 @@ protectedRouter.post('/verify-setup', async (req, res) => {
             return res.status(400).json({ error: 'No hay setup pendiente. Inicia el proceso de nuevo.' });
         }
 
-        // Expire unverified secrets after 10 minutes
+        // Expire unverified secrets after 3 minutes
         const ageMs = Date.now() - new Date(totpRow.created_at).getTime();
-        if (ageMs > 10 * 60 * 1000) {
+        if (ageMs > 3 * 60 * 1000) {
             await run('DELETE FROM user_totp_secrets WHERE user_id = ? AND verified = FALSE', [userId]);
             return res.status(410).json({ error: 'El codigo QR expiro. Genera uno nuevo.' });
         }
