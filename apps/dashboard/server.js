@@ -191,6 +191,7 @@ app.use(apiKeyAuth);
 
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
+    res.locals.buildId = BUILD_ID;
     next();
 });
 

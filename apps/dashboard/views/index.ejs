@@ -2822,7 +2822,7 @@
     <script>
         window.__USER__ = <%- JSON.stringify({ username: user?.username || null, role: user?.role || null, department: user?.department || '', expertise: user?.expertise || '', avatar: user?.avatar || null }) %>;
     </script>
-    <script src="/js/main.js?v=<%= Date.now() %>"></script>
+    <script src="/js/main.js?v=<%= buildId %>"></script>
     <!-- AI toggle handled by initChat() in main.js -->
 </body>
 
