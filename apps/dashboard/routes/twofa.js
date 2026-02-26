@@ -177,7 +177,7 @@ protectedRouter.post('/setup', async (req, res) => {
 
         // Upsert (replace unverified)
         if (existing) {
-            await run('UPDATE user_totp_secrets SET secret_encrypted = ?, verified = FALSE WHERE user_id = ?', [encrypted, userId]);
+            await run('UPDATE user_totp_secrets SET secret_encrypted = ?, verified = FALSE, created_at = NOW() WHERE user_id = ?', [encrypted, userId]);
         } else {
             await run('INSERT INTO user_totp_secrets (user_id, secret_encrypted) VALUES (?, ?)', [userId, encrypted]);
         }
@@ -208,11 +208,18 @@ protectedRouter.post('/verify-setup', async (req, res) => {
         }
 
         const totpRow = await get(
-            'SELECT secret_encrypted FROM user_totp_secrets WHERE user_id = ? AND verified = FALSE',
+            'SELECT secret_encrypted, created_at FROM user_totp_secrets WHERE user_id = ? AND verified = FALSE',
             [userId]
         );
         if (!totpRow) {
             return res.status(400).json({ error: 'No hay setup pendiente. Inicia el proceso de nuevo.' });
+        }
+
+        // Expire unverified secrets after 10 minutes
+        const ageMs = Date.now() - new Date(totpRow.created_at).getTime();
+        if (ageMs > 10 * 60 * 1000) {
+            await run('DELETE FROM user_totp_secrets WHERE user_id = ? AND verified = FALSE', [userId]);
+            return res.status(410).json({ error: 'El codigo QR expiro. Genera uno nuevo.' });
         }
 
         const secret = decryptSecret(totpRow.secret_encrypted);

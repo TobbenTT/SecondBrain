@@ -7972,30 +7972,72 @@ async function loadTwofaStatus() {
     }
 }
 
+let _twofaQrTimer = null;
+
 async function setupTwofa() {
     const container = document.getElementById('twofaContent');
     container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Generando codigo QR...</div>';
+    if (_twofaQrTimer) { clearInterval(_twofaQrTimer); _twofaQrTimer = null; }
     try {
         const res = await fetch('/api/twofa/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Error', 'error'); loadTwofaStatus(); return; }
 
+        const expiresAt = Date.now() + 10 * 60 * 1000; // 10 min from now
+
         container.innerHTML = `
             <div style="padding:8px 0;">
-                <p style="font-size:0.85rem;color:#475569;margin-bottom:12px;">1. Escanea este codigo QR con tu app autenticadora:</p>
-                <div style="text-align:center;margin-bottom:16px;">
-                    <img src="${data.qrCodeDataUrl}" alt="QR Code" style="width:200px;height:200px;border:2px solid #e2e8f0;border-radius:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <span style="font-size:0.85rem;font-weight:600;color:#1a202c;">Paso 1: Escanea el codigo QR</span>
+                    <span id="twofaQrTimer" style="font-size:0.75rem;font-weight:600;color:#f59e0b;background:#fefce8;padding:3px 10px;border-radius:12px;"></span>
                 </div>
-                <p style="font-size:0.8rem;color:#94a3b8;margin-bottom:4px;">O ingresa esta clave manualmente:</p>
-                <div style="background:#f8fafc;padding:8px 12px;border-radius:6px;font-family:monospace;font-size:0.85rem;word-break:break-all;margin-bottom:16px;cursor:pointer;" onclick="navigator.clipboard.writeText('${data.manualEntryKey}');showToast('Clave copiada','success');" title="Click para copiar">${data.manualEntryKey}</div>
-                <p style="font-size:0.85rem;color:#475569;margin-bottom:8px;">2. Ingresa el codigo de 6 digitos que muestra la app:</p>
+                <div style="text-align:center;margin-bottom:12px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                    <img src="${data.qrCodeDataUrl}" alt="QR Code" style="width:180px;height:180px;">
+                </div>
+                <details style="margin-bottom:16px;">
+                    <summary style="font-size:0.8rem;color:#94a3b8;cursor:pointer;">No puedes escanear? Ingresa esta clave manual</summary>
+                    <div style="background:#f1f5f9;padding:10px 14px;border-radius:6px;font-family:'Courier New',monospace;font-size:0.8rem;word-break:break-all;margin-top:8px;cursor:pointer;letter-spacing:1px;" onclick="navigator.clipboard.writeText('${data.manualEntryKey}');showToast('Clave copiada','success');" title="Click para copiar">${data.manualEntryKey} <span style="color:#94a3b8;font-size:0.7rem;">&#x1F4CB;</span></div>
+                </details>
+                <div style="margin-bottom:8px;">
+                    <span style="font-size:0.85rem;font-weight:600;color:#1a202c;">Paso 2: Ingresa el codigo de 6 digitos</span>
+                </div>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="twofaVerifyCode" placeholder="000000" maxlength="6" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;font-size:1.2rem;font-family:monospace;text-align:center;letter-spacing:4px;width:160px;" inputmode="numeric">
-                    <button class="btn btn-sm" onclick="verifyTwofaSetup()" style="background:#0052cc;color:#fff;">Verificar</button>
-                    <button class="btn btn-sm" onclick="loadTwofaStatus()" style="background:#f1f5f9;color:#475569;">Cancelar</button>
+                    <input type="text" id="twofaVerifyCode" placeholder="000000" maxlength="6" style="flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:1.4rem;font-family:'Courier New',monospace;text-align:center;letter-spacing:6px;outline:none;transition:border-color 0.2s;" inputmode="numeric" onfocus="this.style.borderColor='#0052cc'" onblur="this.style.borderColor='#e2e8f0'">
+                    <button class="btn btn-sm" onclick="verifyTwofaSetup()" style="background:#0052cc;color:#fff;padding:12px 20px;font-size:0.9rem;">Verificar</button>
+                </div>
+                <div style="text-align:right;margin-top:8px;">
+                    <a href="#" onclick="loadTwofaStatus();return false;" style="font-size:0.8rem;color:#94a3b8;text-decoration:none;">Cancelar</a>
                 </div>
             </div>`;
+
         document.getElementById('twofaVerifyCode').focus();
+
+        // Enter key submits
+        document.getElementById('twofaVerifyCode').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verifyTwofaSetup();
+        });
+
+        // Countdown timer — QR expires in 10 min
+        function updateTimer() {
+            const el = document.getElementById('twofaQrTimer');
+            if (!el) { clearInterval(_twofaQrTimer); _twofaQrTimer = null; return; }
+            const remaining = Math.max(0, expiresAt - Date.now());
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            el.textContent = `Expira en ${mins}:${secs.toString().padStart(2, '0')}`;
+            if (remaining <= 2 * 60 * 1000) el.style.color = '#ef4444'; // red when < 2 min
+            if (remaining <= 0) {
+                clearInterval(_twofaQrTimer);
+                _twofaQrTimer = null;
+                container.innerHTML = `
+                    <div style="text-align:center;padding:20px;">
+                        <p style="color:#ef4444;font-weight:600;margin-bottom:12px;">El codigo QR expiro</p>
+                        <button class="btn btn-sm" onclick="setupTwofa()" style="background:#0052cc;color:#fff;">Generar nuevo QR</button>
+                    </div>`;
+            }
+        }
+        updateTimer();
+        _twofaQrTimer = setInterval(updateTimer, 1000);
     } catch (err) {
         showToast('Error al generar QR', 'error');
         loadTwofaStatus();
@@ -8014,19 +8056,36 @@ async function verifyTwofaSetup() {
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Codigo invalido', 'error'); return; }
 
+        if (_twofaQrTimer) { clearInterval(_twofaQrTimer); _twofaQrTimer = null; }
+
         // Show recovery codes
         const container = document.getElementById('twofaContent');
-        const codesHtml = data.recoveryCodes.map(c => `<code style="display:inline-block;background:#f8fafc;padding:4px 10px;margin:3px;border-radius:4px;font-size:0.9rem;border:1px solid #e2e8f0;">${c}</code>`).join('');
+        const codesText = data.recoveryCodes.join('\n');
+        const codesGrid = data.recoveryCodes.map((c, i) =>
+            `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;">
+                <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;min-width:16px;">${i + 1}.</span>
+                <code style="font-family:'Courier New',monospace;font-size:0.95rem;font-weight:600;color:#1a202c;letter-spacing:1px;">${c}</code>
+            </div>`
+        ).join('');
+
         container.innerHTML = `
             <div style="padding:12px 0;">
-                <div style="background:#dcfce7;color:#16a34a;padding:12px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;">2FA activado correctamente</div>
-                <div style="background:#fefce8;border:1px solid #fde047;padding:16px;border-radius:8px;margin-bottom:16px;">
-                    <p style="font-weight:600;color:#854d0e;margin-bottom:8px;">Guarda estos codigos de recuperacion</p>
-                    <p style="font-size:0.85rem;color:#92400e;margin-bottom:12px;">Si pierdes acceso a tu app autenticadora, puedes usar estos codigos para entrar. Cada uno funciona una sola vez.</p>
-                    <div style="text-align:center;margin-bottom:12px;">${codesHtml}</div>
-                    <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.recoveryCodes.join('\\n')}');showToast('Codigos copiados','success');" style="width:100%;background:#854d0e;color:#fff;">Copiar codigos</button>
+                <div style="background:#dcfce7;padding:14px;border-radius:10px;margin-bottom:16px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <span style="font-size:1.3rem;">&#x2705;</span>
+                    <span style="color:#16a34a;font-weight:700;font-size:0.95rem;">2FA activado correctamente</span>
                 </div>
-                <button class="btn btn-sm" onclick="loadTwofaStatus()" style="width:100%;background:#0052cc;color:#fff;">He guardado mis codigos</button>
+                <div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:10px;padding:20px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.2rem;">&#x26A0;</span>
+                        <span style="font-weight:700;color:#92400e;font-size:0.95rem;">Codigos de recuperacion</span>
+                    </div>
+                    <p style="font-size:0.82rem;color:#78350f;margin-bottom:14px;line-height:1.5;">Guarda estos codigos en un lugar seguro. Si pierdes tu telefono, los necesitaras para acceder. <strong>No se mostraran de nuevo.</strong></p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;">
+                        ${codesGrid}
+                    </div>
+                    <button class="btn btn-sm" onclick="navigator.clipboard.writeText(\`${codesText}\`);this.textContent='Copiados!';this.style.background='#16a34a';setTimeout(()=>{this.textContent='Copiar todos los codigos';this.style.background='#92400e';},2000);" style="width:100%;background:#92400e;color:#fff;padding:10px;border-radius:8px;font-weight:600;font-size:0.85rem;border:none;cursor:pointer;transition:background 0.2s;">Copiar todos los codigos</button>
+                </div>
+                <button class="btn btn-sm" onclick="loadTwofaStatus()" style="width:100%;background:#0052cc;color:#fff;padding:10px;border-radius:8px;font-weight:600;font-size:0.9rem;border:none;cursor:pointer;">He guardado mis codigos</button>
             </div>`;
         showToast('2FA activado', 'success');
     } catch (err) {
