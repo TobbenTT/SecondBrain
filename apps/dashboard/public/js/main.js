@@ -2,6 +2,20 @@
    VALUE STRATEGY CONSULTING HUB v2.1 — Dashboard Logic
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// ─── Global fetch interceptor: adds X-Requested-With to all same-origin requests ─
+{
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+        opts.headers = opts.headers || {};
+        if (opts.headers instanceof Headers) {
+            if (!opts.headers.has('X-Requested-With')) opts.headers.set('X-Requested-With', 'XMLHttpRequest');
+        } else {
+            opts.headers['X-Requested-With'] = opts.headers['X-Requested-With'] || 'XMLHttpRequest';
+        }
+        return _origFetch.call(this, url, opts);
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // ─── Critical (UI shell) ────────────────────────────────────────────
     initNavigation();

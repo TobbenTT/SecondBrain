@@ -367,11 +367,16 @@ app.use(twofaPublicRoutes); // GET /2fa, POST /2fa (before requireAuth)
 // HTML forms can only submit GET/POST. For POST, we require application/json
 // (which triggers CORS preflight cross-origin), blocking form-based CSRF.
 // PUT/DELETE/PATCH require JavaScript (fetch/XHR) → already CORS-protected.
+// X-Requested-With header cannot be set by HTML forms → proves request is from JS.
 app.use('/api/', (req, res, next) => {
     if (req.method !== 'POST') return next();
     if (req.isApiRequest) return next(); // X-API-Key authenticated
+    // For empty-body POSTs (action endpoints like /complete), require X-Requested-With
     const cl = req.headers['content-length'];
-    if (!cl || cl === '0') return next(); // Action endpoints without body (e.g. /complete)
+    if (!cl || cl === '0') {
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') return next();
+        return res.status(403).json({ error: 'Missing X-Requested-With header.' });
+    }
     const ct = (req.headers['content-type'] || '').toLowerCase();
     if (ct.includes('application/json') || ct.includes('multipart/form-data')) return next();
     return res.status(403).json({ error: 'Invalid content type. Use application/json.' });

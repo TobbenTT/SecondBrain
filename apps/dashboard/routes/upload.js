@@ -304,10 +304,10 @@ router.delete('/api/archivo/:filename', async (req, res) => {
     }
 
     const filename = req.params.filename;
-    const filePath = path.join(ARCHIVOS_DIR, filename);
+    const filePath = path.resolve(ARCHIVOS_DIR, filename);
 
     // Safety: prevent path traversal
-    if (!filePath.startsWith(ARCHIVOS_DIR)) {
+    if (!filePath.startsWith(path.resolve(ARCHIVOS_DIR))) {
         return res.status(403).json({ error: 'Access denied' });
     }
 

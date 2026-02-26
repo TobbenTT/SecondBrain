@@ -60,6 +60,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - sb-data:/app/data
+      - sb-logs:/app/logs
       - sb-avatars:/app/public/avatars
       - sb-gallery:/app/public/gallery
       - sb-voicenotes:/app/public/voice-notes
@@ -143,6 +144,7 @@ volumes:
   sb-redis-data:
   sb-pg-data:
   sb-data:
+  sb-logs:
   sb-avatars:
   sb-gallery:
   sb-voicenotes:

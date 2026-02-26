@@ -1472,15 +1472,17 @@ router.get('/graph', async (req, res) => {
         const nodes = [];
         const edges = [];
 
-        // Optional time filter (?days=7|30|90)
-        const days = parseInt(req.query.days) || 0;
+        // Optional time filter (?days=7|30|90) — allowlist to prevent SQL interpolation risk
+        const allowedDays = [7, 30, 90, 365];
+        const rawDays = parseInt(req.query.days) || 0;
+        const days = allowedDays.includes(rawDays) ? rawDays : 0;
         const dateFilter = days > 0 ? `AND created_at > NOW() - INTERVAL '${days} days'` : '';
         const fechaFilter = days > 0 ? `AND fecha > NOW() - INTERVAL '${days} days'` : '';
 
         const [projects, areas, ideas, reuniones, users, skills, okrs, okrLinks] = await Promise.all([
             all('SELECT id, name, status, related_area_id, tech FROM projects'),
             all('SELECT id, name, status FROM areas'),
-            all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE (completada IS NULL OR completada = '0') ${dateFilter} LIMIT 200`),
+            all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE deleted_at IS NULL AND (completada IS NULL OR completada = '0') ${dateFilter} LIMIT 200`),
             all(`SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones WHERE deleted_at IS NULL ${fechaFilter} ORDER BY fecha DESC LIMIT 50`),
             all('SELECT id, username, role, department FROM users'),
             all("SELECT id, key, category, para_type, related_project_id, related_area_id, distilled_summary FROM context_items WHERE para_type = 'resource' OR category = 'core'"),

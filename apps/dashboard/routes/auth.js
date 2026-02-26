@@ -87,13 +87,13 @@ router.post('/login', async (req, res) => {
             if (roleRow?.role) role = roleRow.role;
 
             // Get or create local profile in SQLite
-            let profile = await get('SELECT * FROM users WHERE supabase_uid = ?', [uid]);
+            let profile = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid FROM users WHERE supabase_uid = ?', [uid]);
             if (!profile) {
                 await run(
                     'INSERT INTO users (supabase_uid, username, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
                     [uid, displayName, role, '', '']
                 );
-                profile = await get('SELECT * FROM users WHERE supabase_uid = ?', [uid]);
+                profile = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid FROM users WHERE supabase_uid = ?', [uid]);
                 log.info('Local profile created for Supabase user', { uid, username: displayName });
             } else {
                 // Sync role from Supabase on each login
@@ -118,7 +118,7 @@ router.post('/login', async (req, res) => {
         }
 
         // ─── Local auth (PostgreSQL — staging / dev without Supabase) ─
-        const user = await get('SELECT * FROM users WHERE username = ?', [identifier.toLowerCase()]);
+        const user = await get('SELECT id, username, password_hash, role, department, expertise, avatar, locked_until, twofa_enabled FROM users WHERE username = ?', [identifier.toLowerCase()]);
 
         // Check if account is locked
         if (user && user.locked_until && new Date(user.locked_until) > new Date()) {
