@@ -3668,9 +3668,14 @@ body,
     justify-content: center;
 }
 
-.ai-toggle-btn:hover {
-    transform: scale(1.1) rotate(10deg);
-    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.5);
+@media (hover: hover) {
+    .ai-toggle-btn:hover {
+        transform: scale(1.1) rotate(10deg);
+        box-shadow: 0 8px 30px rgba(37, 99, 235, 0.5);
+    }
+}
+.ai-toggle-btn:active {
+    transform: scale(0.95);
 }
 
 .ai-widget {
