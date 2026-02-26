@@ -10717,3 +10717,430 @@ select option {
     .code-flow-pipeline { flex-direction: column; }
     .cfp-arrow { transform: rotate(90deg); margin-top: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Phone screens (≤480px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+    /* ─── Main Layout ──────────────────────────────────────────────────── */
+    .main-content {
+        padding: 12px 10px;
+        padding-top: 68px;
+    }
+
+    .archivo-detail {
+        padding: 12px 10px;
+        padding-top: 68px;
+    }
+
+    /* ─── All Grids → single column ────────────────────────────────────── */
+    .panel-grid,
+    .projects-grid,
+    .archivos-grid,
+    .areas-grid,
+    .skills-grid,
+    .methodologies-grid,
+    .proj-segment-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* ─── Home Hero ────────────────────────────────────────────────────── */
+    .home-hero {
+        padding: 28px 16px 24px;
+    }
+
+    .home-hero-title {
+        font-size: 1.4rem;
+    }
+
+    .home-hero-tagline {
+        font-size: 0.82rem;
+    }
+
+    .home-hero-label {
+        font-size: 0.65rem;
+        letter-spacing: 2px;
+    }
+
+    /* ─── Stats Strip ──────────────────────────────────────────────────── */
+    .home-stats-strip {
+        padding: 16px 12px;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .hss-item {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+    }
+
+    .hss-num {
+        font-size: 1.3rem;
+        min-width: 40px;
+    }
+
+    .hss-label {
+        white-space: normal;
+        font-size: 0.7rem;
+    }
+
+    .hss-divider {
+        display: none;
+    }
+
+    /* ─── Home Mission ─────────────────────────────────────────────────── */
+    .home-mission {
+        grid-template-columns: 1fr;
+    }
+
+    .home-mission-col {
+        padding: 20px 16px;
+    }
+
+    /* ─── Home Activity & Dashboard ────────────────────────────────────── */
+    .hp-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hp-priority-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .hp-activity-item {
+        padding: 12px;
+    }
+
+    /* ─── Search Box ───────────────────────────────────────────────────── */
+    .search-box {
+        min-width: 100%;
+    }
+
+    /* ─── Toolbars ─────────────────────────────────────────────────────── */
+    .projects-toolbar,
+    .archivos-toolbar,
+    .ideas-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .ideas-filters {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .ideas-filters select,
+    .ideas-filters input {
+        width: 100%;
+    }
+
+    /* ─── Page Header ──────────────────────────────────────────────────── */
+    .page-title {
+        font-size: 1.3rem;
+    }
+
+    .content-header {
+        gap: 10px;
+    }
+
+    .header-right {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* ─── Cards & Panels ───────────────────────────────────────────────── */
+    .project-card {
+        padding: 18px 14px;
+    }
+
+    .project-icon-lg {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+    }
+
+    .panel-card {
+        padding: 18px 14px;
+    }
+
+    .stat-card {
+        padding: 16px 12px;
+    }
+
+    /* ─── Data Tables ──────────────────────────────────────────────────── */
+    .data-table {
+        font-size: 0.75rem;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
+    }
+
+    .data-table th {
+        font-size: 0.68rem;
+    }
+
+    /* ─── Modals ───────────────────────────────────────────────────────── */
+    .modal-content,
+    .custom-modal-content {
+        width: 96%;
+        max-width: 100%;
+        margin: 5% auto;
+    }
+
+    .modal-body,
+    .custom-modal-body {
+        padding: 16px;
+    }
+
+    .modal-title,
+    .custom-modal-title {
+        padding: 14px 16px;
+        font-size: 1rem;
+    }
+
+    .modal-footer,
+    .custom-modal-footer {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .modal-footer .btn-primary,
+    .modal-footer .btn-secondary,
+    .custom-modal-footer .btn-primary,
+    .custom-modal-footer .btn-secondary {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* ─── Forms ────────────────────────────────────────────────────────── */
+    .form-row,
+    .form-row.form-row-3col {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group label {
+        font-size: 0.78rem;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+
+    /* ─── Overview Section ─────────────────────────────────────────────── */
+    .ov-mid-row,
+    .ov-bottom-row {
+        grid-template-columns: 1fr;
+    }
+
+    .ov-team-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ─── Reuniones ────────────────────────────────────────────────────── */
+    .reunion-card {
+        padding: 16px 12px;
+    }
+
+    .reunion-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .reunion-card-meta {
+        gap: 4px;
+    }
+
+    .reunion-card-meta .badge {
+        font-size: 0.68rem;
+        padding: 2px 6px;
+    }
+
+    .reunion-tab-strip {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 4px;
+    }
+
+    .reunion-tab-strip button {
+        white-space: nowrap;
+        font-size: 0.72rem;
+        padding: 6px 10px;
+    }
+
+    /* ─── Skills Section ───────────────────────────────────────────────── */
+    .skill-card {
+        padding: 16px 12px;
+    }
+
+    .skill-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    /* ─── Ideas Section ────────────────────────────────────────────────── */
+    .idea-card {
+        padding: 14px 12px;
+    }
+
+    .idea-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .idea-meta {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .idea-meta .badge {
+        font-size: 0.68rem;
+    }
+
+    /* ─── Exec Output Modal ────────────────────────────────────────────── */
+    .exec-output-modal {
+        max-width: 100%;
+        margin: 4px;
+    }
+
+    /* ─── AI Widget ────────────────────────────────────────────────────── */
+    .ai-widget {
+        width: calc(100% - 20px);
+        right: 10px;
+        height: 55vh;
+        bottom: 80px;
+    }
+
+    .ai-widget input,
+    .ai-widget textarea {
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+
+    /* ─── Gallery ──────────────────────────────────────────────────────── */
+    .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    /* ─── Notification Panel ───────────────────────────────────────────── */
+    .notif-panel {
+        min-width: unset;
+        max-width: calc(100vw - 20px);
+        right: 10px;
+    }
+
+    /* ─── Executive Dashboard ──────────────────────────────────────────── */
+    .exec-kpi-row {
+        grid-template-columns: 1fr;
+    }
+
+    .exec-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .exec-bottom-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* ─── Buttons ──────────────────────────────────────────────────────── */
+    .btn-primary,
+    .btn-secondary {
+        padding: 10px 16px;
+        font-size: 0.82rem;
+    }
+
+    /* ─── Tabs ─────────────────────────────────────────────────────────── */
+    .tab-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+    }
+
+    .tab-bar button {
+        white-space: nowrap;
+        font-size: 0.78rem;
+        padding: 8px 12px;
+    }
+
+    /* ─── Waiting For ──────────────────────────────────────────────────── */
+    .waiting-card {
+        padding: 14px 12px;
+    }
+
+    /* ─── Daily Checklist ──────────────────────────────────────────────── */
+    .checklist-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ─── OKR Section ──────────────────────────────────────────────────── */
+    .okr-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ─── Quote ────────────────────────────────────────────────────────── */
+    .quote-panel {
+        padding: 16px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE SMALL — Very small phones (≤360px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+    .main-content {
+        padding: 8px 6px;
+        padding-top: 64px;
+    }
+
+    .home-hero {
+        padding: 20px 12px 18px;
+    }
+
+    .home-hero-title {
+        font-size: 1.2rem;
+    }
+
+    .topbar {
+        padding: 0 10px;
+        gap: 8px;
+    }
+
+    .topbar-logo span {
+        font-size: 0.8rem;
+    }
+
+    .page-title {
+        font-size: 1.1rem;
+    }
+
+    .project-card,
+    .panel-card {
+        padding: 14px 10px;
+    }
+
+    .modal-body,
+    .custom-modal-body {
+        padding: 12px;
+    }
+
+    .gallery-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        padding: 12px 8px;
+    }
+}
