@@ -2,6 +2,7 @@ const express = require('express');
 const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
 const { requireAuth } = require('../middleware/auth');
+const telegram = require('../services/telegram');
 
 const router = express.Router();
 
@@ -82,6 +83,8 @@ router.post('/webhook/reuniones', async (req, res) => {
         } catch (err) {
             log.error('Auto-generate tasks from webhook failed', { reunionId, error: err.message });
         }
+
+        telegram.notifyNewReunion(titulo, asistentes || [], autoTasks.length).catch(() => {});
 
         log.info('Meeting saved via webhook', { id: reunionId, titulo, autoTasks: autoTasks.length });
         res.json({ success: true, id: reunionId, tasksCreated: autoTasks.length, message: 'Meeting saved, notifications sent, tasks generated' });

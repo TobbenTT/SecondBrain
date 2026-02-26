@@ -2,6 +2,7 @@ const log = require('../helpers/logger');
 const { run, get, all } = require('../database');
 const { generateDailyReport } = require('./ai');
 const { isConfigured: smtpConfigured, sendDigestEmail } = require('./mailer');
+const telegram = require('./telegram');
 
 // ─── Generate personalized digest for one user ──────────────────────────────
 
@@ -118,6 +119,7 @@ async function runDailyDigest() {
                     }
                 }
 
+                telegram.notifyDigest(user.username).catch(() => {});
                 log.info('Digest generated', { username: user.username });
             } catch (err) {
                 log.error('Digest error for user', { username: user.username, error: err.message });

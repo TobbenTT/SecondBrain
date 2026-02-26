@@ -6,6 +6,7 @@ const log = require('../helpers/logger');
 const { validateBody } = require('../helpers/validate');
 const aiService = require('../services/ai');
 const { processAndSaveIdea } = require('../helpers/ideaProcessor');
+const telegram = require('../services/telegram');
 const { requireAuth } = require('../middleware/auth');
 const { requireOwnerOrAdmin, denyRole } = require('../middleware/authorize');
 const { auditLog } = require('../helpers/audit');
@@ -130,6 +131,8 @@ router.post('/', blockConsultor, validateBody({ text: { required: true, type: 's
         } else {
             analysis = await processAndSaveIdea(newIdea.id, newIdea.text, createdBy);
         }
+
+        telegram.notifyNewIdea(text, createdBy).catch(() => {});
 
         const ideaSelectCols = `id, text, audio_url as audioUrl, created_at as createdAt, status,
                 ai_type, ai_category, ai_action, ai_summary,
