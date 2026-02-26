@@ -107,6 +107,17 @@ function generateRecoveryCodes(count = 10) {
     return codes;
 }
 
+// ─── WebAuthn helpers ──────────────────────────────────────────────────────
+
+function getWebAuthnRPInfo(req) {
+    const domain = process.env.APP_DOMAIN || req.hostname || 'localhost';
+    const rpID = domain.replace(/:\d+$/, ''); // strip port
+    const origin = domain === 'localhost'
+        ? `http://localhost:${process.env.PORT || 3000}`
+        : `https://${domain}`;
+    return { rpID, rpName: 'ValueStrategy Hub', origin };
+}
+
 module.exports = {
     getEncryptionKey,
     encryptSecret,
@@ -115,5 +126,6 @@ module.exports = {
     generateDeviceLabel,
     shouldRequire2FA,
     generateRecoveryCodes,
+    getWebAuthnRPInfo,
     TRUST_DURATION_DAYS
 };

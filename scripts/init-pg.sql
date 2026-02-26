@@ -476,6 +476,30 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ─── WebAuthn Credentials (passkeys) ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_webauthn_credentials (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    counter INTEGER DEFAULT 0,
+    device_type TEXT,
+    transports TEXT,
+    label TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP
+);
+
+-- ─── Daily Digests ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS daily_digests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    summary TEXT,
+    delivered_via TEXT DEFAULT 'in_app',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- INDEXES
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -544,6 +568,13 @@ CREATE INDEX IF NOT EXISTS idx_archivos_filename ON archivos(filename);
 CREATE INDEX IF NOT EXISTS idx_archivos_hash ON archivos(hash);
 CREATE INDEX IF NOT EXISTS idx_archivos_uploaded_by ON archivos(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_archivos_deleted ON archivos(deleted_at) WHERE deleted_at IS NOT NULL;
+
+-- WebAuthn indexes
+CREATE INDEX IF NOT EXISTS idx_webauthn_user ON user_webauthn_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_webauthn_credid ON user_webauthn_credentials(credential_id);
+
+-- Daily digest indexes
+CREATE INDEX IF NOT EXISTS idx_digest_user ON daily_digests(user_id, created_at);
 
 -- Soft-delete indexes (partial — only non-null for fast trash queries)
 CREATE INDEX IF NOT EXISTS idx_ideas_deleted ON ideas(deleted_at) WHERE deleted_at IS NOT NULL;

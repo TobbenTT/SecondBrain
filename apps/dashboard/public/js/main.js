@@ -140,7 +140,7 @@ const SECTION_META = {
     'reuniones': { title: 'Reuniones', subtitle: 'Análisis automatizado de reuniones — Compromisos y participantes' },
     'feedback': { title: 'Sugerencias y Mejoras', subtitle: 'Observaciones del equipo sobre la plataforma' },
     'admin-users': { title: 'Gestión de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
-    'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas y Skills' },
+    'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas, Skills y OKRs' },
     'herramientas': { title: 'Suscripciones y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' },
     'audit-log': { title: 'Registro de Auditoria', subtitle: 'Eventos de seguridad del sistema' },
     'admin-files': { title: 'Gestor de Archivos', subtitle: 'Todos los archivos del sistema — subidos, eliminados y papelera' }
@@ -306,6 +306,9 @@ async function initHomeData() {
 
         // 5. Notifications (from bundle)
         _renderNotifications(bundle.notifications);
+
+        // 6. Daily Digest widget
+        loadDigestWidget();
     } catch (err) {
         console.error('Home bundle error:', err);
         _initHomeDataFallback();
@@ -643,6 +646,78 @@ function _timeAgo(dateStr) {
     if (hours < 24) return `hace ${hours}h`;
     const days = Math.floor(hours / 24);
     return `hace ${days}d`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DAILY DIGEST WIDGET
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function loadDigestWidget() {
+    const container = document.getElementById('digestWidget');
+    if (!container) return;
+    try {
+        const res = await fetch('/api/digest/latest');
+        if (!res.ok) return;
+        const { digest } = await res.json();
+        if (!digest) {
+            container.innerHTML = `<div class="digest-empty">
+                <span style="font-size:1.5rem;">📋</span>
+                <p style="color:var(--text-muted);font-size:0.85rem;margin:8px 0 0;">Sin digest disponible. Se genera automaticamente cada dia a las 8 AM.</p>
+            </div>`;
+            return;
+        }
+
+        const date = new Date(digest.created_at).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
+        const via = digest.delivered_via === 'email' ? ' (enviado por email)' : '';
+        const contentPreview = (digest.summary || digest.content.substring(0, 200)) + '...';
+
+        container.innerHTML = `
+            <div class="digest-card">
+                <div class="digest-header">
+                    <span class="digest-date">${date}${via}</span>
+                    <button class="btn btn-sm" onclick="showFullDigest(${digest.id})" style="font-size:0.75rem;padding:3px 10px;">Ver completo</button>
+                </div>
+                <div class="digest-preview">${escapeHtml(contentPreview)}</div>
+            </div>`;
+    } catch (_) {}
+}
+
+async function showFullDigest(id) {
+    try {
+        const res = await fetch('/api/digest/latest');
+        if (!res.ok) return;
+        const { digest } = await res.json();
+        if (!digest) return;
+
+        const content = digest.content.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/## (.*?)(<br>|$)/g, '<h4 style="margin:12px 0 6px;color:var(--text-primary);">$1</h4>');
+        const modal = document.getElementById('genericModal') || createGenericModal();
+        modal.querySelector('.modal-title').textContent = 'Digest del Dia';
+        modal.querySelector('.modal-body').innerHTML = `<div style="font-size:0.9rem;line-height:1.7;color:var(--text-secondary);">${content}</div>`;
+        modal.style.display = 'flex';
+    } catch (_) {}
+}
+
+function createGenericModal() {
+    const modal = document.createElement('div');
+    modal.id = 'genericModal';
+    modal.className = 'modal';
+    modal.innerHTML = `<div class="modal-content" style="max-width:700px;">
+        <div class="modal-header"><h3 class="modal-title"></h3><button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button></div>
+        <div class="modal-body" style="max-height:70vh;overflow-y:auto;"></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+    return modal;
+}
+
+async function triggerDigestManual() {
+    try {
+        const res = await fetch('/api/digest/trigger', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        showToast(data.message || 'Digest disparado', 'success');
+    } catch (err) {
+        showToast('Error', 'error');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -8017,6 +8092,22 @@ async function loadTwofaStatus() {
             devicesHtml += '</ul></div>';
         }
 
+        // Passkeys section
+        let passkeysHtml = '';
+        if (data.passkeysAvailable) {
+            const pkList = (data.passkeys || []).map(pk =>
+                `<li style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">
+                    <span>&#x1F511; ${escapeHtml(pk.label)} <span style="color:#94a3b8;font-size:0.75rem;">${pk.last_used ? 'Usado ' + new Date(pk.last_used).toLocaleDateString() : 'Nunca usado'}</span></span>
+                    <button class="btn btn-sm" onclick="removePasskey(${pk.id})" style="font-size:0.75rem;padding:2px 8px;background:#fee2e2;color:#b91c1c;border:none;cursor:pointer;">X</button>
+                </li>`
+            ).join('');
+            passkeysHtml = `<div style="margin-top:12px;">
+                <strong style="font-size:0.8rem;color:#64748b;">Passkeys (Windows Hello, Touch ID):</strong>
+                ${pkList ? '<ul style="list-style:none;padding:0;margin:8px 0;">' + pkList + '</ul>' : '<p style="font-size:0.8rem;color:#94a3b8;margin:6px 0;">Sin passkeys registradas</p>'}
+                <button class="btn btn-sm" onclick="registerPasskey()" style="background:#f0f4ff;color:#0052cc;font-size:0.8rem;margin-top:4px;">+ Agregar Passkey</button>
+            </div>`;
+        }
+
         container.innerHTML = `
             <div style="padding:8px 0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -8025,6 +8116,7 @@ async function loadTwofaStatus() {
                 </div>
                 <p style="color:#64748b;font-size:0.85rem;">Codigos de recuperacion restantes: <strong>${data.recoveryCodesRemaining}</strong></p>
                 ${devicesHtml}
+                ${passkeysHtml}
                 <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
                     <button class="btn btn-sm" onclick="disableTwofa()" style="background:#fee2e2;color:#b91c1c;font-size:0.8rem;" ${data.enforced ? 'disabled title="Obligatorio por admin"' : ''}>Desactivar 2FA</button>
                 </div>
@@ -8181,6 +8273,48 @@ async function removeTrustedDevice(id) {
         const res = await fetch(`/api/twofa/trusted-devices/${id}`, { method: 'DELETE' });
         if (res.ok) {
             showToast('Dispositivo eliminado', 'success');
+            loadTwofaStatus();
+        }
+    } catch (err) {
+        showToast('Error', 'error');
+    }
+}
+
+// ─── Passkey Management ────────────────────────────────────────────────────
+
+async function registerPasskey() {
+    try {
+        const beginRes = await fetch('/api/twofa/passkey/register-begin', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!beginRes.ok) { const d = await beginRes.json(); showToast(d.error || 'Error', 'error'); return; }
+        const options = await beginRes.json();
+
+        const credential = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options });
+
+        const label = prompt('Nombre para esta passkey (ej: "Laptop oficina"):', 'Mi passkey') || 'Passkey';
+        const endRes = await fetch('/api/twofa/passkey/register-end', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential, label })
+        });
+        const result = await endRes.json();
+        if (result.success) {
+            showToast('Passkey registrada: ' + result.label, 'success');
+            loadTwofaStatus();
+        } else {
+            showToast(result.error || 'Error', 'error');
+        }
+    } catch (err) {
+        if (err.name === 'NotAllowedError') showToast('Operacion cancelada', 'info');
+        else showToast('Error: ' + err.message, 'error');
+    }
+}
+
+async function removePasskey(id) {
+    if (!confirm('Eliminar esta passkey?')) return;
+    try {
+        const res = await fetch(`/api/twofa/passkey/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Passkey eliminada', 'success');
             loadTwofaStatus();
         }
     } catch (err) {
@@ -8608,7 +8742,8 @@ const GRAPH_TYPES = {
     area:    { color: '#9b59b6', label: 'Áreas', icon: '📂' },
     idea:    { color: '#3498db', label: 'Ideas', icon: '💡' },
     reunion: { color: '#e74c3c', label: 'Reuniones', icon: '📅' },
-    skill:   { color: '#f39c12', label: 'Skills', icon: '🔧' },
+    skill:   { color: '#e67e22', label: 'Skills', icon: '🔧' },
+    okr:     { color: '#f1c40f', label: 'OKRs', icon: '🏆' },
     user:    { color: '#1abc9c', label: 'Usuarios', icon: '👤' }
 };
 const USER_ROLE_COLORS = {
@@ -8622,10 +8757,13 @@ let _graphSim = null;
 let _graphData = null;
 let _graphZoom = null;
 let _graphActiveTypes = new Set(Object.keys(GRAPH_TYPES));
+let _graphDaysFilter = 0;
 
-async function loadGraphView() {
+async function loadGraphView(days) {
     const container = document.getElementById('graphContainer');
     if (!container) return;
+
+    if (days !== undefined) _graphDaysFilter = days;
 
     // Show loading
     const svg = d3.select('#graphSvg');
@@ -8635,39 +8773,53 @@ async function loadGraphView() {
     const height = rect.height || 600;
     svg.attr('width', width).attr('height', height);
 
-    // Render filter buttons
-    const filtersEl = document.getElementById('graphFilters');
-    if (filtersEl) {
-        filtersEl.innerHTML = Object.entries(GRAPH_TYPES).map(([type, cfg]) =>
-            `<button class="graph-filter-btn active" data-type="${type}" style="--gf-color:${cfg.color}" onclick="toggleGraphType('${type}', this)">
-                ${cfg.icon} ${cfg.label}
-            </button>`
-        ).join('');
-    }
-
-    // Render legend (entity types + user roles)
-    const legendEl = document.getElementById('graphLegend');
-    if (legendEl) {
-        const typeLegend = Object.entries(GRAPH_TYPES).filter(([k]) => k !== 'user').map(([, cfg]) =>
-            `<div class="graph-legend-item">
-                <div class="graph-legend-dot" style="background:${cfg.color}"></div>
-                <span>${cfg.label}</span>
-            </div>`
-        ).join('');
-        const roleLegend = Object.entries(USER_ROLE_COLORS).map(([role, color]) =>
-            `<div class="graph-legend-item">
-                <div class="graph-legend-dot" style="background:${color}"></div>
-                <span>${role.charAt(0).toUpperCase() + role.slice(1)}</span>
-            </div>`
-        ).join('');
-        legendEl.innerHTML = typeLegend + roleLegend;
-    }
-
     try {
-        const res = await fetch('/api/graph');
+        const url = _graphDaysFilter > 0 ? `/api/graph?days=${_graphDaysFilter}` : '/api/graph';
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`API ${res.status}`);
         _graphData = await res.json();
         _graphActiveTypes = new Set(Object.keys(GRAPH_TYPES));
+
+        // Render filter buttons with counts
+        const counts = _graphData.counts || {};
+        const filtersEl = document.getElementById('graphFilters');
+        if (filtersEl) {
+            const timeOpts = [
+                { val: 0, label: 'Todo' },
+                { val: 7, label: '7d' },
+                { val: 30, label: '30d' },
+                { val: 90, label: '90d' }
+            ];
+            const timeHtml = `<select class="graph-time-select" onchange="loadGraphView(parseInt(this.value))">
+                ${timeOpts.map(o => `<option value="${o.val}" ${o.val === _graphDaysFilter ? 'selected' : ''}>${o.label}</option>`).join('')}
+            </select>`;
+            const btnHtml = Object.entries(GRAPH_TYPES).map(([type, cfg]) => {
+                const cnt = counts[type] || 0;
+                return `<button class="graph-filter-btn active" data-type="${type}" style="--gf-color:${cfg.color}" onclick="toggleGraphType('${type}', this)">
+                    ${cfg.icon} ${cfg.label} <span class="graph-filter-count">(${cnt})</span>
+                </button>`;
+            }).join('');
+            filtersEl.innerHTML = timeHtml + btnHtml;
+        }
+
+        // Render legend
+        const legendEl = document.getElementById('graphLegend');
+        if (legendEl) {
+            const typeLegend = Object.entries(GRAPH_TYPES).filter(([k]) => k !== 'user').map(([, cfg]) =>
+                `<div class="graph-legend-item">
+                    <div class="graph-legend-dot" style="background:${cfg.color}"></div>
+                    <span>${cfg.label}</span>
+                </div>`
+            ).join('');
+            const roleLegend = Object.entries(USER_ROLE_COLORS).map(([role, color]) =>
+                `<div class="graph-legend-item">
+                    <div class="graph-legend-dot" style="background:${color}"></div>
+                    <span>${role.charAt(0).toUpperCase() + role.slice(1)}</span>
+                </div>`
+            ).join('');
+            legendEl.innerHTML = typeLegend + roleLegend;
+        }
+
         _renderGraph(width, height);
     } catch (err) {
         svg.append('text').attr('x', width / 2).attr('y', height / 2)
@@ -8802,7 +8954,7 @@ function _renderGraph(width, height) {
         // Navigate to the entity's section
         const sectionMap = {
             project: 'projects', area: 'areas', idea: 'ideas',
-            reunion: 'reuniones', skill: 'skills', user: 'admin-users'
+            reunion: 'reuniones', skill: 'skills', okr: 'okrs', user: 'admin-users'
         };
         const sec = sectionMap[d.type];
         if (sec) switchSection(sec);

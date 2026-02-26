@@ -87,6 +87,8 @@ async function initDatabase() {
         await migrate2FA();
         await migrateAccountLockout();
         await migrateAuditLog();
+        await migrateWebAuthn();
+        await migrateDigest();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -307,6 +309,37 @@ async function migrateAuditLog() {
     await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at)");
+}
+
+async function migrateWebAuthn() {
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_webauthn_credentials (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key TEXT NOT NULL,
+        counter INTEGER DEFAULT 0,
+        device_type TEXT,
+        transports TEXT,
+        label TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_used TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_webauthn_user ON user_webauthn_credentials(user_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_webauthn_credid ON user_webauthn_credentials(credential_id)");
+}
+
+async function migrateDigest() {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS digest_enabled BOOLEAN DEFAULT TRUE");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS digest_email TEXT");
+    await pool.query(`CREATE TABLE IF NOT EXISTS daily_digests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        summary TEXT,
+        delivered_via TEXT DEFAULT 'in_app',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_digest_user ON daily_digests(user_id, created_at)");
 }
 
 // Start initialization

@@ -9569,6 +9569,40 @@ select option {
     display: block;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DAILY DIGEST WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+.digest-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    border-left: 4px solid #0052cc;
+}
+.digest-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.digest-date {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.digest-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.digest-empty {
+    text-align: center;
+    padding: 20px;
+    background: var(--bg-panel);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
 /* Toolbar */
 .graph-toolbar {
     display: flex;
@@ -9608,6 +9642,20 @@ select option {
     gap: 8px;
     align-items: center;
 }
+.graph-filter-count {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+.graph-time-select {
+    padding: 6px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.graph-time-select:focus { outline: none; border-color: var(--accent); }
 .graph-search {
     padding: 7px 12px;
     background: var(--bg-panel);

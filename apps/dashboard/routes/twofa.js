@@ -8,19 +8,35 @@ const {
     encryptSecret, decryptSecret,
     computeDeviceHash, generateDeviceLabel,
     generateRecoveryCodes, getEncryptionKey,
+    getWebAuthnRPInfo,
     TRUST_DURATION_DAYS
 } = require('../helpers/twofa');
 const { auditLog } = require('../helpers/audit');
+
+// WebAuthn — lazy-loaded to avoid crash if not installed
+let simpleWebAuthn = null;
+try {
+    simpleWebAuthn = require('@simplewebauthn/server');
+} catch (_) {
+    // @simplewebauthn/server not installed — passkeys disabled
+}
 
 // ─── Public router (before requireAuth) ─────────────────────────────────────
 const publicRouter = express.Router();
 
 // GET /2fa — Render challenge page
-publicRouter.get('/2fa', (req, res) => {
+publicRouter.get('/2fa', async (req, res) => {
     if (!req.session.pending2FA) return res.redirect('/login');
+    // Check if user has passkeys registered
+    let hasPasskeys = false;
+    try {
+        const row = await get('SELECT COUNT(*) as cnt FROM user_webauthn_credentials WHERE user_id = ?', [req.session.pending2FA.userId]);
+        hasPasskeys = row && parseInt(row.cnt) > 0;
+    } catch (_) {}
     res.render('twofa', {
         username: req.session.pending2FA.username,
-        error: null
+        error: null,
+        hasPasskeys
     });
 });
 
@@ -134,6 +150,98 @@ publicRouter.post('/2fa', async (req, res) => {
     }
 });
 
+// POST /2fa/passkey/authenticate-begin — Start WebAuthn authentication challenge
+publicRouter.post('/2fa/passkey/authenticate-begin', async (req, res) => {
+    if (!simpleWebAuthn) return res.status(503).json({ error: 'Passkeys no disponibles' });
+    const pending = req.session.pending2FA;
+    if (!pending) return res.status(401).json({ error: 'No hay sesion pendiente' });
+
+    try {
+        const credentials = await all(
+            'SELECT credential_id, public_key, counter, transports FROM user_webauthn_credentials WHERE user_id = ?',
+            [pending.userId]
+        );
+        if (!credentials.length) return res.status(400).json({ error: 'No hay passkeys registradas' });
+
+        const { rpID } = getWebAuthnRPInfo(req);
+        const options = await simpleWebAuthn.generateAuthenticationOptions({
+            rpID,
+            allowCredentials: credentials.map(c => ({
+                id: c.credential_id,
+                transports: c.transports ? JSON.parse(c.transports) : undefined
+            })),
+            userVerification: 'preferred'
+        });
+
+        req.session.webauthnChallenge = options.challenge;
+        res.json(options);
+    } catch (err) {
+        log.error('WebAuthn auth-begin error', { error: err.message });
+        res.status(500).json({ error: 'Error al iniciar autenticacion' });
+    }
+});
+
+// POST /2fa/passkey/authenticate-end — Verify WebAuthn authentication
+publicRouter.post('/2fa/passkey/authenticate-end', async (req, res) => {
+    if (!simpleWebAuthn) return res.status(503).json({ error: 'Passkeys no disponibles' });
+    const pending = req.session.pending2FA;
+    if (!pending) return res.status(401).json({ error: 'No hay sesion pendiente' });
+    const challenge = req.session.webauthnChallenge;
+    if (!challenge) return res.status(400).json({ error: 'No hay challenge pendiente' });
+
+    try {
+        const { rpID, origin } = getWebAuthnRPInfo(req);
+        const credId = req.body.id;
+        const credential = await get(
+            'SELECT id, credential_id, public_key, counter FROM user_webauthn_credentials WHERE credential_id = ? AND user_id = ?',
+            [credId, pending.userId]
+        );
+        if (!credential) return res.status(400).json({ error: 'Passkey no reconocida' });
+
+        const verification = await simpleWebAuthn.verifyAuthenticationResponse({
+            response: req.body,
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            credential: {
+                id: credential.credential_id,
+                publicKey: Buffer.from(credential.public_key, 'base64url'),
+                counter: credential.counter
+            }
+        });
+
+        if (!verification.verified) {
+            auditLog('passkey_failure', { actor: pending.username, target: pending.username, ip: req.ip, userAgent: req.headers['user-agent'] });
+            return res.status(400).json({ error: 'Verificacion fallida' });
+        }
+
+        // Update counter and last_used
+        await run('UPDATE user_webauthn_credentials SET counter = ?, last_used = NOW() WHERE id = ?',
+            [verification.authenticationInfo.newCounter, credential.id]);
+        await run('UPDATE users SET last_twofa_at = NOW() WHERE id = ?', [pending.userId]);
+
+        // Complete session
+        delete req.session.webauthnChallenge;
+        req.session.user = {
+            id: pending.userId,
+            username: pending.username,
+            role: pending.role,
+            department: pending.department,
+            expertise: pending.expertise,
+            avatar: pending.avatar
+        };
+        req.session.authenticated = true;
+        delete req.session.pending2FA;
+
+        log.info('WebAuthn 2FA verification successful', { username: pending.username });
+        auditLog('passkey_authenticate', { actor: pending.username, target: pending.username, ip: req.ip, userAgent: req.headers['user-agent'] });
+        res.json({ success: true, redirect: '/' });
+    } catch (err) {
+        log.error('WebAuthn auth-end error', { error: err.message });
+        res.status(500).json({ error: 'Error de verificacion' });
+    }
+});
+
 // ─── Protected router (after requireAuth, mounted on /api/twofa) ────────────
 const protectedRouter = express.Router();
 
@@ -155,13 +263,20 @@ protectedRouter.get('/status', async (req, res) => {
 
         const hasKey = !!getEncryptionKey();
 
+        const passkeys = await all(
+            'SELECT id, label, device_type, created_at, last_used FROM user_webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+        );
+
         res.json({
             available: hasKey,
             enabled: user?.twofa_enabled || false,
             enforced: user?.twofa_enforced || false,
             lastTwofaAt: user?.last_twofa_at || null,
             recoveryCodesRemaining: parseInt(unusedCodes?.cnt || 0),
-            trustedDevices: devices
+            trustedDevices: devices,
+            passkeys,
+            passkeysAvailable: !!simpleWebAuthn
         });
     } catch (err) {
         log.error('2FA status error', { error: err.message });
@@ -274,6 +389,101 @@ protectedRouter.post('/verify-setup', async (req, res) => {
     }
 });
 
+// ─── Passkey Management ─────────────────────────────────────────────────────
+
+// POST /api/twofa/passkey/register-begin — Start passkey registration
+protectedRouter.post('/passkey/register-begin', async (req, res) => {
+    if (!simpleWebAuthn) return res.status(503).json({ error: 'Passkeys no disponibles (instalar @simplewebauthn/server)' });
+    try {
+        const userId = req.session.user.id;
+        const username = req.session.user.username;
+        const { rpID, rpName } = getWebAuthnRPInfo(req);
+
+        // Existing credentials to exclude
+        const existing = await all('SELECT credential_id FROM user_webauthn_credentials WHERE user_id = ?', [userId]);
+
+        const options = await simpleWebAuthn.generateRegistrationOptions({
+            rpName,
+            rpID,
+            userName: username,
+            userDisplayName: username,
+            excludeCredentials: existing.map(c => ({ id: c.credential_id })),
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'preferred'
+            },
+            attestationType: 'none'
+        });
+
+        req.session.webauthnRegChallenge = options.challenge;
+        res.json(options);
+    } catch (err) {
+        log.error('Passkey register-begin error', { error: err.message });
+        res.status(500).json({ error: 'Error al iniciar registro' });
+    }
+});
+
+// POST /api/twofa/passkey/register-end — Complete passkey registration
+protectedRouter.post('/passkey/register-end', async (req, res) => {
+    if (!simpleWebAuthn) return res.status(503).json({ error: 'Passkeys no disponibles' });
+    const challenge = req.session.webauthnRegChallenge;
+    if (!challenge) return res.status(400).json({ error: 'No hay challenge pendiente' });
+
+    try {
+        const { rpID, origin } = getWebAuthnRPInfo(req);
+        const verification = await simpleWebAuthn.verifyRegistrationResponse({
+            response: req.body.credential,
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID
+        });
+
+        if (!verification.verified || !verification.registrationInfo) {
+            return res.status(400).json({ error: 'Verificacion fallida' });
+        }
+
+        const { credential, credentialDeviceType } = verification.registrationInfo;
+        const label = req.body.label || generateDeviceLabel(req.headers['user-agent']);
+
+        await run(
+            'INSERT INTO user_webauthn_credentials (user_id, credential_id, public_key, counter, device_type, transports, label) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+                req.session.user.id,
+                credential.id,
+                Buffer.from(credential.publicKey).toString('base64url'),
+                credential.counter,
+                credentialDeviceType || 'singleDevice',
+                JSON.stringify(req.body.credential?.response?.transports || []),
+                label
+            ]
+        );
+
+        delete req.session.webauthnRegChallenge;
+        log.info('Passkey registered', { username: req.session.user.username, label });
+        auditLog('passkey_register', { actor: req.session.user.username, target: req.session.user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { label } });
+        res.json({ success: true, label });
+    } catch (err) {
+        log.error('Passkey register-end error', { error: err.message });
+        res.status(500).json({ error: 'Error al registrar passkey' });
+    }
+});
+
+// DELETE /api/twofa/passkey/:id — Remove a passkey
+protectedRouter.delete('/passkey/:id', async (req, res) => {
+    try {
+        const result = await run(
+            'DELETE FROM user_webauthn_credentials WHERE id = ? AND user_id = ?',
+            [req.params.id, req.session.user.id]
+        );
+        if (result.changes === 0) return res.status(404).json({ error: 'Passkey no encontrada' });
+        auditLog('passkey_delete', { actor: req.session.user.username, target: req.session.user.username, ip: req.ip, userAgent: req.headers['user-agent'] });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Passkey delete error', { error: err.message });
+        res.status(500).json({ error: 'Error al eliminar passkey' });
+    }
+});
+
 // POST /api/twofa/disable — Turn off 2FA (requires password)
 protectedRouter.post('/disable', async (req, res) => {
     try {
@@ -300,6 +510,7 @@ protectedRouter.post('/disable', async (req, res) => {
         await run('DELETE FROM user_totp_secrets WHERE user_id = ?', [userId]);
         await run('DELETE FROM user_recovery_codes WHERE user_id = ?', [userId]);
         await run('DELETE FROM user_trusted_devices WHERE user_id = ?', [userId]);
+        await run('DELETE FROM user_webauthn_credentials WHERE user_id = ?', [userId]);
         await run('UPDATE users SET twofa_enabled = FALSE, last_twofa_at = NULL WHERE id = ?', [userId]);
 
         log.info('2FA deactivated', { username: req.session.user.username });

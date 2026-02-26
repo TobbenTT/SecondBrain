@@ -1451,12 +1451,20 @@ router.get('/graph', async (req, res) => {
         const nodes = [];
         const edges = [];
 
-        const [projects, areas, ideas, reuniones, users] = await Promise.all([
+        // Optional time filter (?days=7|30|90)
+        const days = parseInt(req.query.days) || 0;
+        const dateFilter = days > 0 ? `AND created_at > NOW() - INTERVAL '${days} days'` : '';
+        const fechaFilter = days > 0 ? `AND fecha > NOW() - INTERVAL '${days} days'` : '';
+
+        const [projects, areas, ideas, reuniones, users, skills, okrs, okrLinks] = await Promise.all([
             all('SELECT id, name, status, related_area_id, tech FROM projects'),
             all('SELECT id, name, status FROM areas'),
-            all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE completada IS NULL OR completada = '0' LIMIT 200`),
-            all('SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones ORDER BY fecha DESC LIMIT 50'),
-            all('SELECT id, username, role, department FROM users')
+            all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE (completada IS NULL OR completada = '0') ${dateFilter} LIMIT 200`),
+            all(`SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones WHERE deleted_at IS NULL ${fechaFilter} ORDER BY fecha DESC LIMIT 50`),
+            all('SELECT id, username, role, department FROM users'),
+            all("SELECT id, key, category, para_type, related_project_id, related_area_id, distilled_summary FROM context_items WHERE para_type = 'resource' OR category = 'core'"),
+            all("SELECT id, title, type, parent_id, owner, status FROM okrs WHERE deleted_at IS NULL AND status = 'active'"),
+            all('SELECT okr_id, link_type, link_id FROM okr_links')
         ]);
 
         // Filter out 'usuario' and 'cliente' roles — only ranked team members
@@ -1472,6 +1480,24 @@ router.get('/graph', async (req, res) => {
         ideas.forEach(i => nodes.push({ id: `idea-${i.id}`, label: (i.ai_summary || i.text || '').substring(0, 40), type: 'idea', data: i }));
         reuniones.forEach(r => nodes.push({ id: `reunion-${r.id}`, label: r.titulo || 'Sin título', type: 'reunion', data: r }));
         rankedUsers.forEach(u => nodes.push({ id: `user-${u.id}`, label: u.username, type: 'user', data: u }));
+        skills.forEach(s => nodes.push({ id: `skill-${s.id}`, label: s.key || s.category, type: 'skill', data: s }));
+        okrs.forEach(o => nodes.push({ id: `okr-${o.id}`, label: o.title, type: 'okr', data: o }));
+
+        // ── Edges: skill → project/area ──
+        skills.forEach(s => {
+            if (s.related_project_id) edges.push({ source: `skill-${s.id}`, target: `project-${s.related_project_id}`, type: 'skill-project' });
+            if (s.related_area_id) edges.push({ source: `skill-${s.id}`, target: `area-${s.related_area_id}`, type: 'skill-area' });
+        });
+
+        // ── Edges: okr → parent, okr_links → project/area ──
+        okrs.filter(o => o.parent_id).forEach(o =>
+            edges.push({ source: `okr-${o.id}`, target: `okr-${o.parent_id}`, type: 'okr-parent' }));
+        okrs.filter(o => o.owner).forEach(o => {
+            const u = userByName[o.owner.toLowerCase()];
+            if (u) edges.push({ source: `okr-${o.id}`, target: `user-${u.id}`, type: 'okr-user' });
+        });
+        okrLinks.forEach(l =>
+            edges.push({ source: `okr-${l.okr_id}`, target: `${l.link_type}-${l.link_id}`, type: `okr-${l.link_type}` }));
 
         // ── Edges: idea → project/area/user/parent ──
         ideas.filter(i => i.project_id).forEach(i =>
@@ -1595,7 +1621,11 @@ router.get('/graph', async (req, res) => {
             return true;
         });
 
-        res.json({ nodes, edges: validEdges });
+        // Count nodes by type
+        const counts = {};
+        nodes.forEach(n => { counts[n.type] = (counts[n.type] || 0) + 1; });
+
+        res.json({ nodes, edges: validEdges, counts });
     } catch (err) {
         log.error('Graph data error', { error: err.message });
         res.status(500).json({ error: 'Failed to load graph data' });

@@ -540,4 +540,48 @@ router.get('/gtd/briefing/:username', async (req, res) => {
     }
 });
 
+// ─── Daily Digest (/api/digest/*) ─────────────────────────────────────────────
+
+// GET /api/digest/latest — Last digest for current user
+router.get('/digest/latest', async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const digest = await get(
+            'SELECT id, content, summary, delivered_via, created_at FROM daily_digests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+            [userId]
+        );
+        res.json({ digest: digest || null });
+    } catch (err) {
+        log.error('Digest latest error', { error: err.message });
+        res.status(500).json({ error: 'Error al obtener digest' });
+    }
+});
+
+// GET /api/digest/history — Last 30 digests
+router.get('/digest/history', async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const digests = await all(
+            'SELECT id, summary, delivered_via, created_at FROM daily_digests WHERE user_id = ? ORDER BY created_at DESC LIMIT 30',
+            [userId]
+        );
+        res.json({ digests });
+    } catch (err) {
+        log.error('Digest history error', { error: err.message });
+        res.status(500).json({ error: 'Error al obtener historial' });
+    }
+});
+
+// POST /api/digest/trigger — Manual trigger (admin only)
+router.post('/digest/trigger', async (req, res) => {
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin' });
+    try {
+        const { runDailyDigest } = require('../services/digest');
+        runDailyDigest().catch(err => log.error('Manual digest error', { error: err.message }));
+        res.json({ success: true, message: 'Digest en proceso — revisa en unos minutos' });
+    } catch (err) {
+        res.status(500).json({ error: 'Error al disparar digest' });
+    }
+});
+
 module.exports = router;
