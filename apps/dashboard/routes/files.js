@@ -6,6 +6,7 @@ const { marked } = require('marked');
 const DOMPurify = require('isomorphic-dompurify');
 const { safePath, formatFileSize, getFilesRecursively, findDynamicPage, loadTags, saveTags } = require('../helpers/utils');
 const { requireAdmin } = require('../middleware/authorize');
+const { run, get, all } = require('../database');
 const simpleGit = require('simple-git');
 
 const router = express.Router();
@@ -21,9 +22,17 @@ const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
 
 // ─── Files API ───────────────────────────────────────────────────────────────
 
-router.get('/api/archivos', (req, res) => {
+router.get('/api/archivos', async (req, res) => {
     try {
         const tags = loadTags(TAGS_FILE);
+
+        // Get DB records for uploaded_by info
+        let dbRecords = {};
+        try {
+            const rows = await all('SELECT filename, uploaded_by FROM archivos WHERE deleted_at IS NULL');
+            rows.forEach(r => { dbRecords[r.filename] = r.uploaded_by; });
+        } catch (_) { /* DB not available — continue without */ }
+
         let fileList = [];
 
         if (fs.existsSync(ARCHIVOS_DIR)) {
@@ -45,6 +54,7 @@ router.get('/api/archivos', (req, res) => {
                         modified: stats.mtime,
                         hasDynamic: !!dynamicPage,
                         dynamicUrl: dynamicPage ? dynamicPage.url : null,
+                        uploadedBy: dbRecords[f.name] || null,
                         tags: tags[f.name] || []
                     };
                 });
@@ -68,10 +78,11 @@ router.get('/api/archivos', (req, res) => {
                         extension: '.app',
                         type: 'app',
                         size: 0,
-                        sizeFormatted: 'Guía Interactiva',
+                        sizeFormatted: 'Guia Interactiva',
                         modified: new Date(),
                         hasDynamic: true,
                         dynamicUrl: `/dinamicas/${encodeURIComponent(dir.name)}/${encodeURIComponent(entryFile)}`,
+                        uploadedBy: null,
                         tags: tags[dir.name] || []
                     });
                 }
@@ -229,7 +240,6 @@ router.put('/api/skills/content', requireAdmin, async (req, res) => {
 
 // ─── Skill Documents API ────────────────────────────────────────────────────
 
-const { run, get, all } = require('../database');
 const multer = require('multer');
 
 const SKILL_DOCS_DIR = path.join(UPLOADS_DIR, 'skill-docs');

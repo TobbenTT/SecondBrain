@@ -2138,33 +2138,54 @@
             </h2>
             <p class="section-subtitle">Todos los archivos del sistema — subidos, eliminados y papelera de reciclaje</p>
 
-            <!-- Tabs: Active / Trash -->
-            <div style="display:flex;gap:8px;margin-bottom:16px;">
-                <button class="btn-primary" id="afTabActive" onclick="switchAdminFilesTab('active')" style="font-size:0.85rem;">Archivos activos</button>
-                <button class="btn-outline" id="afTabTrash" onclick="switchAdminFilesTab('trash')" style="font-size:0.85rem;">Papelera</button>
+            <!-- Summary cards -->
+            <div class="af-summary" id="afSummary">
+                <div class="af-stat-card">
+                    <div class="af-stat-icon" style="background:rgba(41,128,185,0.1);border:1px solid rgba(41,128,185,0.2);">📄</div>
+                    <div><div class="af-stat-value" id="afStatTotal">—</div><div class="af-stat-label">Archivos</div></div>
+                </div>
+                <div class="af-stat-card">
+                    <div class="af-stat-icon" style="background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.2);">💾</div>
+                    <div><div class="af-stat-value" id="afStatSize">—</div><div class="af-stat-label">Almacenamiento</div></div>
+                </div>
+                <div class="af-stat-card">
+                    <div class="af-stat-icon" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.2);">🗑️</div>
+                    <div><div class="af-stat-value" id="afStatTrash">—</div><div class="af-stat-label">En papelera</div></div>
+                </div>
+                <div class="af-stat-card">
+                    <div class="af-stat-icon" style="background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.2);">⚡</div>
+                    <div><div class="af-stat-value" id="afStatDynamic">—</div><div class="af-stat-label">Con pagina dinamica</div></div>
+                </div>
             </div>
 
-            <!-- Search -->
-            <div id="afSearchWrap" style="margin-bottom:12px;">
-                <input type="text" id="afSearchInput" placeholder="Buscar archivos..." oninput="filterAdminFiles()" style="width:100%;max-width:400px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+            <!-- Tabs + search bar -->
+            <div class="af-toolbar">
+                <div class="af-tabs">
+                    <button class="filter-chip active" id="afTabActive" onclick="switchAdminFilesTab('active')">📄 Archivos activos <span class="af-tab-count" id="afTabActiveCount"></span></button>
+                    <button class="filter-chip" id="afTabTrash" onclick="switchAdminFilesTab('trash')">🗑️ Papelera <span class="af-tab-count" id="afTabTrashCount"></span></button>
+                </div>
+                <div class="au-search-wrap" id="afSearchWrap" style="max-width:300px;">
+                    <span class="au-search-icon">🔍</span>
+                    <input type="text" id="afSearchInput" class="au-search" placeholder="Buscar archivos..." oninput="filterAdminFiles()">
+                </div>
             </div>
 
             <!-- Active files table -->
             <div id="afActivePanel">
-                <div style="margin-bottom:8px;font-size:0.82rem;color:var(--text-muted);" id="afActiveCount"></div>
                 <div class="au-table-wrap">
                     <table class="au-table">
                         <thead>
                             <tr>
-                                <th>Archivo</th>
+                                <th style="width:40%;">Archivo</th>
                                 <th>Tipo</th>
                                 <th>Tamano</th>
+                                <th>Subido por</th>
                                 <th>Fecha</th>
-                                <th>Acciones</th>
+                                <th class="au-th-actions" style="width:auto;text-align:right;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="afActiveTbody">
-                            <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
+                            <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -2176,14 +2197,15 @@
                     <table class="au-table">
                         <thead>
                             <tr>
-                                <th>Archivo original</th>
+                                <th style="width:40%;">Archivo original</th>
+                                <th>Tipo</th>
                                 <th>Tamano</th>
                                 <th>Eliminado</th>
-                                <th>Acciones</th>
+                                <th class="au-th-actions" style="width:auto;text-align:right;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="afTrashTbody">
-                            <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
+                            <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>

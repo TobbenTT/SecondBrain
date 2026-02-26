@@ -9686,36 +9686,53 @@ function showUpdateBanner() {
 
 let _afCurrentTab = 'active';
 let _afAllFiles = [];
-const _afBtnStyle = 'border:none;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;cursor:pointer;margin-right:3px;';
+let _afTrashFiles = [];
 
 function switchAdminFilesTab(tab) {
     _afCurrentTab = tab;
-    const activeBtn = document.getElementById('afTabActive');
-    const trashBtn = document.getElementById('afTabTrash');
-    const activePanel = document.getElementById('afActivePanel');
-    const trashPanel = document.getElementById('afTrashPanel');
+    document.getElementById('afTabActive').className = tab === 'active' ? 'filter-chip active' : 'filter-chip';
+    document.getElementById('afTabTrash').className = tab === 'trash' ? 'filter-chip active' : 'filter-chip';
+    document.getElementById('afActivePanel').style.display = tab === 'active' ? '' : 'none';
+    document.getElementById('afTrashPanel').style.display = tab === 'trash' ? '' : 'none';
     const searchWrap = document.getElementById('afSearchWrap');
-
-    if (tab === 'active') {
-        activeBtn.className = 'btn-primary'; activeBtn.style.fontSize = '0.85rem';
-        trashBtn.className = 'btn-outline'; trashBtn.style.fontSize = '0.85rem';
-        activePanel.style.display = '';
-        trashPanel.style.display = 'none';
-        if (searchWrap) searchWrap.style.display = '';
-        loadAdminFilesActive();
-    } else {
-        trashBtn.className = 'btn-primary'; trashBtn.style.fontSize = '0.85rem';
-        activeBtn.className = 'btn-outline'; activeBtn.style.fontSize = '0.85rem';
-        activePanel.style.display = 'none';
-        trashPanel.style.display = '';
-        if (searchWrap) searchWrap.style.display = 'none';
-        loadAdminFilesTrash();
-    }
+    if (searchWrap) searchWrap.style.display = tab === 'active' ? '' : 'none';
+    if (tab === 'active') loadAdminFilesActive();
+    else loadAdminFilesTrash();
 }
 
 function loadAdminFiles() {
-    if (_afCurrentTab === 'active') loadAdminFilesActive();
-    else loadAdminFilesTrash();
+    loadAdminFilesActive();
+    // Preload trash count for tab badge
+    fetch('/api/admin/files/trash').then(r => r.json()).then(files => {
+        _afTrashFiles = files;
+        _afUpdateTrashCount(files.length);
+    }).catch(() => {});
+}
+
+function _afUpdateSummary(files) {
+    const el = id => document.getElementById(id);
+    el('afStatTotal').textContent = files.length;
+    const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    el('afStatSize').textContent = _afFormatBytes(totalBytes);
+    const dynCount = files.filter(f => f.hasDynamic).length;
+    el('afStatDynamic').textContent = dynCount;
+    const countEl = document.getElementById('afTabActiveCount');
+    if (countEl) countEl.textContent = files.length;
+}
+
+function _afUpdateTrashCount(count) {
+    const el = document.getElementById('afStatTrash');
+    if (el) el.textContent = count;
+    const countEl = document.getElementById('afTabTrashCount');
+    if (countEl) countEl.textContent = count || '';
+}
+
+function _afFormatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 function filterAdminFiles() {
@@ -9724,56 +9741,63 @@ function filterAdminFiles() {
     renderAdminFilesActive(filtered);
 }
 
+function _afFileIcon(ext) {
+    const map = { '.pdf': '📕', '.md': '📘', '.docx': '📓', '.txt': '📝', '.app': '⚡' };
+    return map[ext] || '📄';
+}
+
 function _afExtBadge(ext) {
     const map = {
-        '.pdf': ['#fee2e2', '#b91c1c', 'PDF'],
-        '.md': ['#dbeafe', '#1d4ed8', 'MD'],
-        '.docx': ['#ede9fe', '#6d28d9', 'DOCX'],
-        '.txt': ['#fef3c7', '#92400e', 'TXT'],
-        '.app': ['#dcfce7', '#16a34a', 'APP']
+        '.pdf': ['rgba(239,68,68,0.15)', '#ef4444', 'PDF'],
+        '.md': ['rgba(59,130,246,0.15)', '#3b82f6', 'MD'],
+        '.docx': ['rgba(139,92,246,0.15)', '#8b5cf6', 'DOCX'],
+        '.txt': ['rgba(245,158,11,0.15)', '#f59e0b', 'TXT'],
+        '.app': ['rgba(34,197,94,0.15)', '#22c55e', 'APP']
     };
     const m = map[ext];
-    if (m) return `<span style="background:${m[0]};color:${m[1]};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">${m[2]}</span>`;
-    return `<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:4px;font-size:0.75rem;">${escapeHtml(ext)}</span>`;
+    if (m) return `<span class="af-type-badge" style="background:${m[0]};color:${m[1]};">${m[2]}</span>`;
+    return `<span class="af-type-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted);">${escapeHtml(ext)}</span>`;
 }
 
 function renderAdminFilesActive(files) {
     const tbody = document.getElementById('afActiveTbody');
-    const countEl = document.getElementById('afActiveCount');
     if (!tbody) return;
-    if (countEl) countEl.textContent = `${files.length} archivo${files.length !== 1 ? 's' : ''}`;
 
     if (files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Sin archivos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Sin archivos</td></tr>';
         return;
     }
 
     tbody.innerHTML = files.map(f => {
         const date = f.modified ? new Date(f.modified).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
         const encoded = encodeURIComponent(f.name);
+        const safeName = escapeHtml(f.name).replace(/'/g, "\\'");
         let actions = '';
 
         if (f.type === 'app' && f.dynamicUrl) {
-            actions += `<a href="${f.dynamicUrl}" target="_blank" style="${_afBtnStyle}background:#dbeafe;color:#1d4ed8;">Abrir</a>`;
+            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-action-btn af-view">▶ Abrir</a>`;
         } else if (f.extension !== '.app') {
-            actions += `<a href="/archivo/${encoded}" target="_blank" style="${_afBtnStyle}background:#dbeafe;color:#1d4ed8;">Ver</a>`;
+            actions += `<a href="/archivo/${encoded}" target="_blank" class="af-action-btn af-view">👁 Ver</a>`;
         }
 
         if (f.hasDynamic && f.dynamicUrl && f.type !== 'app') {
-            actions += `<a href="${f.dynamicUrl}" target="_blank" style="${_afBtnStyle}background:#dcfce7;color:#16a34a;">Dinamica</a>`;
+            actions += `<a href="${f.dynamicUrl}" target="_blank" class="af-action-btn af-dynamic">⚡ Dinamica</a>`;
         }
 
         if (f.extension !== '.app') {
-            actions += `<a href="/descargar/${encoded}" style="${_afBtnStyle}background:#f3f4f6;color:#374151;">Descargar</a>`;
-            actions += `<button onclick="adminDeleteFile('${escapeHtml(f.name)}')" style="${_afBtnStyle}background:#fee2e2;color:#b91c1c;">Eliminar</button>`;
+            actions += `<a href="/descargar/${encoded}" class="af-action-btn af-download">↓ Descargar</a>`;
+            actions += `<button onclick="adminDeleteFile('${safeName}')" class="af-action-btn af-delete">✕ Eliminar</button>`;
         }
 
-        return `<tr>
-            <td style="font-size:0.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</td>
+        const uploader = f.uploadedBy || '—';
+
+        return `<tr class="au-row">
+            <td><div class="af-file-name"><span class="af-file-icon">${_afFileIcon(f.extension)}</span><span class="af-file-text" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span></div></td>
             <td>${_afExtBadge(f.extension)}</td>
-            <td style="font-size:0.82rem;">${escapeHtml(f.sizeFormatted)}</td>
-            <td style="font-size:0.82rem;">${date}</td>
-            <td style="white-space:nowrap;">${actions}</td>
+            <td style="font-size:0.82rem;white-space:nowrap;">${escapeHtml(f.sizeFormatted)}</td>
+            <td style="font-size:0.82rem;">${escapeHtml(uploader)}</td>
+            <td style="font-size:0.82rem;white-space:nowrap;">${date}</td>
+            <td><div class="af-actions-cell">${actions}</div></td>
         </tr>`;
     }).join('');
 }
@@ -9781,15 +9805,16 @@ function renderAdminFilesActive(files) {
 async function loadAdminFilesActive() {
     const tbody = document.getElementById('afActiveTbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;"><div class="spinner-sm"></div></td></tr>';
     try {
         const res = await fetch('/api/archivos');
         if (!res.ok) throw new Error('Failed');
         _afAllFiles = await res.json();
+        _afUpdateSummary(_afAllFiles);
         renderAdminFilesActive(_afAllFiles);
     } catch (err) {
         console.error('Admin files load error:', err);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar archivos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar archivos</td></tr>';
     }
 }
 
@@ -9799,7 +9824,7 @@ async function adminDeleteFile(filename) {
         const res = await fetch(`/api/archivo/${encodeURIComponent(filename)}`, { method: 'DELETE' });
         if (res.ok) {
             showToast('Archivo movido a papelera', 'success');
-            loadAdminFilesActive();
+            loadAdminFiles();
         } else {
             const data = await res.json();
             showToast(data.error || 'Error al eliminar', 'error');
@@ -9812,30 +9837,35 @@ async function adminDeleteFile(filename) {
 async function loadAdminFilesTrash() {
     const tbody = document.getElementById('afTrashTbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner-sm"></div></td></tr>';
     try {
         const res = await fetch('/api/admin/files/trash');
         if (!res.ok) throw new Error('Failed');
         const files = await res.json();
+        _afTrashFiles = files;
+        _afUpdateTrashCount(files.length);
         if (files.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted);">Papelera vacia</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">🗑️ Papelera vacia</td></tr>';
             return;
         }
         tbody.innerHTML = files.map(f => {
+            const ext = '.' + (f.originalName.split('.').pop() || '').toLowerCase();
             const date = new Date(f.deletedAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            return `<tr>
-                <td style="font-size:0.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(f.originalName)}">${escapeHtml(f.originalName)}</td>
-                <td style="font-size:0.82rem;">${escapeHtml(f.sizeFormatted)}</td>
-                <td style="font-size:0.82rem;">${date}</td>
-                <td style="white-space:nowrap;">
-                    <button onclick="restoreTrashFile('${escapeHtml(f.trashName)}')" style="${_afBtnStyle}background:#dcfce7;color:#16a34a;">Restaurar</button>
-                    <button onclick="deleteTrashFile('${escapeHtml(f.trashName)}')" style="${_afBtnStyle}background:#fee2e2;color:#b91c1c;">Eliminar definitivo</button>
-                </td>
+            const safeName = escapeHtml(f.trashName).replace(/'/g, "\\'");
+            return `<tr class="au-row">
+                <td><div class="af-file-name"><span class="af-file-icon">${_afFileIcon(ext)}</span><span class="af-file-text" title="${escapeHtml(f.originalName)}">${escapeHtml(f.originalName)}</span></div></td>
+                <td>${_afExtBadge(ext)}</td>
+                <td style="font-size:0.82rem;white-space:nowrap;">${escapeHtml(f.sizeFormatted)}</td>
+                <td style="font-size:0.82rem;white-space:nowrap;">${date}</td>
+                <td><div class="af-actions-cell">
+                    <button onclick="restoreTrashFile('${safeName}')" class="af-action-btn af-restore">↩ Restaurar</button>
+                    <button onclick="deleteTrashFile('${safeName}')" class="af-action-btn af-delete">✕ Eliminar</button>
+                </div></td>
             </tr>`;
         }).join('');
     } catch (err) {
         console.error('Trash load error:', err);
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar papelera</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar papelera</td></tr>';
     }
 }
 
@@ -9850,7 +9880,8 @@ async function restoreTrashFile(trashName) {
         const data = await res.json();
         if (res.ok) {
             showToast('Archivo restaurado: ' + data.filename, 'success');
-            loadAdminFilesTrash();
+            loadAdminFiles();
+            switchAdminFilesTab('active');
         } else {
             showToast(data.error || 'Error al restaurar', 'error');
         }
@@ -9860,7 +9891,7 @@ async function restoreTrashFile(trashName) {
 }
 
 async function deleteTrashFile(trashName) {
-    if (!confirm('Eliminar PERMANENTEMENTE este archivo? Esta accion no se puede deshacer.')) return;
+    if (!confirm('Eliminar PERMANENTEMENTE este archivo?\nEsta accion NO se puede deshacer.')) return;
     try {
         const res = await fetch(`/api/admin/files/trash/${encodeURIComponent(trashName)}`, { method: 'DELETE' });
         if (res.ok) {
