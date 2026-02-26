@@ -2150,7 +2150,7 @@ async function openEditIdeaModal(ideaId) {
                         <label style="font-size:0.8rem;color:var(--text-muted);">Responsable</label>
                         <select id="_editIdeaAssigned" style="${selectStyle}">
                             <option value="">— Sin asignar —</option>
-                            ${teamUsers.map(u => `<option value="${u.username}" ${idea.assigned_to === u.username ? 'selected' : ''}>${u.username}</option>`).join('')}
+                            ${teamUsers.map(u => `<option value="${escapeHtml(u.username)}" ${idea.assigned_to === u.username ? 'selected' : ''}>${escapeHtml(u.username)}</option>`).join('')}
                         </select>
                     </div>
                     <div>
@@ -2611,7 +2611,7 @@ async function loadAreasForDropdowns() {
             if (!sel) return;
             sel.innerHTML = '<option value="">— Ninguna —</option>';
             areas.filter(a => a.status === 'active').forEach(a => {
-                sel.innerHTML += `<option value="${a.id}">${a.icon || '📂'} ${a.name}</option>`;
+                sel.innerHTML += `<option value="${a.id}">${escapeHtml(a.icon || '📂')} ${escapeHtml(a.name)}</option>`;
             });
         });
     } catch (err) { console.error('Error loading areas for dropdown:', err); }
@@ -2910,7 +2910,7 @@ async function viewSkill(filePath, title) {
     if (modalTitle) {
         const isAdmin = window.__USER__ && (window.__USER__.role === 'admin' || window.__USER__.role === 'ceo');
         modalTitle.innerHTML = `
-            <span>${title || 'Sin Título'}</span>
+            <span>${escapeHtml(title || 'Sin Título')}</span>
             <div class="skill-modal-actions">
                 ${isAdmin ? '<button id="btnEditSkill" class="skill-modal-btn" title="Editar skill">✏️</button>' : ''}
                 <button id="btnDiscussSkill" class="skill-modal-btn" title="Discutir con IA">💬</button>
@@ -3284,7 +3284,7 @@ function showVoicePreview(preview, originalText) {
                         ${projectHtml}
                         <p class="preview-idea-action">▶ ${escapeHtml(item.accion_inmediata || '')}</p>
                         ${objetivoHtml}
-                        ${item.waiting_for ? `<p class="preview-idea-delegation">⏳ Delegacion: ${item.waiting_for.delegated_to} — ${item.waiting_for.description}</p>` : ''}
+                        ${item.waiting_for ? `<p class="preview-idea-delegation">⏳ Delegacion: ${escapeHtml(item.waiting_for.delegated_to)} — ${escapeHtml(item.waiting_for.description)}</p>` : ''}
                         ${agentHtml}
                     </div>
                 </div>`;
@@ -3547,7 +3547,7 @@ async function initWaitingFor() {
         const rankedUsers = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
         const sel = document.getElementById('waitingDelegatedTo');
         if (sel) {
-            sel.innerHTML = rankedUsers.map(u => `<option value="${u.username}">${u.username} (${u.role})</option>`).join('');
+            sel.innerHTML = rankedUsers.map(u => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)} (${escapeHtml(u.role)})</option>`).join('');
         }
     } catch (err) { console.error('Error loading users:', err); }
 }
@@ -4035,7 +4035,7 @@ async function initReportability() {
         if (sel) {
             sel.innerHTML = '<option value="">— Seleccionar —</option>';
             rankedUsers.forEach(u => {
-                sel.innerHTML += `<option value="${u.username}">${u.username} — ${u.department || u.role}</option>`;
+                sel.innerHTML += `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)} — ${escapeHtml(u.department || u.role)}</option>`;
             });
         }
     } catch (err) { console.error('Error loading users for report:', err); }

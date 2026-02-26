@@ -3,8 +3,12 @@ const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
 const aiService = require('../services/ai');
 const { requireSelfOrAdmin } = require('../middleware/authorize');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// All GTD endpoints require authentication
+router.use(requireAuth);
 
 // ─── GTD Contexts (/api/gtd/contexts) ────────────────────────────────────────
 
@@ -124,7 +128,10 @@ router.get('/waiting-for', async (req, res) => {
 
 router.post('/waiting-for', async (req, res) => {
     const { description, delegated_to, delegated_by, related_idea_id, related_project_id, related_area_id, due_date } = req.body;
-    if (!description) return res.status(400).json({ error: 'Description required' });
+    if (!description || typeof description !== 'string' || description.trim().length === 0) return res.status(400).json({ error: 'Description required' });
+    if (description.length > 2000) return res.status(400).json({ error: 'Description too long (max 2000)' });
+    if (delegated_to && (typeof delegated_to !== 'string' || delegated_to.length > 100)) return res.status(400).json({ error: 'Invalid delegated_to' });
+    if (delegated_by && (typeof delegated_by !== 'string' || delegated_by.length > 100)) return res.status(400).json({ error: 'Invalid delegated_by' });
     try {
         await run(`INSERT INTO waiting_for (description, delegated_to, delegated_by, related_idea_id, related_project_id, related_area_id, due_date)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,

@@ -49,7 +49,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 
                 if (sbUsers.length > 0) {
                     // Local profiles (SQLite)
-                    const localUsers = await all('SELECT * FROM users WHERE supabase_uid IS NOT NULL');
+                    const localUsers = await all('SELECT id, supabase_uid, username, role, department, expertise, avatar, created_at FROM users WHERE supabase_uid IS NOT NULL');
                     const localMap = {};
                     localUsers.forEach(u => { localMap[u.supabase_uid] = u; });
 
@@ -100,8 +100,10 @@ router.get('/users', requireAdmin, async (req, res) => {
 router.post('/users', requireAdmin, async (req, res) => {
     const { username, email, password, role, department, expertise } = req.body;
 
-    if (!password || password.length < 8) {
-        return res.status(400).json({ error: 'Password (min 8 chars) required' });
+    const { validatePassword } = require('../helpers/validate');
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+        return res.status(400).json({ error: `Contraseña: ${pwCheck.error}` });
     }
 
     const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
@@ -167,7 +169,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
     const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
 
     try {
-        const user = await get('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        const user = await get('SELECT id, username, role, department, expertise, avatar, supabase_uid FROM users WHERE id = ?', [req.params.id]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         const newRole = validRoles.includes(role) ? role : user.role;
@@ -413,7 +415,7 @@ router.post('/orchestrator/execute', blockConsultor, async (req, res) => {
 
 // ─── Reportability ───────────────────────────────────────────────────────────
 
-router.get('/reportability', async (req, res) => {
+router.get('/reportability', requireAdmin, async (req, res) => {
     try {
         const users = await all("SELECT id, username, role, department, expertise, avatar FROM users WHERE role NOT IN ('usuario', 'cliente')");
         const today = new Date().toISOString().split('T')[0];
@@ -480,7 +482,7 @@ router.get('/reportability', async (req, res) => {
     }
 });
 
-router.get('/reportability/team-summary', async (req, res) => {
+router.get('/reportability/team-summary', requireAdmin, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
@@ -679,6 +681,7 @@ router.post('/notifications/clear-all', async (req, res) => {
 
 router.get('/export', requireAdmin, async (req, res) => {
     try {
+        auditLog('data_export', { actor: req.session.user?.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { format: 'json' } });
         const [ideas, context, areas, waitingFor, projects, users] = await Promise.all([
             all('SELECT * FROM ideas ORDER BY created_at DESC'),
             all('SELECT * FROM context_items ORDER BY para_type, category'),

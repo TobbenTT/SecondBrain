@@ -3,8 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const { get, all } = require('../database');
 const log = require('../helpers/logger');
+const { requireAuth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/authorize');
 
 const router = express.Router();
+
+// All stats endpoints require authentication
+router.use(requireAuth);
 const KNOWLEDGE_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 
 // ─── In-memory cache (TTL-based) ────────────────────────────────────────────

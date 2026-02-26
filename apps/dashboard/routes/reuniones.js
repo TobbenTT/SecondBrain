@@ -1,6 +1,7 @@
 const express = require('express');
 const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -418,21 +419,26 @@ router.put('/reuniones/participants/cleanup', async (req, res) => {
 
 // ─── List meetings (paginated, filterable) ──────────────────────────────────
 
-router.get('/reuniones', async (req, res) => {
+router.get('/reuniones', requireAuth, async (req, res) => {
     try {
         const { page = 1, limit = 20, search, participant, from, to } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        // Input validation
+        const safePage = Math.max(1, Math.min(parseInt(page) || 1, 1000));
+        const safeLimit = Math.max(1, Math.min(parseInt(limit) || 20, 100));
+        const offset = (safePage - 1) * safeLimit;
         const where = ['deleted_at IS NULL'];
         const params = [];
 
         if (search) {
+            const safeSearch = String(search).substring(0, 200);
             where.push("(titulo LIKE ? OR acuerdos LIKE ? OR compromisos LIKE ?)");
-            const term = `%${search}%`;
+            const term = `%${safeSearch}%`;
             params.push(term, term, term);
         }
         if (participant) {
+            const safeParticipant = String(participant).substring(0, 100);
             where.push("asistentes LIKE ?");
-            params.push(`%${participant}%`);
+            params.push(`%${safeParticipant}%`);
         }
         if (from) {
             where.push("fecha >= ?");
@@ -453,7 +459,7 @@ router.get('/reuniones', async (req, res) => {
              FROM reuniones ${whereClause}
              ORDER BY fecha DESC, created_at DESC
              LIMIT ? OFFSET ?`,
-            [...params, parseInt(limit), offset]
+            [...params, safeLimit, offset]
         );
 
         res.json({
@@ -474,9 +480,13 @@ router.get('/reuniones', async (req, res) => {
 // ─── Single meeting detail ──────────────────────────────────────────────────
 // NOTE: This :id route MUST come AFTER all /reuniones/xxx literal routes
 
-router.get('/reuniones/:id', async (req, res) => {
+router.get('/reuniones/:id', requireAuth, async (req, res) => {
     try {
-        const reunion = await get('SELECT * FROM reuniones WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+        const reunion = await get(
+            `SELECT id, external_id, titulo, fecha, asistentes, acuerdos, puntos_clave,
+             compromisos, entregables, proxima_reunion, nivel_analisis, temas_detectados,
+             transcripcion_raw, created_at
+             FROM reuniones WHERE id = ? AND deleted_at IS NULL`, [req.params.id]);
         if (!reunion) return res.status(404).json({ error: 'Meeting not found' });
         res.json(parseReunion(reunion));
     } catch (err) {

@@ -70,6 +70,22 @@ function validateBody(schema) {
     };
 }
 
+/**
+ * Validate password strength (OWASP compliant).
+ * Requires: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char.
+ * Returns { valid: boolean, error?: string }
+ */
+function validatePassword(password) {
+    if (!password || typeof password !== 'string') return { valid: false, error: 'Contraseña requerida' };
+    if (password.length < 8) return { valid: false, error: 'Minimo 8 caracteres' };
+    if (password.length > 128) return { valid: false, error: 'Maximo 128 caracteres' };
+    if (!/[A-Z]/.test(password)) return { valid: false, error: 'Debe contener al menos 1 mayuscula' };
+    if (!/[a-z]/.test(password)) return { valid: false, error: 'Debe contener al menos 1 minuscula' };
+    if (!/[0-9]/.test(password)) return { valid: false, error: 'Debe contener al menos 1 numero' };
+    if (!/[^A-Za-z0-9]/.test(password)) return { valid: false, error: 'Debe contener al menos 1 caracter especial (!@#$%...)' };
+    return { valid: true };
+}
+
 module.exports = {
     isNonEmptyString,
     isOptionalString,
@@ -77,4 +93,5 @@ module.exports = {
     isDateString,
     isOneOf,
     validateBody,
+    validatePassword,
 };

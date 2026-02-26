@@ -4,8 +4,12 @@ const fs = require('fs');
 const multer = require('multer');
 const { run, get, all } = require('../database');
 const log = require('../helpers/logger');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// All feedback endpoints require authentication
+router.use(requireAuth);
 
 // ─── Upload directory ───────────────────────────────────────────────────────
 const FEEDBACK_UPLOADS = path.join(__dirname, '..', '..', '..', 'knowledge', 'feedback-uploads');

@@ -144,10 +144,24 @@ const downloadLimiter = rateLimit({
     max: 30,
     message: 'Too many downloads. Try again in a minute.'
 });
+const searchLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { error: 'Search rate limit exceeded.' }
+});
+const sensitiveReadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    message: { error: 'Too many requests to this endpoint.' }
+});
 app.use('/api/', apiLimiter);
 app.use('/api/ai/', aiLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/ideas/voice', uploadLimiter);
+app.use('/api/stats/', sensitiveReadLimiter);
+app.use('/api/feedback', sensitiveReadLimiter);
+app.use('/api/search', searchLimiter);
+app.use('/api/admin/reportability', sensitiveReadLimiter);
 app.use('/descargar/', downloadLimiter);
 
 // ─── Performance: Compression ───────────────────────────────────────────────
@@ -201,9 +215,9 @@ app.use(session({
     saveUninitialized: false,
     name: 'sb.sid2',
     cookie: {
-        maxAge: 1000 * 60 * 60 * 8,
+        maxAge: 1000 * 60 * 60 * 4,  // 4 hours (OWASP recommendation)
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'strict',           // Strict for intranet — blocks all cross-site requests
         secure: NODE_ENV === 'production' || NODE_ENV === 'staging'
     }
 }));

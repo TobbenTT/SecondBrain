@@ -13,6 +13,33 @@ const ai = require('../services/ai');
 const blockConsultor = denyRole('consultor');
 const router = express.Router();
 
+// ─── Magic Number Validation ────────────────────────────────────────────────
+// Validates file content matches expected type (prevents extension spoofing)
+const FILE_SIGNATURES = {
+    '.pdf':  [Buffer.from([0x25, 0x50, 0x44, 0x46])],           // %PDF
+    '.docx': [Buffer.from([0x50, 0x4B, 0x03, 0x04])],           // PK.. (ZIP)
+    '.xlsx': [Buffer.from([0x50, 0x4B, 0x03, 0x04])],           // PK.. (ZIP)
+    '.png':  [Buffer.from([0x89, 0x50, 0x4E, 0x47])],           // .PNG
+    '.jpg':  [Buffer.from([0xFF, 0xD8, 0xFF])],                  // JFIF/Exif
+    '.jpeg': [Buffer.from([0xFF, 0xD8, 0xFF])],
+    '.gif':  [Buffer.from('GIF87a'), Buffer.from('GIF89a')],
+    '.webp': [Buffer.from('RIFF')],                               // RIFF (check WEBP at offset 8)
+};
+
+function validateMagicNumber(filePath, ext) {
+    const signatures = FILE_SIGNATURES[ext];
+    if (!signatures) return true;  // No signature check for .md, .txt (text files)
+    try {
+        const fd = fs.openSync(filePath, 'r');
+        const buf = Buffer.alloc(12);
+        fs.readSync(fd, buf, 0, 12, 0);
+        fs.closeSync(fd);
+        return signatures.some(sig => buf.subarray(0, sig.length).equals(sig));
+    } catch {
+        return false;
+    }
+}
+
 // ─── Directories ─────────────────────────────────────────────────────────────
 const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 const VOICE_DIR = path.join(__dirname, '..', 'public', 'voice-notes');
@@ -220,6 +247,15 @@ router.post('/api/upload', blockConsultor, (req, res, next) => {
 }, async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+        // Validate magic number matches extension
+        const uploadExt = path.extname(req.file.filename).toLowerCase();
+        if (!validateMagicNumber(req.file.path, uploadExt)) {
+            fs.unlinkSync(req.file.path);  // Delete spoofed file
+            log.warn('File magic number mismatch', { filename: req.file.filename, ext: uploadExt });
+            return res.status(400).json({ error: 'Contenido del archivo no coincide con la extension. Archivo rechazado.' });
+        }
+
         const rawTags = req.body.tags || '';
         const tagList = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
         if (tagList.length > 0) {

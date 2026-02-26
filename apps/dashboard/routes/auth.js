@@ -285,8 +285,10 @@ router.put('/api/profile/password', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Authentication required' });
 
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword || newPassword.length < 8) {
-        return res.status(400).json({ error: 'Current password and new password (min 8 chars) required' });
+    const { validatePassword } = require('../helpers/validate');
+    const pwCheck = validatePassword(newPassword);
+    if (!currentPassword || !pwCheck.valid) {
+        return res.status(400).json({ error: pwCheck.error || 'Contraseña actual y nueva requeridas' });
     }
 
     try {

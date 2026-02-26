@@ -8,6 +8,7 @@ const aiService = require('../services/ai');
 const { processAndSaveIdea } = require('../helpers/ideaProcessor');
 const { requireAuth } = require('../middleware/auth');
 const { requireOwnerOrAdmin, denyRole } = require('../middleware/authorize');
+const { auditLog } = require('../helpers/audit');
 const blockConsultor = denyRole('consultor');
 
 const router = express.Router();
@@ -156,11 +157,23 @@ router.delete('/', blockConsultor, async (req, res) => {
     const user = req.session.user;
     if (!user || (user.role !== 'admin' && user.role !== 'ceo')) return res.status(403).json({ error: 'Solo admin puede eliminar todo' });
     try {
+        // Count before deletion for audit trail
+        const countRow = await get('SELECT count(*) as total FROM ideas WHERE deleted_at IS NULL');
+        const total = countRow?.total || 0;
+
+        // Soft-delete instead of hard delete
+        await run('UPDATE ideas SET deleted_at = NOW() WHERE deleted_at IS NULL');
+        await run('UPDATE waiting_for SET status = ? WHERE status = ?', ['deleted', 'waiting']);
         await run('DELETE FROM daily_checklist');
-        await run('DELETE FROM waiting_for');
-        await run('DELETE FROM ideas');
-        await run("ALTER SEQUENCE ideas_id_seq RESTART WITH 1");
-        res.json({ message: 'Todas las ideas han sido eliminadas' });
+
+        await auditLog('bulk_delete_ideas', {
+            actor: user.username,
+            ip: req.ip,
+            userAgent: req.headers['user-agent'],
+            details: { total_affected: total }
+        });
+
+        res.json({ message: `${total} ideas marcadas como eliminadas` });
     } catch (err) {
         log.error('Ideas DB error', { error: err.message, path: req.path });
         res.status(500).json({ error: 'Failed to delete all ideas' });
@@ -378,7 +391,7 @@ router.put('/:id', blockConsultor, async (req, res) => {
 
 // ─── Project link ────────────────────────────────────────────────────────────
 
-router.put('/:id/project', async (req, res) => {
+router.put('/:id/project', blockConsultor, ideaOwnerOrAdmin, async (req, res) => {
     const { projectId } = req.body;
     try {
         await run('UPDATE ideas SET project_id = ? WHERE id = ?', [projectId, req.params.id]);

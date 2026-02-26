@@ -25,8 +25,7 @@ services:
     image: postgres:16-alpine
     container_name: staging-postgres
     restart: unless-stopped
-    ports:
-      - "5433:5432"
+    # Port NOT exposed externally (OWASP A05: only accessible within Docker network)
     environment:
       POSTGRES_USER: secondbrain
       POSTGRES_PASSWORD: ${PG_PASSWORD:-staging_sb_2026}
