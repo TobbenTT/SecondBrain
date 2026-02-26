@@ -6119,9 +6119,9 @@ async function loadReviewQueue() {
         console.error('loadReviewQueue error:', err);
         // Show error in UI instead of infinite spinner
         const skillsList = document.getElementById('reviewSkillsList');
-        if (skillsList) skillsList.innerHTML = `<div class="empty-state">Error cargando skills: ${err.message}</div>`;
+        if (skillsList) skillsList.innerHTML = `<div class="empty-state">Error cargando skills: ${escapeHtml(err.message)}</div>`;
         const outputsList = document.getElementById('reviewOutputsList');
-        if (outputsList) outputsList.innerHTML = `<div class="empty-state">Error cargando outputs: ${err.message}</div>`;
+        if (outputsList) outputsList.innerHTML = `<div class="empty-state">Error cargando outputs: ${escapeHtml(err.message)}</div>`;
     }
 }
 
@@ -6875,7 +6875,7 @@ async function loadAuditTrail() {
 
     } catch (err) {
         console.error('Audit trail error:', err);
-        container.innerHTML = `<div class="empty-state">Error al cargar auditoria: ${err.message}</div>`;
+        container.innerHTML = `<div class="empty-state">Error al cargar auditoria: ${escapeHtml(err.message)}</div>`;
     }
 }
 

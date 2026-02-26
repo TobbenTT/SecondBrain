@@ -5,7 +5,7 @@ const log = require('./logger');
 async function processAndSaveIdea(ideaId, text, speakerUsername = null, preComputedAnalysis = null) {
     try {
         const users = await all('SELECT username, role, department, expertise FROM users');
-        const areas = await all('SELECT name FROM areas WHERE status = "active"');
+        const areas = await all("SELECT name FROM areas WHERE status = 'active'");
 
         let analysis;
         let contextString = '';

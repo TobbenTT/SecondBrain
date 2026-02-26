@@ -63,7 +63,18 @@ if (!process.env.GEMINI_API_KEY && process.env.NODE_ENV !== 'test') {
     log.warn('GEMINI_API_KEY not set — Gemini fallback disabled (Ollama is primary)');
 }
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'change-me-to-a-random-string') {
+    if (NODE_ENV === 'production') {
+        log.error('SESSION_SECRET not set or using default — refusing to start in production');
+        log.error('Generate one: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+        process.exit(1);
+    }
     log.warn('Using default SESSION_SECRET — set a strong random value in .env for production');
+}
+if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32 && NODE_ENV === 'production') {
+    log.warn('SESSION_SECRET is too short (< 32 chars) — consider using a 64-char hex string');
+}
+if (!process.env.TWOFA_ENCRYPTION_KEY && NODE_ENV === 'production') {
+    log.warn('TWOFA_ENCRYPTION_KEY not set — 2FA features will fail. Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
 }
 
 // ─── CORS ───────────────────────────────────────────────────────────────────
@@ -272,7 +283,8 @@ app.post('/webhook/fireflies', async (req, res) => {
         return res.status(401).json({ error: 'API key required. Set X-API-Key header.' });
     }
     try {
-        const resp = await fetch('http://localhost:3003/webhook/fireflies', {
+        const correosUrl = process.env.CORREOS_URL || 'http://inteligencia-correos:3003';
+        const resp = await fetch(`${correosUrl}/webhook/fireflies`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body),
@@ -474,6 +486,11 @@ if (process.env.NODE_ENV !== 'test') {
 
 function gracefulShutdown(signal) {
     log.info('Graceful shutdown initiated', { signal });
+    if (!server) {
+        log.info('No server to close — exiting');
+        process.exit(0);
+        return;
+    }
     server.close(async () => {
         try {
             await closeDb();
@@ -491,5 +508,17 @@ function gracefulShutdown(signal) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+    log.error('Unhandled promise rejection', {
+        reason: reason instanceof Error ? reason.message : String(reason),
+        stack: reason instanceof Error ? reason.stack : undefined
+    });
+});
+
+process.on('uncaughtException', (err) => {
+    log.error('Uncaught exception — shutting down', { error: err.message, stack: err.stack });
+    gracefulShutdown('uncaughtException');
+});
 
 module.exports = { app, server };

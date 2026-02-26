@@ -3,11 +3,16 @@ const log = require('./helpers/logger');
 
 // ─── PostgreSQL Connection ────────────────────────────────────────────────────
 
+if (!process.env.PG_PASSWORD && process.env.NODE_ENV === 'production') {
+    log.error('PG_PASSWORD not set — refusing to start in production without explicit DB password');
+    process.exit(1);
+}
+
 const pool = new Pool({
     host: process.env.PG_HOST || 'localhost',
     port: parseInt(process.env.PG_PORT || '5432'),
     user: process.env.PG_USER || 'secondbrain',
-    password: process.env.PG_PASSWORD || 'staging_sb_2026',
+    password: process.env.PG_PASSWORD || 'secondbrain',
     database: process.env.PG_DATABASE || 'secondbrain',
     max: 20,
     idleTimeoutMillis: 30000,
@@ -159,13 +164,16 @@ async function seedApiKeys() {
         );
         log.info('API Key created for OpenClaw — save this key', { key });
     }
-    // Ensure inteligencia-correos key always exists
-    const correosKey = 'sb_12b5199409045112e93c13eef4c149a239841de0b9ed0baf';
-    await run(
-        'INSERT INTO api_keys (key, name, username, permissions) VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO NOTHING',
-        [correosKey, 'Inteligencia de Correos', 'system', 'read,write']
-    );
-    log.info('Inteligencia-de-correos API key ensured');
+    // Ensure inteligencia-correos key exists (from env var or auto-generated)
+    const correosKey = process.env.CORREOS_API_KEY || ('sb_' + require('crypto').randomBytes(24).toString('hex'));
+    const existingCorreos = await get("SELECT id FROM api_keys WHERE name = 'Inteligencia de Correos'");
+    if (!existingCorreos) {
+        await run(
+            'INSERT INTO api_keys (key, name, username, permissions) VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO NOTHING',
+            [correosKey, 'Inteligencia de Correos', 'system', 'read,write']
+        );
+        log.info('Inteligencia-de-correos API key created — save this key', { key: correosKey });
+    }
 }
 
 async function seedGtdContexts() {
