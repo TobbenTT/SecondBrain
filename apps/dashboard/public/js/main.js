@@ -133,7 +133,8 @@ const SECTION_META = {
     'admin-users': { title: 'Gestión de Usuarios', subtitle: 'Crear, editar y administrar cuentas del equipo' },
     'graph-view': { title: 'Mapa de Conexiones', subtitle: 'Visualización interactiva — Proyectos, Áreas, Reuniones, Ideas y Skills' },
     'herramientas': { title: 'Herramientas y Licencias', subtitle: 'Suscripciones y licencias de software contratadas' },
-    'audit-log': { title: 'Registro de Auditoria', subtitle: 'Eventos de seguridad del sistema' }
+    'audit-log': { title: 'Registro de Auditoria', subtitle: 'Eventos de seguridad del sistema' },
+    'admin-files': { title: 'Gestor de Archivos', subtitle: 'Todos los archivos del sistema — subidos, eliminados y papelera' }
 };
 
 
@@ -202,6 +203,7 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'graph-view') { loadScript(CDN_D3).then(() => loadGraphView()); }
     if (sectionId === 'inbox') { if (!_lazyInited.inbox) { _lazyInited.inbox = true; initInboxTriage(); } loadInboxTriage(); }
     if (sectionId === 'okrs') { if (!_lazyInited.okrs) { _lazyInited.okrs = true; initOKRs(); } loadOKRs(); }
+    if (sectionId === 'admin-files') loadAdminFiles();
 }
 
 function switchSection(sectionId) {
@@ -9679,4 +9681,138 @@ function showUpdateBanner() {
     `;
     document.body.prepend(banner);
 }
+
+// ─── Admin File Manager ─────────────────────────────────────────────────────
+
+let _afCurrentTab = 'active';
+
+function switchAdminFilesTab(tab) {
+    _afCurrentTab = tab;
+    const activeBtn = document.getElementById('afTabActive');
+    const trashBtn = document.getElementById('afTabTrash');
+    const activePanel = document.getElementById('afActivePanel');
+    const trashPanel = document.getElementById('afTrashPanel');
+
+    if (tab === 'active') {
+        activeBtn.className = 'btn-primary'; activeBtn.style.fontSize = '0.85rem';
+        trashBtn.className = 'btn-outline'; trashBtn.style.fontSize = '0.85rem';
+        activePanel.style.display = '';
+        trashPanel.style.display = 'none';
+        loadAdminFilesActive();
+    } else {
+        trashBtn.className = 'btn-primary'; trashBtn.style.fontSize = '0.85rem';
+        activeBtn.className = 'btn-outline'; activeBtn.style.fontSize = '0.85rem';
+        activePanel.style.display = 'none';
+        trashPanel.style.display = '';
+        loadAdminFilesTrash();
+    }
+}
+
+function loadAdminFiles() {
+    if (_afCurrentTab === 'active') loadAdminFilesActive();
+    else loadAdminFilesTrash();
+}
+
+async function loadAdminFilesActive() {
+    const tbody = document.getElementById('afActiveTbody');
+    if (!tbody) return;
+    try {
+        const res = await fetch('/api/archivos');
+        if (!res.ok) throw new Error('Failed');
+        const files = await res.json();
+        if (files.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Sin archivos</td></tr>';
+            return;
+        }
+        tbody.innerHTML = files.map(f => {
+            const date = f.modified ? new Date(f.modified).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const extBadge = f.extension === '.pdf' ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">PDF</span>'
+                : f.extension === '.md' ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MD</span>'
+                : f.extension === '.docx' ? '<span style="background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">DOCX</span>'
+                : f.extension === '.app' ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">APP</span>'
+                : `<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:4px;font-size:0.75rem;">${escapeHtml(f.extension)}</span>`;
+            const dynIcon = f.hasDynamic ? '<span style="color:#16a34a;" title="Tiene pagina dinamica">Si</span>' : '<span style="color:#94a3b8;">No</span>';
+            return `<tr>
+                <td style="font-size:0.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</td>
+                <td>${extBadge}</td>
+                <td style="font-size:0.82rem;">${escapeHtml(f.sizeFormatted)}</td>
+                <td style="font-size:0.82rem;color:var(--text-muted);">—</td>
+                <td style="font-size:0.82rem;">${date}</td>
+                <td style="font-size:0.82rem;text-align:center;">${dynIcon}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error('Admin files load error:', err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar archivos</td></tr>';
+    }
+}
+
+async function loadAdminFilesTrash() {
+    const tbody = document.getElementById('afTrashTbody');
+    if (!tbody) return;
+    try {
+        const res = await fetch('/api/admin/files/trash');
+        if (!res.ok) throw new Error('Failed');
+        const files = await res.json();
+        if (files.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted);">Papelera vacia</td></tr>';
+            return;
+        }
+        tbody.innerHTML = files.map(f => {
+            const date = new Date(f.deletedAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            return `<tr>
+                <td style="font-size:0.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(f.originalName)}">${escapeHtml(f.originalName)}</td>
+                <td style="font-size:0.82rem;">${escapeHtml(f.sizeFormatted)}</td>
+                <td style="font-size:0.82rem;">${date}</td>
+                <td style="white-space:nowrap;">
+                    <button onclick="restoreTrashFile('${escapeHtml(f.trashName)}')" style="background:#dcfce7;color:#16a34a;border:none;padding:4px 10px;border-radius:4px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-right:4px;">Restaurar</button>
+                    <button onclick="deleteTrashFile('${escapeHtml(f.trashName)}')" style="background:#fee2e2;color:#b91c1c;border:none;padding:4px 10px;border-radius:4px;font-size:0.78rem;font-weight:600;cursor:pointer;">Eliminar</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error('Trash load error:', err);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar papelera</td></tr>';
+    }
+}
+
+async function restoreTrashFile(trashName) {
+    if (!confirm('Restaurar este archivo?')) return;
+    try {
+        const res = await fetch('/api/admin/files/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trashName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Archivo restaurado: ' + data.filename, 'success');
+            loadAdminFilesTrash();
+        } else {
+            showToast(data.error || 'Error al restaurar', 'error');
+        }
+    } catch (err) {
+        showToast('Error al restaurar archivo', 'error');
+    }
+}
+
+async function deleteTrashFile(trashName) {
+    if (!confirm('Eliminar PERMANENTEMENTE este archivo? Esta accion no se puede deshacer.')) return;
+    try {
+        const res = await fetch(`/api/admin/files/trash/${encodeURIComponent(trashName)}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Archivo eliminado permanentemente', 'success');
+            loadAdminFilesTrash();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al eliminar', 'error');
+    }
+}
+
+window.switchAdminFilesTab = switchAdminFilesTab;
+window.restoreTrashFile = restoreTrashFile;
+window.deleteTrashFile = deleteTrashFile;
 

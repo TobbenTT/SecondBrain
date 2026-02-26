@@ -366,4 +366,84 @@ router.delete('/api/skill-documents/:id', async (req, res) => {
     }
 });
 
+// ─── Admin File Manager: Trash & Restore ───────────────────────────────────
+
+const TRASH_DIR = path.join(UPLOADS_DIR, '.trash');
+
+router.get('/api/admin/files/trash', requireAdmin, (req, res) => {
+    try {
+        if (!fs.existsSync(TRASH_DIR)) return res.json([]);
+        const files = fs.readdirSync(TRASH_DIR, { withFileTypes: true })
+            .filter(f => f.isFile())
+            .map(f => {
+                const stats = fs.statSync(path.join(TRASH_DIR, f.name));
+                // Format: {timestamp}_{originalFilename}
+                const underscoreIdx = f.name.indexOf('_');
+                const originalName = underscoreIdx > 0 ? f.name.substring(underscoreIdx + 1) : f.name;
+                const deletedTs = underscoreIdx > 0 ? parseInt(f.name.substring(0, underscoreIdx)) : 0;
+                return {
+                    trashName: f.name,
+                    originalName,
+                    size: stats.size,
+                    sizeFormatted: formatFileSize(stats.size),
+                    deletedAt: deletedTs ? new Date(deletedTs).toISOString() : stats.mtime.toISOString()
+                };
+            })
+            .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+        res.json(files);
+    } catch (err) {
+        log.error('Trash list error', { error: err.message });
+        res.status(500).json({ error: 'Failed to list trash' });
+    }
+});
+
+router.post('/api/admin/files/restore', requireAdmin, async (req, res) => {
+    try {
+        const { trashName } = req.body;
+        if (!trashName) return res.status(400).json({ error: 'trashName required' });
+
+        const trashPath = path.join(TRASH_DIR, trashName);
+        if (!trashPath.startsWith(TRASH_DIR)) return res.status(403).json({ error: 'Access denied' });
+        if (!fs.existsSync(trashPath)) return res.status(404).json({ error: 'Archivo no encontrado en papelera' });
+
+        // Extract original filename
+        const underscoreIdx = trashName.indexOf('_');
+        const originalName = underscoreIdx > 0 ? trashName.substring(underscoreIdx + 1) : trashName;
+
+        // If a file with same name exists, add timestamp
+        let restoreName = originalName;
+        if (fs.existsSync(path.join(ARCHIVOS_DIR, originalName))) {
+            const ext = path.extname(originalName);
+            const base = path.basename(originalName, ext);
+            restoreName = `${base}_restored_${Date.now()}${ext}`;
+        }
+
+        fs.renameSync(trashPath, path.join(ARCHIVOS_DIR, restoreName));
+
+        // Restore DB record
+        await run('UPDATE archivos SET deleted_at = NULL, deleted_by = NULL, filename = ? WHERE filename = ? AND deleted_at IS NOT NULL', [restoreName, originalName]);
+
+        log.info('File restored from trash', { trashName, restoreName, user: req.session.user.username });
+        res.json({ success: true, filename: restoreName });
+    } catch (err) {
+        log.error('File restore error', { error: err.message });
+        res.status(500).json({ error: 'Error al restaurar archivo' });
+    }
+});
+
+router.delete('/api/admin/files/trash/:trashName', requireAdmin, (req, res) => {
+    try {
+        const trashPath = path.join(TRASH_DIR, req.params.trashName);
+        if (!trashPath.startsWith(TRASH_DIR)) return res.status(403).json({ error: 'Access denied' });
+        if (!fs.existsSync(trashPath)) return res.status(404).json({ error: 'Not found' });
+
+        fs.unlinkSync(trashPath);
+        log.info('Trash file permanently deleted', { file: req.params.trashName, user: req.session.user.username });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Trash permanent delete error', { error: err.message });
+        res.status(500).json({ error: 'Error al eliminar permanentemente' });
+    }
+});
+
 module.exports = router;
