@@ -6896,17 +6896,6 @@ async function loadReuniones() {
     // Load email recipients panel if admin
     if (window.__USER__ && (window.__USER__.role === 'admin' || window.__USER__.role === 'ceo')) loadEmailRecipients();
     try {
-        // Load stats
-        const statsRes = await fetch('/api/reuniones/stats/summary');
-        if (statsRes.ok) {
-            const stats = await statsRes.json();
-            const s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
-            s('reunStatTotal', stats.total_reuniones);
-            s('reunStatWeek', stats.this_week);
-            s('reunStatCompromisos', stats.total_compromisos);
-            s('reunStatWithCompromisos', stats.total_with_compromisos);
-        }
-
         // Build query
         const params = new URLSearchParams({ page: _reunionesPage, limit: REUNIONES_LIMIT });
         const search = document.getElementById('reunionesSearch');
@@ -6918,8 +6907,22 @@ async function loadReuniones() {
         if (to && to.value) params.set('to', to.value);
         if (participant && participant.value) params.set('participant', participant.value);
 
-        const res = await fetch(`/api/reuniones?${params}`);
-        const data = await res.json();
+        // Load stats and list in parallel (not sequential)
+        const [statsRes, listRes] = await Promise.all([
+            fetch('/api/reuniones/stats/summary'),
+            fetch(`/api/reuniones?${params}`)
+        ]);
+
+        if (statsRes.ok) {
+            const stats = await statsRes.json();
+            const s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+            s('reunStatTotal', stats.total_reuniones);
+            s('reunStatWeek', stats.this_week);
+            s('reunStatCompromisos', stats.total_compromisos);
+            s('reunStatWithCompromisos', stats.total_with_compromisos);
+        }
+
+        const data = await listRes.json();
         renderReuniones(data.reuniones);
         updateReunionesPagination(data.pagination);
         populateParticipantFilter();
@@ -6947,13 +6950,7 @@ function renderReuniones(reuniones) {
             weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
         });
         const rawAsistentes = r.asistentes || [];
-        const nombresCortos = rawAsistentes.map(a => {
-            if (a.includes('@')) {
-                const local = a.split('@')[0];
-                return local.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            }
-            return a;
-        });
+        const nombresCortos = rawAsistentes.map(a => _participantDisplayName(a));
         const MAX_SHOW = 3;
         const asistentes = nombresCortos.length === 0
             ? 'Sin identificar'
@@ -7231,6 +7228,13 @@ function updateReunionesPagination(pagination) {
     if (next) next.disabled = pagination.page >= pagination.totalPages;
 }
 
+function _participantDisplayName(name) {
+    if (name && name.includes('@')) {
+        return name.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    return name;
+}
+
 async function populateParticipantFilter() {
     const select = document.getElementById('reunionesParticipant');
     if (!select || select.options.length > 1) return; // already populated
@@ -7242,7 +7246,7 @@ async function populateParticipantFilter() {
         names.forEach(name => {
             const opt = document.createElement('option');
             opt.value = name;
-            opt.textContent = name;
+            opt.textContent = _participantDisplayName(name);
             select.appendChild(opt);
         });
         if (currentValue) select.value = currentValue;

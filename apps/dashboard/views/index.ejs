@@ -807,7 +807,7 @@
             <div class="projects-toolbar">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="projectSearch" placeholder="Buscar proyectos...">
+                    <input type="text" id="projectSearch" placeholder="Buscar proyectos..." autocomplete="off">
                 </div>
                 <div class="filter-buttons" id="projectFilterBtns">
                     <button class="filter-btn active" data-pfilter="all">Todos</button>
@@ -1204,7 +1204,7 @@
                 <div class="panel-header">
                     <h2 class="panel-title">📚 Biblioteca de Habilidades</h2>
                     <div class="panel-controls">
-                        <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input">
+                        <input type="text" id="skillsSearch" placeholder="Buscar skills..." class="search-input" autocomplete="off">
                     </div>
                 </div>
                 <div class="skills-filters" id="skillsFilters">
@@ -1832,7 +1832,7 @@
                 <div class="panel-header">
                     <h2 class="panel-title">📚 Skills (SOPs)</h2>
                     <div class="panel-controls">
-                        <input type="text" id="reviewSkillSearch" placeholder="Buscar skill..." class="search-input-sm" oninput="filterReviewSkills()">
+                        <input type="text" id="reviewSkillSearch" placeholder="Buscar skill..." class="search-input-sm" autocomplete="off" oninput="filterReviewSkills()">
                     </div>
                 </div>
                 <div class="skills-filters" id="reviewSkillFilters">
@@ -2038,7 +2038,7 @@
             <div class="au-controls">
                 <div class="au-search-wrap">
                     <svg class="au-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <input type="text" id="auSearchInput" class="au-search" placeholder="Buscar usuario..." oninput="filterAdminUsers()">
+                    <input type="text" id="auSearchInput" class="au-search" placeholder="Buscar usuario..." autocomplete="off" oninput="filterAdminUsers()">
                 </div>
                 <select id="auFilterRole" class="au-filter-select" onchange="filterAdminUsers()">
                     <option value="">Todos los roles</option>
@@ -2105,7 +2105,7 @@
                     <option value="api_key_create">API key creada</option>
                     <option value="api_key_delete">API key eliminada</option>
                 </select>
-                <input type="text" id="auditFilterActor" class="au-search" placeholder="Actor..." oninput="loadAuditLog()" style="max-width:150px;">
+                <input type="text" id="auditFilterActor" class="au-search" placeholder="Actor..." autocomplete="off" oninput="loadAuditLog()" style="max-width:150px;">
                 <input type="date" id="auditFilterFrom" class="au-search" onchange="loadAuditLog()" style="max-width:160px;">
                 <input type="date" id="auditFilterTo" class="au-search" onchange="loadAuditLog()" style="max-width:160px;">
             </div>
@@ -2165,7 +2165,7 @@
                     <button class="filter-chip" id="afTabTrash" onclick="switchAdminFilesTab('trash')">Papelera <span id="afTabTrashCount" style="background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;font-size:0.7rem;margin-left:4px;"></span></button>
                 </div>
                 <div id="afSearchWrap" style="position:relative;max-width:280px;flex:1;">
-                    <input type="text" id="afSearchInput" placeholder="Buscar archivos..." oninput="filterAdminFiles()" style="width:100%;padding:8px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.84rem;outline:none;">
+                    <input type="text" id="afSearchInput" placeholder="Buscar archivos..." autocomplete="off" oninput="filterAdminFiles()" style="width:100%;padding:8px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.84rem;outline:none;">
                 </div>
             </div>
 
@@ -2362,7 +2362,7 @@
                     <button class="graph-ctrl-btn" onclick="resetGraphZoom()" title="Centrar vista">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                     </button>
-                    <input type="text" class="graph-search" id="graphSearch" placeholder="Buscar nodo..." oninput="searchGraphNode(this.value)">
+                    <input type="text" class="graph-search" id="graphSearch" placeholder="Buscar nodo..." autocomplete="off" oninput="searchGraphNode(this.value)">
                 </div>
             </div>
             <div class="graph-container" id="graphContainer">
@@ -2612,7 +2612,7 @@
                         <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
                             <div style="flex:1;min-width:200px;">
                                 <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Email</label>
-                                <input type="email" id="newRecipientEmail" placeholder="correo@ejemplo.com" class="search-input-sm" style="width:100%;">
+                                <input type="email" id="newRecipientEmail" placeholder="correo@ejemplo.com" class="search-input-sm" autocomplete="off" style="width:100%;">
                             </div>
                             <div style="flex:1;min-width:150px;">
                                 <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Nombre (opcional)</label>
@@ -2635,7 +2635,7 @@
                 <div class="panel-header">
                     <h2 class="panel-title">📅 Reuniones Analizadas</h2>
                     <div class="panel-controls">
-                        <input type="text" id="reunionesSearch" placeholder="Buscar reuniones..." class="search-input-sm" oninput="filterReuniones()">
+                        <input type="text" id="reunionesSearch" placeholder="Buscar reuniones..." class="search-input-sm" autocomplete="off" oninput="filterReuniones()">
                         <input type="date" id="reunionesFrom" class="gtd-filter-select" onchange="filterReuniones()" title="Desde">
                         <input type="date" id="reunionesTo" class="gtd-filter-select" onchange="filterReuniones()" title="Hasta">
                         <select id="reunionesParticipant" class="gtd-filter-select" onchange="filterReuniones()">

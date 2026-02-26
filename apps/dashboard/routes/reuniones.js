@@ -330,23 +330,18 @@ router.delete('/reuniones/email-recipients/:id', async (req, res) => {
 
 router.get('/reuniones/stats/summary', async (req, res) => {
     try {
-        const [total, thisWeek, withCompromisos, allCompromisos] = await Promise.all([
+        const [total, thisWeek, withCompromisos, compromisosTotal] = await Promise.all([
             get('SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL'),
             get("SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL AND fecha >= (CURRENT_DATE - INTERVAL '7 days')::text"),
             get("SELECT COUNT(*) as count FROM reuniones WHERE deleted_at IS NULL AND compromisos != '[]'"),
-            all("SELECT compromisos FROM reuniones WHERE deleted_at IS NULL AND compromisos != '[]'")
+            get("SELECT COALESCE(SUM(jsonb_array_length(compromisos::jsonb)), 0) as count FROM reuniones WHERE deleted_at IS NULL AND compromisos != '[]'")
         ]);
-
-        let compromisosCount = 0;
-        allCompromisos.forEach(r => {
-            compromisosCount += safeJsonParse(r.compromisos, []).length;
-        });
 
         res.json({
             total_reuniones: total.count,
             this_week: thisWeek.count,
             total_with_compromisos: withCompromisos.count,
-            total_compromisos: compromisosCount
+            total_compromisos: compromisosTotal.count
         });
     } catch (err) {
         log.error('Reuniones stats error', { error: err.message });
