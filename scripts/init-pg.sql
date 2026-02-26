@@ -394,6 +394,21 @@ CREATE TABLE IF NOT EXISTS okr_links (
     UNIQUE(okr_id, link_type, link_id)
 );
 
+-- ─── Archivos (registro de uploads en knowledge/) ────────────────────────────
+CREATE TABLE IF NOT EXISTS archivos (
+    id SERIAL PRIMARY KEY,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    mime_type TEXT,
+    hash TEXT,
+    has_dynamic BOOLEAN DEFAULT FALSE,
+    uploaded_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    deleted_by TEXT
+);
+
 -- ─── Reuniones Analisis (tabla de inteligencia-correos, compartida) ───────────
 CREATE TABLE IF NOT EXISTS reuniones_analisis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -523,6 +538,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor);
 CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+
+-- Archivos indexes
+CREATE INDEX IF NOT EXISTS idx_archivos_filename ON archivos(filename);
+CREATE INDEX IF NOT EXISTS idx_archivos_hash ON archivos(hash);
+CREATE INDEX IF NOT EXISTS idx_archivos_uploaded_by ON archivos(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_archivos_deleted ON archivos(deleted_at) WHERE deleted_at IS NOT NULL;
 
 -- Soft-delete indexes (partial — only non-null for fast trash queries)
 CREATE INDEX IF NOT EXISTS idx_ideas_deleted ON ideas(deleted_at) WHERE deleted_at IS NOT NULL;

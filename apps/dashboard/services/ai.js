@@ -658,13 +658,13 @@ async function generateDailyReport(data) {
 }
 
 // ─── Generate Dynamic HTML Page from PDF text ───────────────────────────────
-async function generateDynamicPage(pdfText, title) {
-    const prompt = `Eres un diseñador web experto. Convierte el siguiente contenido de un PDF en una página HTML interactiva profesional.
+async function generateDynamicPage(docText, title) {
+    const prompt = `Eres un diseñador web experto. Convierte el siguiente contenido de un documento en una página HTML interactiva profesional.
 
 TÍTULO: "${title}"
 
-CONTENIDO DEL PDF:
-${pdfText.substring(0, 30000)}
+CONTENIDO DEL DOCUMENTO:
+${docText.substring(0, 30000)}
 
 INSTRUCCIONES DE DISEÑO (OBLIGATORIAS):
 1. HTML5 completo, lang="es", charset UTF-8

@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
 const log = require('../helpers/logger');
 const { run, get, all } = require('../database');
@@ -17,8 +18,33 @@ const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'knowledge');
 const VOICE_DIR = path.join(__dirname, '..', 'public', 'voice-notes');
 const ARCHIVOS_DIR = UPLOADS_DIR;
 const DINAMICAS_DIR = path.join(UPLOADS_DIR, 'dinamicas');
+const TRASH_DIR = path.join(UPLOADS_DIR, '.trash');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const TAGS_FILE = path.join(DATA_DIR, 'tags.json');
+
+// Ensure trash directory exists
+if (!fs.existsSync(TRASH_DIR)) fs.mkdirSync(TRASH_DIR, { recursive: true });
+
+// ─── File hash for dedup detection ──────────────────────────────────────────
+function computeFileHash(filePath) {
+    const buffer = fs.readFileSync(filePath);
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+// ─── Register file in DB ────────────────────────────────────────────────────
+async function registerFileInDb(file, originalName, uploadedBy, hasDynamic) {
+    try {
+        const filePath = path.join(ARCHIVOS_DIR, file.filename);
+        const hash = computeFileHash(filePath);
+        await run(
+            'INSERT INTO archivos (filename, original_name, size, mime_type, hash, has_dynamic, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [file.filename, originalName, file.size, file.mimetype, hash, hasDynamic, uploadedBy]
+        );
+        log.info('File registered in DB', { filename: file.filename, hash: hash.substring(0, 12), user: uploadedBy });
+    } catch (err) {
+        log.error('Failed to register file in DB', { filename: file.filename, error: err.message });
+    }
+}
 
 // ─── Auto-generate dynamic page from PDF ────────────────────────────────────
 async function generateDynamicFromPdf(filePath, basename) {
@@ -29,24 +55,66 @@ async function generateDynamicFromPdf(filePath, basename) {
 
         if (!text || text.trim().length < 100) {
             log.info('PDF too short for dynamic page', { pdf: basename });
-            return;
+            return false;
         }
 
-        const html = await ai.generateDynamicPage(text, basename);
-        if (!html) {
-            log.warn('AI returned no HTML for dynamic page', { pdf: basename });
-            return;
-        }
-
-        const dirPath = path.join(DINAMICAS_DIR, basename);
-        if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-
-        const htmlName = basename.toLowerCase().replace(/\s+/g, '') + '.html';
-        fs.writeFileSync(path.join(dirPath, htmlName), html, 'utf-8');
-        log.info('Dynamic page generated from PDF', { pdf: basename, dir: basename, html: htmlName });
+        return await saveDynamicPage(text, basename, 'PDF');
     } catch (err) {
         log.error('Dynamic page generation failed', { pdf: basename, error: err.message });
+        return false;
     }
+}
+
+// ─── Auto-generate dynamic page from Markdown ──────────────────────────────
+async function generateDynamicFromMd(filePath, basename) {
+    try {
+        const text = fs.readFileSync(filePath, 'utf-8');
+
+        if (!text || text.trim().length < 100) {
+            log.info('MD too short for dynamic page', { md: basename });
+            return false;
+        }
+
+        return await saveDynamicPage(text, basename, 'MD');
+    } catch (err) {
+        log.error('Dynamic page generation from MD failed', { md: basename, error: err.message });
+        return false;
+    }
+}
+
+// ─── Auto-generate dynamic page from DOCX ──────────────────────────────────
+async function generateDynamicFromDocx(filePath, basename) {
+    try {
+        const mammoth = require('mammoth');
+        const { value: text } = await mammoth.extractRawText({ path: filePath });
+
+        if (!text || text.trim().length < 100) {
+            log.info('DOCX too short for dynamic page', { docx: basename });
+            return false;
+        }
+
+        return await saveDynamicPage(text, basename, 'DOCX');
+    } catch (err) {
+        log.error('Dynamic page generation from DOCX failed', { docx: basename, error: err.message });
+        return false;
+    }
+}
+
+// ─── Shared: generate and save dynamic HTML ─────────────────────────────────
+async function saveDynamicPage(text, basename, source) {
+    const html = await ai.generateDynamicPage(text, basename);
+    if (!html) {
+        log.warn('AI returned no HTML for dynamic page', { source, file: basename });
+        return false;
+    }
+
+    const dirPath = path.join(DINAMICAS_DIR, basename);
+    if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+
+    const htmlName = basename.toLowerCase().replace(/\s+/g, '') + '.html';
+    fs.writeFileSync(path.join(dirPath, htmlName), html, 'utf-8');
+    log.info('Dynamic page generated', { source, dir: basename, html: htmlName });
+    return true;
 }
 
 // ─── Multer Config ───────────────────────────────────────────────────────────
@@ -149,7 +217,7 @@ router.post('/api/upload', blockConsultor, (req, res, next) => {
         if (err) return handleMulterError(err, req, res, next);
         next();
     });
-}, (req, res) => {
+}, async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file provided' });
         const rawTags = req.body.tags || '';
@@ -159,7 +227,11 @@ router.post('/api/upload', blockConsultor, (req, res, next) => {
             tags[req.file.filename] = tagList;
             saveTags(TAGS_FILE, tags);
         }
+
         const ext = path.extname(req.file.filename).toLowerCase();
+        const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+        const uploadedBy = req.session?.user?.username || null;
+
         res.json({
             success: true,
             filename: req.file.filename,
@@ -167,20 +239,28 @@ router.post('/api/upload', blockConsultor, (req, res, next) => {
             tags: tagList
         });
 
-        // Auto-generate interactive page from PDF (fire and forget)
+        // Auto-generate dynamic page + register in DB (fire and forget)
+        const filePath = path.join(ARCHIVOS_DIR, req.file.filename);
+        const basename = path.basename(req.file.filename, ext);
+        let hasDynamic = false;
+
         if (ext === '.pdf') {
-            const filePath = path.join(ARCHIVOS_DIR, req.file.filename);
-            const basename = path.basename(req.file.filename, ext);
-            generateDynamicFromPdf(filePath, basename);
+            hasDynamic = await generateDynamicFromPdf(filePath, basename);
+        } else if (ext === '.md') {
+            hasDynamic = await generateDynamicFromMd(filePath, basename);
+        } else if (ext === '.docx') {
+            hasDynamic = await generateDynamicFromDocx(filePath, basename);
         }
+
+        await registerFileInDb(req.file, originalName, uploadedBy, hasDynamic);
     } catch (err) {
         log.error('Upload error', { error: err.message });
-        res.status(500).json({ error: 'Upload failed' });
+        if (!res.headersSent) res.status(500).json({ error: 'Upload failed' });
     }
 });
 
 // ─── Delete File ────────────────────────────────────────────────────────────
-router.delete('/api/archivo/:filename', (req, res) => {
+router.delete('/api/archivo/:filename', async (req, res) => {
     const user = req.session?.user;
     if (!user) return res.status(401).json({ error: 'Authentication required' });
     if (!['admin', 'manager'].includes(user.role)) {
@@ -196,30 +276,34 @@ router.delete('/api/archivo/:filename', (req, res) => {
     }
 
     try {
-        // Delete the file
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        } else {
+        if (!fs.existsSync(filePath)) {
             return res.status(404).json({ error: 'Archivo no encontrado' });
         }
 
-        // Delete associated dynamic page folder
+        // Move file to trash instead of deleting
+        const trashName = `${Date.now()}_${filename}`;
+        fs.renameSync(filePath, path.join(TRASH_DIR, trashName));
+
+        // Move associated dynamic page folder to trash
         const ext = path.extname(filename).toLowerCase();
         const basename = path.basename(filename, ext);
         const dynamicDir = path.join(DINAMICAS_DIR, basename);
         if (fs.existsSync(dynamicDir)) {
-            fs.rmSync(dynamicDir, { recursive: true, force: true });
-            log.info('Dynamic page deleted', { dir: basename });
+            fs.renameSync(dynamicDir, path.join(TRASH_DIR, `${Date.now()}_dyn_${basename}`));
+            log.info('Dynamic page moved to trash', { dir: basename });
         }
 
-        // Remove tags
+        // Remove tags from active list
         const tags = loadTags(TAGS_FILE);
         if (tags[filename]) {
             delete tags[filename];
             saveTags(TAGS_FILE, tags);
         }
 
-        log.info('File deleted', { filename, user: user.username });
+        // Soft-delete in DB with who deleted it
+        await run('UPDATE archivos SET deleted_at = NOW(), deleted_by = ? WHERE filename = ? AND deleted_at IS NULL', [user.username, filename]);
+
+        log.info('File moved to trash', { filename, trashName, deletedBy: user.username });
         res.json({ success: true });
     } catch (err) {
         log.error('File delete error', { error: err.message });
