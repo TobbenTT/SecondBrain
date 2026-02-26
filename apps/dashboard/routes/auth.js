@@ -285,8 +285,8 @@ router.put('/api/profile/password', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Authentication required' });
 
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword || newPassword.length < 4) {
-        return res.status(400).json({ error: 'Current password and new password (min 4 chars) required' });
+    if (!currentPassword || !newPassword || newPassword.length < 8) {
+        return res.status(400).json({ error: 'Current password and new password (min 8 chars) required' });
     }
 
     try {

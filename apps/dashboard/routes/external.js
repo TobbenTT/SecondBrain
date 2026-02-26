@@ -179,7 +179,7 @@ router.post('/webhook/openclaw', validateBody({
 
 // ─── API Key Management (/api/keys/*) ────────────────────────────────────────
 
-router.get('/keys', async (req, res) => {
+router.get('/keys', requireAdmin, async (req, res) => {
     try {
         const keys = await all('SELECT id, name, username, permissions, active, last_used, created_at FROM api_keys');
         res.json(keys);
@@ -188,7 +188,7 @@ router.get('/keys', async (req, res) => {
     }
 });
 
-router.post('/keys', validateBody({
+router.post('/keys', requireAdmin, validateBody({
     name: { required: true, type: 'string', maxLen: 100 },
     username: { type: 'string', maxLen: 50 },
 }), async (req, res) => {

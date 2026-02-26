@@ -182,7 +182,7 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 8,
         httpOnly: true,
         sameSite: 'lax',
-        secure: false  // SSL termination at nginx; container receives HTTP on localhost
+        secure: NODE_ENV === 'production'  // trust proxy handles HTTPS detection behind nginx
     }
 }));
 
@@ -228,8 +228,12 @@ app.get('/api/ollama/status', async (req, res) => {
     }
 });
 
-// ─── Fireflies Webhook Proxy (public, forwards to Inteligencia-de-correos) ──
+// ─── Fireflies Webhook Proxy (API-key authenticated, forwards to Inteligencia-de-correos) ──
 app.post('/webhook/fireflies', async (req, res) => {
+    // Require API key authentication — blocks unauthenticated internet requests
+    if (!req.isApiRequest) {
+        return res.status(401).json({ error: 'API key required. Set X-API-Key header.' });
+    }
     try {
         const resp = await fetch('http://localhost:3003/webhook/fireflies', {
             method: 'POST',

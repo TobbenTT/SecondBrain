@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const log = require('../helpers/logger');
 const { marked } = require('marked');
+const DOMPurify = require('isomorphic-dompurify');
 const { safePath, formatFileSize, getFilesRecursively, findDynamicPage, loadTags, saveTags } = require('../helpers/utils');
 const { requireAdmin } = require('../middleware/authorize');
 const simpleGit = require('simple-git');
@@ -97,7 +98,7 @@ router.get('/archivo/:filename', (req, res) => {
     // PDFs serve directly — interactive versions are linked via the file list UI
     if (ext === '.md') {
         const content = fs.readFileSync(filePath, 'utf-8');
-        const htmlContent = marked(content);
+        const htmlContent = DOMPurify.sanitize(marked(content));
         res.render('archivo', {
             filename, basename: path.basename(filename, ext),
             type: 'markdown', content: htmlContent,

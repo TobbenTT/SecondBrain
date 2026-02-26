@@ -38,8 +38,11 @@ function decryptSecret(stored) {
 
 // ─── Device fingerprint ─────────────────────────────────────────────────────
 
-function computeDeviceHash(userAgent) {
-    return crypto.createHash('sha256').update(userAgent || 'unknown').digest('hex');
+function computeDeviceHash(userAgent, ip) {
+    // Combine User-Agent + IP for stronger device fingerprint
+    // UA alone is easily spoofable; adding IP makes it harder to clone a trusted device
+    const data = (userAgent || 'unknown') + '|' + (ip || '');
+    return crypto.createHash('sha256').update(data).digest('hex');
 }
 
 function generateDeviceLabel(userAgent) {
@@ -64,7 +67,7 @@ async function shouldRequire2FA(user, req) {
     if (!user.twofa_enabled) return false;
 
     const ip = req.ip;
-    const deviceHash = computeDeviceHash(req.headers['user-agent']);
+    const deviceHash = computeDeviceHash(req.headers['user-agent'], ip);
 
     // Check for trusted device+IP combo that hasn't expired
     const trusted = await get(

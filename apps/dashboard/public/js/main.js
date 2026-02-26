@@ -1715,31 +1715,31 @@ async function loadIdeas(filter = null, page = null) {
             let tagsHtml = '';
             if (idea.ai_type || idea.para_type) {
                 const badges = [];
-                if (idea.ai_type) badges.push(`<span class="badge" style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${idea.ai_type}</span>`);
-                if (idea.ai_category) badges.push(`<span class="badge" style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${idea.ai_category}</span>`);
-                if (idea.para_type) badges.push(`<span class="badge" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">PARA:${idea.para_type}</span>`);
-                if (idea.assigned_to) badges.push(`<span class="badge" style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">👤 ${idea.assigned_to}</span>`);
-                if (idea.estimated_time) badges.push(`<span class="badge" style="background:#6366f1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">⏱ ${idea.estimated_time}</span>`);
+                if (idea.ai_type) badges.push(`<span class="badge" style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${escapeHtml(idea.ai_type)}</span>`);
+                if (idea.ai_category) badges.push(`<span class="badge" style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${escapeHtml(idea.ai_category)}</span>`);
+                if (idea.para_type) badges.push(`<span class="badge" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">PARA:${escapeHtml(idea.para_type)}</span>`);
+                if (idea.assigned_to) badges.push(`<span class="badge" style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">👤 ${escapeHtml(idea.assigned_to)}</span>`);
+                if (idea.estimated_time) badges.push(`<span class="badge" style="background:#6366f1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">⏱ ${escapeHtml(idea.estimated_time)}</span>`);
                 if (idea.priority) {
                     const pColors = { alta: '#ef4444', media: '#f59e0b', baja: '#22c55e' };
-                    badges.push(`<span class="badge" style="background:${pColors[idea.priority] || '#6b7280'};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${idea.priority}</span>`);
+                    badges.push(`<span class="badge" style="background:${pColors[idea.priority] || '#6b7280'};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${escapeHtml(idea.priority)}</span>`);
                 }
                 if (idea.created_by) {
-                    badges.push(`<span class="badge" style="background:#6366f1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">🗣 ${idea.created_by}</span>`);
+                    badges.push(`<span class="badge" style="background:#6366f1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">🗣 ${escapeHtml(idea.created_by)}</span>`);
                 }
                 // GTD Badges
                 if (idea.contexto) {
                     const ctxIcons = {'@computador':'💻','@email':'📧','@telefono':'📱','@oficina':'🏢','@calle':'🚶','@casa':'🏠','@espera':'⏳','@compras':'🛒','@investigar':'🔍','@reunion':'👥','@leer':'📖'};
-                    badges.push(`<span class="badge" style="background:#0891b2;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${ctxIcons[idea.contexto]||'📍'} ${idea.contexto}</span>`);
+                    badges.push(`<span class="badge" style="background:#0891b2;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${ctxIcons[idea.contexto]||'📍'} ${escapeHtml(idea.contexto)}</span>`);
                 }
                 if (idea.energia) {
                     const eColors = { baja: '#22c55e', media: '#f59e0b', alta: '#ef4444' };
                     const eIcons = { baja: '🟢', media: '🟡', alta: '🔴' };
-                    badges.push(`<span class="badge" style="background:${eColors[idea.energia]||'#6b7280'};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${eIcons[idea.energia]||'⚡'} ${idea.energia}</span>`);
+                    badges.push(`<span class="badge" style="background:${eColors[idea.energia]||'#6b7280'};color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${eIcons[idea.energia]||'⚡'} ${escapeHtml(idea.energia)}</span>`);
                 }
                 if (idea.tipo_compromiso) {
                     const cLabels = { comprometida: '🔒 Comprometida', esta_semana: '📅 Esta Semana', algun_dia: '💭 Algun Dia', tal_vez: '🤷 Tal Vez' };
-                    badges.push(`<span class="badge" style="background:#7c3aed;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${cLabels[idea.tipo_compromiso]||idea.tipo_compromiso}</span>`);
+                    badges.push(`<span class="badge" style="background:#7c3aed;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">${escapeHtml(cLabels[idea.tipo_compromiso]||idea.tipo_compromiso)}</span>`);
                 }
                 if (idea.is_project == 1) {
                     badges.push(`<span class="badge" style="background:#dc2626;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;">📂 PROYECTO</span>`);
@@ -1771,7 +1771,7 @@ async function loadIdeas(filter = null, page = null) {
             // Needs review indicator (Bouncer)
             let reviewHtml = '';
             if (idea.needs_review) {
-                reviewHtml = `<div class="needs-review-banner">⚠️ Requiere revision humana — <button class="btn-fix" onclick="openFixModal('${idea.id}', '${escapeHtml(idea.ai_type || '')}', '${escapeHtml(idea.ai_category || '')}', '${idea.para_type || ''}', '${idea.assigned_to || ''}', '${idea.priority || ''}')">🔧 Corregir</button></div>`;
+                reviewHtml = `<div class="needs-review-banner">⚠️ Requiere revision humana — <button class="btn-fix" onclick="openFixModal('${idea.id}', '${escapeHtml(idea.ai_type || '')}', '${escapeHtml(idea.ai_category || '')}', '${escapeHtml(idea.para_type || '')}', '${escapeHtml(idea.assigned_to || '')}', '${escapeHtml(idea.priority || '')}')">🔧 Corregir</button></div>`;
             }
 
             // CODE action buttons based on stage
@@ -1789,11 +1789,11 @@ async function loadIdeas(filter = null, page = null) {
             } else if (stage === 'organized') {
                 actionBtns = `<button class="btn-code-action" onclick="distillIdea('${idea.id}')">💎 Destilar</button>`;
                 if (hasAgent) {
-                    actionBtns += ` <button class="btn-code-action btn-execute" onclick="openExecuteModal('${idea.id}', '${idea.suggested_agent}')">🤖 Ejecutar con ${agentLabels[idea.suggested_agent] || 'Agente'}</button>`;
+                    actionBtns += ` <button class="btn-code-action btn-execute" onclick="openExecuteModal('${idea.id}', '${escapeHtml(idea.suggested_agent)}')">🤖 Ejecutar con ${escapeHtml(agentLabels[idea.suggested_agent] || 'Agente')}</button>`;
                 }
             } else if (stage === 'distilled') {
                 if (hasAgent) {
-                    actionBtns = `<button class="btn-code-action btn-execute" onclick="openExecuteModal('${idea.id}', '${idea.suggested_agent}')">🤖 Ejecutar con ${agentLabels[idea.suggested_agent] || 'Agente'}</button>`;
+                    actionBtns = `<button class="btn-code-action btn-execute" onclick="openExecuteModal('${idea.id}', '${escapeHtml(idea.suggested_agent)}')">🤖 Ejecutar con ${escapeHtml(agentLabels[idea.suggested_agent] || 'Agente')}</button>`;
                 } else {
                     actionBtns = `<button class="btn-code-action" onclick="expressIdea('${idea.id}')">🚀 Expresar</button>`;
                 }
@@ -7894,8 +7894,8 @@ function closeProfileModal() {
 async function changeOwnPassword() {
     const current = document.getElementById('profileCurrentPw').value;
     const newPw = document.getElementById('profileNewPw').value;
-    if (!current || !newPw || newPw.length < 4) {
-        showToast('Ingresa contraseña actual y nueva (min 4 caracteres)', 'warning');
+    if (!current || !newPw || newPw.length < 8) {
+        showToast('Ingresa contraseña actual y nueva (min 8 caracteres)', 'warning');
         return;
     }
     try {
@@ -8339,8 +8339,8 @@ function closeUserEditModal() {
                 payload.username = document.getElementById('userEditUsername').value;
                 payload.email = (document.getElementById('userEditEmail')?.value || '').trim();
                 payload.password = document.getElementById('userEditPassword').value;
-                if (!payload.email || !payload.password || payload.password.length < 4) {
-                    showToast('Email y contraseña (mín 4) son requeridos', 'warning');
+                if (!payload.email || !payload.password || payload.password.length < 8) {
+                    showToast('Email y contraseña (mín 8) son requeridos', 'warning');
                     return;
                 }
                 if (!payload.username) payload.username = payload.email.split('@')[0];

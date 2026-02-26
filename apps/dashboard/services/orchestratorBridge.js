@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const log = require('../helpers/logger');
@@ -18,43 +18,48 @@ if (!fs.existsSync(ALLOWED_COMMANDS_DIR)) {
 }
 
 async function executeCommand(command, args = []) {
-    // 1. Sanitize: For now, we only allow specific known commands or scripts in the safe dir
-    // This is a basic security measure.
-
-    // Example commands supported:
-    // - "open-project": opens a folder
-    // - "start-server": runs a bat file
-
     log.info('Orchestrator request', { command, args });
 
     return new Promise((resolve, reject) => {
-        let cmdStr = '';
-
         if (command === 'open-project') {
-            // Windows specific: explorer
-            const targetPath = args[0]; // expecting absolute path or relative to project
+            const targetPath = args[0];
             if (!targetPath) return reject(new Error('No path provided'));
-            cmdStr = `start "" "${targetPath}"`;
+            // Validate path exists and is a directory (prevent arbitrary command execution)
+            const resolvedPath = path.resolve(targetPath);
+            if (!fs.existsSync(resolvedPath)) return reject(new Error('Path does not exist'));
+            // Use execFile with explicit executable — no shell interpretation
+            execFile('explorer.exe', [resolvedPath], (error, stdout) => {
+                if (error) {
+                    log.warn('Orchestrator exec error', { error: error.message });
+                    return resolve({ success: false, error: error.message });
+                }
+                resolve({ success: true, output: stdout });
+            });
         } else if (command === 'run-script') {
             const scriptName = args[0];
-            // Security check against directory traversal
-            if (scriptName.includes('..') || scriptName.includes('/') || scriptName.includes('\\')) {
+            if (!scriptName || scriptName.includes('..') || scriptName.includes('/') || scriptName.includes('\\')) {
                 return reject(new Error('Invalid script name'));
             }
+            // Only allow alphanumeric, hyphens, underscores, and a single dot for extension
+            if (!/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9]+)?$/.test(scriptName)) {
+                return reject(new Error('Invalid script name characters'));
+            }
             const fullPath = path.join(ALLOWED_COMMANDS_DIR, scriptName);
+            // Verify resolved path stays within allowed dir
+            if (!path.resolve(fullPath).startsWith(path.resolve(ALLOWED_COMMANDS_DIR))) {
+                return reject(new Error('Access denied'));
+            }
             if (!fs.existsSync(fullPath)) return reject(new Error('Script not found'));
-            cmdStr = `"${fullPath}"`;
+            execFile(fullPath, (error, stdout) => {
+                if (error) {
+                    log.warn('Orchestrator exec error', { error: error.message });
+                    return resolve({ success: false, error: error.message });
+                }
+                resolve({ success: true, output: stdout });
+            });
         } else {
             return reject(new Error(`Unknown command: ${command}`));
         }
-
-        exec(cmdStr, (error, stdout, _stderr) => {
-            if (error) {
-                log.warn('Orchestrator exec error', { error: error.message });
-                return resolve({ success: false, error: error.message });
-            }
-            resolve({ success: true, output: stdout });
-        });
     });
 }
 

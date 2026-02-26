@@ -163,7 +163,7 @@ router.get('/inbox-log', async (req, res) => {
         const offset = (pageNum - 1) * limitNum;
 
         const [items, countResult] = await Promise.all([
-            all(`SELECT * FROM inbox_log ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offset}`),
+            all('SELECT * FROM inbox_log ORDER BY created_at DESC LIMIT ? OFFSET ?', [limitNum, offset]),
             get('SELECT count(*) as total FROM inbox_log')
         ]);
         const total = countResult?.total || 0;

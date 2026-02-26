@@ -16,7 +16,7 @@ const router = express.Router();
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
-router.get('/users', async (req, res) => {
+router.get('/users', requireAdmin, async (req, res) => {
     try {
         // ─── Supabase: get users from user_roles + getUserById ───
         if (isSupabaseConfigured() && supabaseAdmin) {
@@ -100,8 +100,8 @@ router.get('/users', async (req, res) => {
 router.post('/users', requireAdmin, async (req, res) => {
     const { username, email, password, role, department, expertise } = req.body;
 
-    if (!password || password.length < 4) {
-        return res.status(400).json({ error: 'Password (min 4 chars) required' });
+    if (!password || password.length < 8) {
+        return res.status(400).json({ error: 'Password (min 8 chars) required' });
     }
 
     const validRoles = ['admin', 'ceo', 'manager', 'analyst', 'consultor', 'usuario', 'cliente'];
@@ -189,14 +189,14 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
                     .eq('user_id', user.supabase_uid);
             }
             // Password reset via Supabase Admin
-            if (newPassword && newPassword.length >= 4 && supabaseAdmin) {
+            if (newPassword && newPassword.length >= 8 && supabaseAdmin) {
                 const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(
                     user.supabase_uid,
                     { password: newPassword }
                 );
                 if (pwErr) log.error('Supabase password reset error', { error: pwErr.message });
             }
-        } else if (newPassword && newPassword.length >= 4) {
+        } else if (newPassword && newPassword.length >= 8) {
             // SQLite fallback password reset
             const hash = await bcrypt.hash(newPassword, 10);
             await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
@@ -677,7 +677,7 @@ router.post('/notifications/clear-all', async (req, res) => {
 
 // ─── Export / Import ─────────────────────────────────────────────────────────
 
-router.get('/export', async (req, res) => {
+router.get('/export', requireAdmin, async (req, res) => {
     try {
         const [ideas, context, areas, waitingFor, projects, users] = await Promise.all([
             all('SELECT * FROM ideas ORDER BY created_at DESC'),
@@ -705,7 +705,7 @@ router.get('/export', async (req, res) => {
 });
 
 // ─── Excel Export with KPIs and Charts ───────────────────────────────────────
-router.get('/export-excel', async (req, res) => {
+router.get('/export-excel', requireAdmin, async (req, res) => {
     try {
         const [ideas, users, projects, areas, waitingFor, checklist] = await Promise.all([
             all('SELECT * FROM ideas ORDER BY created_at DESC'),
