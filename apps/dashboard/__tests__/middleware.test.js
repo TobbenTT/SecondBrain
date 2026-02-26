@@ -18,7 +18,7 @@ jest.mock('../helpers/logger', () => ({
 
 const { get, run } = require('../database');
 const { apiKeyAuth, requireAuth } = require('../middleware/auth');
-const { requireOwnerOrAdmin, requireAdmin, requireSelfOrAdmin } = require('../middleware/authorize');
+const { requireOwnerOrAdmin, requireAdmin, requireSelfOrAdmin, requireRole, denyRole } = require('../middleware/authorize');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // apiKeyAuth
@@ -62,23 +62,19 @@ describe('apiKeyAuth', () => {
         expect(req.session.authenticated).toBe(true);
     });
 
-    it('authenticates with api_key query param', async () => {
-        const keyRecord = { id: 1, key: 'query-key', username: 'user1', active: 1 };
-        get.mockResolvedValueOnce(keyRecord).mockResolvedValueOnce(null);
-
+    it('calls next without auth when no x-api-key header is present', async () => {
         const req = { headers: {}, query: { api_key: 'query-key' }, session: {} };
         const res = mockRes();
         const next = jest.fn();
 
         await apiKeyAuth(req, res, next);
         expect(next).toHaveBeenCalled();
-        expect(req.isApiRequest).toBe(true);
-        // When user not found in DB, falls back to basic user object
-        expect(req.session.user.username).toBe('user1');
+        // auth.js only checks x-api-key header, not query params
+        expect(req.isApiRequest).toBeUndefined();
     });
 
     it('does not authenticate with invalid key', async () => {
-        get.mockResolvedValue(null); // No key found
+        get.mockResolvedValueOnce(null); // No key found
 
         const req = { headers: { 'x-api-key': 'invalid' }, query: {}, session: {} };
         const res = mockRes();
@@ -341,5 +337,172 @@ describe('requireSelfOrAdmin', () => {
 
         requireSelfOrAdmin(req, res, next);
         expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('passes for CEO users accessing any data', () => {
+        const req = { session: { user: { username: 'boss', role: 'ceo' } }, params: { username: 'other' } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        requireSelfOrAdmin(req, res, next);
+        expect(next).toHaveBeenCalled();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// requireRole
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('requireRole', () => {
+    const mockRes = () => {
+        const res = {};
+        res.status = jest.fn().mockReturnValue(res);
+        res.json = jest.fn().mockReturnValue(res);
+        return res;
+    };
+
+    it('passes when user has an allowed role', () => {
+        const middleware = requireRole('admin', 'editor');
+        const req = { session: { user: { role: 'editor' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('returns 403 when user role is not in allowed list', () => {
+        const middleware = requireRole('admin', 'editor');
+        const req = { session: { user: { role: 'viewer' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Insufficient permissions' });
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 for unauthenticated requests', () => {
+        const middleware = requireRole('admin');
+        const req = { session: {} };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('works with a single allowed role', () => {
+        const middleware = requireRole('ceo');
+        const req = { session: { user: { role: 'ceo' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(next).toHaveBeenCalled();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// denyRole
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('denyRole', () => {
+    const mockRes = () => {
+        const res = {};
+        res.status = jest.fn().mockReturnValue(res);
+        res.json = jest.fn().mockReturnValue(res);
+        return res;
+    };
+
+    it('blocks user with a denied role', () => {
+        const middleware = denyRole('viewer', 'intern');
+        const req = { session: { user: { role: 'viewer' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(res.json).toHaveBeenCalledWith({ error: 'This action is not available for your role' });
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    it('allows user whose role is not in the blocked list', () => {
+        const middleware = denyRole('viewer', 'intern');
+        const req = { session: { user: { role: 'admin' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('returns 401 for unauthenticated requests', () => {
+        const middleware = denyRole('viewer');
+        const req = { session: {} };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('blocks second role in the list', () => {
+        const middleware = denyRole('viewer', 'intern');
+        const req = { session: { user: { role: 'intern' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        middleware(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(403);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// requireOwnerOrAdmin — CEO role path
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('requireOwnerOrAdmin — CEO role', () => {
+    const mockRes = () => {
+        const res = {};
+        res.status = jest.fn().mockReturnValue(res);
+        res.json = jest.fn().mockReturnValue(res);
+        return res;
+    };
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('passes for CEO users without DB lookup', async () => {
+        const middleware = requireOwnerOrAdmin('ideas', 'created_by');
+        const req = { session: { user: { username: 'boss', role: 'ceo' } }, params: { id: '1' } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        await middleware(req, res, next);
+        expect(next).toHaveBeenCalled();
+        expect(get).not.toHaveBeenCalled();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// requireAdmin — CEO role path
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('requireAdmin — CEO role', () => {
+    const mockRes = () => {
+        const res = {};
+        res.status = jest.fn().mockReturnValue(res);
+        res.json = jest.fn().mockReturnValue(res);
+        return res;
+    };
+
+    it('passes for CEO users', () => {
+        const req = { session: { user: { role: 'ceo' } } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        requireAdmin(req, res, next);
+        expect(next).toHaveBeenCalled();
     });
 });

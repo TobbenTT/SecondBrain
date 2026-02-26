@@ -378,6 +378,17 @@ describe('POST /2fa/passkey/authenticate-begin', () => {
         expect(session.webauthnChallenge).toBe('random-challenge-123');
         expect(res.json).toHaveBeenCalledWith(fakeOptions);
     });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        all.mockRejectedValueOnce(new Error('DB connection lost'));
+
+        const req = mockReq({ session: { ...pendingSession } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al iniciar autenticacion' });
+    });
 });
 
 // ─── POST /2fa/passkey/authenticate-end ──────────────────────────────────────
@@ -460,6 +471,21 @@ describe('POST /2fa/passkey/authenticate-end', () => {
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({ error: 'Verificacion fallida' });
         expect(auditLog).toHaveBeenCalledWith('passkey_failure', expect.any(Object));
+    });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        get.mockRejectedValueOnce(new Error('DB exploded'));
+
+        const req = mockReq({
+            session: { ...pendingSession, webauthnChallenge: 'test-challenge' },
+            body: { id: 'cred-1' },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error de verificacion' });
     });
 });
 
@@ -599,6 +625,18 @@ describe('POST /api/twofa/setup', () => {
             expect.arrayContaining(['encrypted-val2', 42]),
         );
     });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        getEncryptionKey.mockReturnValue(Buffer.alloc(32));
+        get.mockRejectedValueOnce(new Error('DB failure'));
+
+        const req = mockReq({ session: { ...authedSession } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al configurar 2FA' });
+    });
 });
 
 // ─── POST /verify-setup ─────────────────────────────────────────────────────
@@ -692,6 +730,17 @@ describe('POST /api/twofa/verify-setup', () => {
             recoveryCodes: ['code1', 'code2', 'code3'],
         });
     });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        get.mockRejectedValueOnce(new Error('DB failure'));
+
+        const req = mockReq({ session: { ...authedSession }, body: { token: '123456' } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al verificar 2FA' });
+    });
 });
 
 // ─── POST /disable ───────────────────────────────────────────────────────────
@@ -759,6 +808,218 @@ describe('POST /api/twofa/disable', () => {
         ]));
         expect(auditLog).toHaveBeenCalledWith('2fa_disable', expect.any(Object));
         expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        get.mockRejectedValueOnce(new Error('DB failure'));
+
+        const req = mockReq({ session: { ...authedSession }, body: { currentPassword: 'correct' } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al desactivar 2FA' });
+    });
+});
+
+// ─── POST /passkey/register-begin ─────────────────────────────────────────────
+
+describe('POST /api/twofa/passkey/register-begin', () => {
+    const handler = getHandler(protectedRouter, 'post', '/passkey/register-begin');
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('generates registration options with existing credentials excluded', async () => {
+        all.mockResolvedValueOnce([{ credential_id: 'existing-cred-1' }]);
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', rpName: 'ValueStrategy Hub', origin: 'http://localhost:3000' });
+        const fakeOptions = { challenge: 'reg-challenge-abc' };
+        simpleWebAuthn.generateRegistrationOptions.mockResolvedValueOnce(fakeOptions);
+
+        const session = { ...authedSession };
+        const req = mockReq({ session });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(simpleWebAuthn.generateRegistrationOptions).toHaveBeenCalledWith(expect.objectContaining({
+            rpName: 'ValueStrategy Hub',
+            rpID: 'localhost',
+            userName: 'carlos',
+            userDisplayName: 'carlos',
+            excludeCredentials: [{ id: 'existing-cred-1' }],
+            attestationType: 'none',
+        }));
+        expect(session.webauthnRegChallenge).toBe('reg-challenge-abc');
+        expect(res.json).toHaveBeenCalledWith(fakeOptions);
+    });
+
+    it('generates registration options with no existing credentials', async () => {
+        all.mockResolvedValueOnce([]);
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', rpName: 'ValueStrategy Hub', origin: 'http://localhost:3000' });
+        const fakeOptions = { challenge: 'reg-challenge-def' };
+        simpleWebAuthn.generateRegistrationOptions.mockResolvedValueOnce(fakeOptions);
+
+        const session = { ...authedSession };
+        const req = mockReq({ session });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(simpleWebAuthn.generateRegistrationOptions).toHaveBeenCalledWith(expect.objectContaining({
+            excludeCredentials: [],
+        }));
+        expect(session.webauthnRegChallenge).toBe('reg-challenge-def');
+        expect(res.json).toHaveBeenCalledWith(fakeOptions);
+    });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        all.mockRejectedValueOnce(new Error('DB failure'));
+
+        const req = mockReq({ session: { ...authedSession } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al iniciar registro' });
+    });
+});
+
+// ─── POST /passkey/register-end ──────────────────────────────────────────────
+
+describe('POST /api/twofa/passkey/register-end', () => {
+    const handler = getHandler(protectedRouter, 'post', '/passkey/register-end');
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('returns 400 when no challenge is stored in session', async () => {
+        const req = mockReq({ session: { ...authedSession } });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith({ error: 'No hay challenge pendiente' });
+    });
+
+    it('returns 400 when verification fails', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        simpleWebAuthn.verifyRegistrationResponse.mockResolvedValueOnce({
+            verified: false,
+        });
+
+        const session = { ...authedSession, webauthnRegChallenge: 'reg-challenge' };
+        const req = mockReq({
+            session,
+            body: { credential: { id: 'new-cred', response: {} } },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Verificacion fallida' });
+    });
+
+    it('returns 400 when registrationInfo is missing', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        simpleWebAuthn.verifyRegistrationResponse.mockResolvedValueOnce({
+            verified: true,
+            registrationInfo: null,
+        });
+
+        const session = { ...authedSession, webauthnRegChallenge: 'reg-challenge' };
+        const req = mockReq({
+            session,
+            body: { credential: { id: 'new-cred', response: {} } },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Verificacion fallida' });
+    });
+
+    it('saves credential to DB and returns label on successful registration', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        const fakePublicKey = new Uint8Array([1, 2, 3, 4]);
+        simpleWebAuthn.verifyRegistrationResponse.mockResolvedValueOnce({
+            verified: true,
+            registrationInfo: {
+                credential: { id: 'new-cred-id', publicKey: fakePublicKey, counter: 0 },
+                credentialDeviceType: 'multiDevice',
+            },
+        });
+        run.mockResolvedValue({});
+        generateDeviceLabel.mockReturnValue('Chrome en Windows');
+
+        const session = { ...authedSession, webauthnRegChallenge: 'reg-challenge' };
+        const req = mockReq({
+            session,
+            body: {
+                label: 'My YubiKey',
+                credential: { id: 'new-cred-id', response: { transports: ['usb'] } },
+            },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(run).toHaveBeenCalledWith(
+            expect.stringContaining('INSERT INTO user_webauthn_credentials'),
+            expect.arrayContaining([
+                42,
+                'new-cred-id',
+                Buffer.from(fakePublicKey).toString('base64url'),
+                0,
+                'multiDevice',
+            ]),
+        );
+        // Custom label should be used instead of auto-generated one
+        expect(res.json).toHaveBeenCalledWith({ success: true, label: 'My YubiKey' });
+        expect(session.webauthnRegChallenge).toBeUndefined();
+        expect(auditLog).toHaveBeenCalledWith('passkey_register', expect.objectContaining({
+            actor: 'carlos',
+            details: { label: 'My YubiKey' },
+        }));
+    });
+
+    it('uses auto-generated label when none is provided', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        const fakePublicKey = new Uint8Array([5, 6, 7, 8]);
+        simpleWebAuthn.verifyRegistrationResponse.mockResolvedValueOnce({
+            verified: true,
+            registrationInfo: {
+                credential: { id: 'cred-auto', publicKey: fakePublicKey, counter: 0 },
+                credentialDeviceType: 'singleDevice',
+            },
+        });
+        run.mockResolvedValue({});
+        generateDeviceLabel.mockReturnValue('Firefox en Linux');
+
+        const session = { ...authedSession, webauthnRegChallenge: 'reg-challenge' };
+        const req = mockReq({
+            session,
+            body: {
+                // no label provided
+                credential: { id: 'cred-auto', response: {} },
+            },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(generateDeviceLabel).toHaveBeenCalledWith('test-agent');
+        expect(res.json).toHaveBeenCalledWith({ success: true, label: 'Firefox en Linux' });
+    });
+
+    it('returns 500 when an error is thrown (catch block)', async () => {
+        getWebAuthnRPInfo.mockReturnValue({ rpID: 'localhost', origin: 'http://localhost:3000' });
+        simpleWebAuthn.verifyRegistrationResponse.mockRejectedValueOnce(new Error('WebAuthn lib crash'));
+
+        const session = { ...authedSession, webauthnRegChallenge: 'reg-challenge' };
+        const req = mockReq({
+            session,
+            body: { credential: { id: 'cred-x', response: {} } },
+        });
+        const res = mockRes();
+        await handler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Error al registrar passkey' });
     });
 });
 
