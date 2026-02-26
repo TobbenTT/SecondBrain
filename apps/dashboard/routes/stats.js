@@ -224,4 +224,104 @@ router.get('/executive', cached('executive', 30000, async () => {
     };
 }));
 
+// ─── Home Bundle (1 request replaces 4: home-counts + gallery + my-dashboard + notifications) ─
+router.get('/home-bundle', async (req, res) => {
+    const username = req.session?.user?.username;
+    if (!username) return res.status(401).json({ error: 'Not authenticated' });
+
+    try {
+        const now = Date.now();
+        // Reuse home-counts cache if fresh
+        let counts;
+        if (_cache['home-counts'] && now - _cache['home-counts'].ts < 30000) {
+            counts = _cache['home-counts'].data;
+        } else {
+            const row = await get(`
+                SELECT
+                    (SELECT count(*) FROM projects WHERE status != 'cancelled' AND deleted_at IS NULL) as projects,
+                    (SELECT count(*) FROM ideas WHERE deleted_at IS NULL) as ideas,
+                    (SELECT count(*) FROM areas WHERE status = 'active') as areas
+            `);
+            let archivos = 0;
+            try {
+                if (fs.existsSync(KNOWLEDGE_DIR)) {
+                    archivos = fs.readdirSync(KNOWLEDGE_DIR, { withFileTypes: true }).filter(f => f.isFile()).length;
+                }
+            } catch { /* ignore */ }
+            counts = { projects: row.projects || 0, ideas: row.ideas || 0, archivos, areas: row.areas || 0 };
+            _cache['home-counts'] = { data: counts, ts: now };
+        }
+
+        // Run gallery, my-dashboard queries, and notifications in parallel
+        const [gallery, myTasks, myDelegations, myReuniones, recentActivity, notifData] = await Promise.all([
+            all('SELECT * FROM gallery_photos ORDER BY created_at DESC LIMIT 50'),
+            all(`SELECT i.id, i.text, i.ai_summary, i.priority, i.code_stage, i.fecha_limite,
+                        a.name as area_name, p.name as project_name
+                 FROM ideas i
+                 LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
+                 LEFT JOIN projects p ON i.project_id = p.id
+                 WHERE i.assigned_to = ? AND (i.completada IS NULL OR i.completada = '0')
+                 ORDER BY CASE i.priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END, i.created_at DESC
+                 LIMIT 10`, [username]),
+            all(`SELECT w.id, w.description, w.delegated_to, w.due_date, w.created_at,
+                        a.name as area_name
+                 FROM waiting_for w
+                 LEFT JOIN areas a ON w.related_area_id = a.id
+                 WHERE w.delegated_by = ? AND w.status = 'waiting'
+                 ORDER BY w.created_at DESC LIMIT 5`, [username]),
+            all(`SELECT r.id, r.titulo, r.fecha, r.asistentes
+                 FROM reuniones r
+                 WHERE r.asistentes LIKE ? AND r.deleted_at IS NULL
+                 ORDER BY r.fecha DESC LIMIT 5`, [`%${username}%`]),
+            all(`SELECT i.id, i.text, i.ai_summary, i.assigned_to, i.created_at, i.code_stage,
+                        a.name as area_name
+                 FROM ideas i
+                 LEFT JOIN areas a ON i.related_area_id = CAST(a.id AS TEXT)
+                 WHERE i.deleted_at IS NULL
+                 ORDER BY i.created_at DESC LIMIT 8`),
+            // Notifications inline
+            (async () => {
+                const urgent = await all(`SELECT id, text, ai_summary, priority, fecha_limite
+                    FROM ideas WHERE assigned_to = ? AND priority = 'alta'
+                    AND (completada IS NULL OR completada = '0') AND deleted_at IS NULL
+                    ORDER BY created_at DESC LIMIT 5`, [username]);
+                const overdue = await all(`SELECT id, description, delegated_to, due_date
+                    FROM waiting_for WHERE delegated_by = ? AND status = 'waiting'
+                    AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text
+                    LIMIT 5`, [username]);
+                const pending_reviews = await all(`SELECT sr.id, s.name as skill_name
+                    FROM skill_reviews sr JOIN skills s ON sr.skill_id = s.id
+                    WHERE sr.reviewer = ? AND sr.status = 'pending'
+                    LIMIT 5`, [username]);
+                return {
+                    urgent_tasks: urgent || [],
+                    overdue_delegations: overdue || [],
+                    pending_reviews: pending_reviews || [],
+                    total: (urgent?.length || 0) + (overdue?.length || 0) + (pending_reviews?.length || 0)
+                };
+            })()
+        ]);
+
+        const tasksByPriority = { alta: 0, media: 0, baja: 0 };
+        myTasks.forEach(t => { if (t.priority && tasksByPriority[t.priority] !== undefined) tasksByPriority[t.priority]++; });
+
+        res.json({
+            counts,
+            gallery: gallery || [],
+            dashboard: {
+                username,
+                tasks: myTasks,
+                tasks_summary: tasksByPriority,
+                delegations: myDelegations,
+                reuniones: myReuniones,
+                activity: recentActivity
+            },
+            notifications: notifData
+        });
+    } catch (err) {
+        log.error('Home bundle error', { error: err.message });
+        res.status(500).json({ error: 'Home bundle failed' });
+    }
+});
+
 module.exports = router;

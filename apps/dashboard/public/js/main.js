@@ -270,21 +270,47 @@ function initHomeGreeting() {
 
 // ─── Home Data ──────────────────────────────────────────────────────────────
 async function initHomeData() {
-    // Load counts from lightweight endpoint (1 query instead of 4 full-array fetches)
     try {
-        const res = await fetch('/api/stats/home-counts');
-        if (res.ok) {
-            const d = await res.json();
-            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-            set('homeStatProjects', d.projects);
-            set('homeStatDocs', d.archivos);
-            set('homeStatIdeas', d.ideas);
-            set('homeStatAreas', d.areas);
-        }
+        // Single request replaces 5 separate fetches (home-counts + gallery + my-dashboard + notifications + users)
+        const [bundleRes, allUsers] = await Promise.all([
+            fetch('/api/stats/home-bundle'),
+            getCachedUsers()
+        ]);
+        if (!bundleRes.ok) { _initHomeDataFallback(); return; }
+        const bundle = await bundleRes.json();
+
+        // 1. Home counts
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('homeStatProjects', bundle.counts.projects);
+        set('homeStatDocs', bundle.counts.archivos);
+        set('homeStatIdeas', bundle.counts.ideas);
+        set('homeStatAreas', bundle.counts.areas);
+
+        // 2. Team (from cached users, no extra fetch)
+        _renderHomeTeam(allUsers);
+
+        // 3. Gallery (from bundle)
+        _renderHomeGallery(bundle.gallery);
+
+        // 4. My Dashboard (from bundle)
+        _renderMyDashboard(bundle.dashboard);
+
+        // 5. Notifications (from bundle)
+        _renderNotifications(bundle.notifications);
     } catch (err) {
-        console.error('Home stats error:', err);
+        console.error('Home bundle error:', err);
+        _initHomeDataFallback();
     }
-    // Load team, gallery, and personal dashboard in parallel
+}
+
+// Fallback: if bundle fails, load individually (backwards compat)
+function _initHomeDataFallback() {
+    fetch('/api/stats/home-counts').then(r => r.ok ? r.json() : null).then(d => {
+        if (!d) return;
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('homeStatProjects', d.projects); set('homeStatDocs', d.archivos);
+        set('homeStatIdeas', d.ideas); set('homeStatAreas', d.areas);
+    }).catch(() => {});
     loadHomeTeam();
     loadHomeGallery();
     loadMyDashboard();
@@ -397,56 +423,50 @@ async function loadExecutiveSummary() {
     }
 }
 
-async function loadHomeTeam() {
+// Render helpers (used by bundle and fallback)
+function _renderHomeTeam(allUsers) {
     const grid = document.getElementById('homeTeamGrid');
     if (!grid) return;
-    try {
-        const allUsers = await getCachedUsers();
-        const users = allUsers.filter(u => !['usuario', 'cliente'].includes(u.role));
-        if (users.length === 0) {
-            grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>';
-            return;
-        }
-        const roleColors = { admin: '#e74c3c', ceo: '#d4af37', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71', usuario: '#9b59b6', cliente: '#e67e22' };
-        grid.innerHTML = users.map(u => `
-            <div class="home-team-card">
-                <div class="home-team-avatar">${_avatarHtml(u.avatar, u.username, 64)}</div>
-                <h4 class="home-team-name">${escapeHtml(u.username)}</h4>
-                <span class="home-team-role" style="background:${roleColors[u.role] || '#6b7280'}22;color:${roleColors[u.role] || '#6b7280'};">${escapeHtml(u.role)}</span>
-                ${u.department ? `<span class="home-team-dept">${escapeHtml(u.department)}</span>` : ''}
-                ${u.expertise ? `<span class="home-team-expertise">${escapeHtml(u.expertise)}</span>` : ''}
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Home team error:', err);
-    }
+    const users = (allUsers || []).filter(u => !['usuario', 'cliente'].includes(u.role));
+    if (users.length === 0) { grid.innerHTML = '<p style="color:var(--text-muted);">No hay miembros registrados</p>'; return; }
+    const roleColors = { admin: '#e74c3c', ceo: '#d4af37', manager: '#f1c40f', analyst: '#3498db', consultor: '#2ecc71', usuario: '#9b59b6', cliente: '#e67e22' };
+    grid.innerHTML = users.map(u => `
+        <div class="home-team-card">
+            <div class="home-team-avatar">${_avatarHtml(u.avatar, u.username, 64)}</div>
+            <h4 class="home-team-name">${escapeHtml(u.username)}</h4>
+            <span class="home-team-role" style="background:${roleColors[u.role] || '#6b7280'}22;color:${roleColors[u.role] || '#6b7280'};">${escapeHtml(u.role)}</span>
+            ${u.department ? `<span class="home-team-dept">${escapeHtml(u.department)}</span>` : ''}
+            ${u.expertise ? `<span class="home-team-expertise">${escapeHtml(u.expertise)}</span>` : ''}
+        </div>
+    `).join('');
 }
 
-async function loadHomeGallery() {
+function _renderHomeGallery(photos) {
     const grid = document.getElementById('homeGalleryGrid');
-    const section = document.getElementById('homeGallerySection');
     if (!grid) return;
+    if (!photos || photos.length === 0) {
+        grid.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">Sin fotos aun — sube la primera!</p>';
+        return;
+    }
+    grid.innerHTML = photos.map(p => `
+        <div class="gallery-item" title="${escapeHtml(p.caption || '')}">
+            <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.caption || 'Foto')}" loading="lazy">
+            <div class="gallery-caption">
+                <span>${escapeHtml(p.caption || '')}</span>
+                <span class="gallery-category">${escapeHtml(p.category)}</span>
+            </div>
+            ${(window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo') ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
+        </div>
+    `).join('');
+}
+
+async function loadHomeTeam() { _renderHomeTeam(await getCachedUsers()); }
+
+async function loadHomeGallery() {
     try {
         const res = await fetch('/api/gallery');
-        if (!res.ok) return;
-        const photos = await res.json();
-        if (photos.length === 0) {
-            grid.innerHTML = '<p style="color:var(--text-muted);text-align:center;width:100%;">Sin fotos aun — sube la primera!</p>';
-            return;
-        }
-        grid.innerHTML = photos.map(p => `
-            <div class="gallery-item" title="${escapeHtml(p.caption || '')}">
-                <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.caption || 'Foto')}" loading="lazy">
-                <div class="gallery-caption">
-                    <span>${escapeHtml(p.caption || '')}</span>
-                    <span class="gallery-category">${escapeHtml(p.category)}</span>
-                </div>
-                ${(window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo') ? `<button class="gallery-delete-btn" onclick="event.stopPropagation(); deleteGalleryPhoto(${p.id})" title="Eliminar">✕</button>` : ''}
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Gallery error:', err);
-    }
+        if (res.ok) _renderHomeGallery(await res.json());
+    } catch (err) { console.error('Gallery error:', err); }
 }
 
 function openGalleryUpload() {
@@ -497,112 +517,112 @@ async function deleteGalleryPhoto(id) {
 // PERSONAL DASHBOARD (Home)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+function _renderMyDashboard(data) {
+    if (!data) {
+        ['hpTaskList', 'hpDelegations', 'hpReunionsList', 'hpActivityFeed'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<div class="hp-empty">Inicia sesión para ver tu dashboard</div>';
+        });
+        return;
+    }
+
+    // Task summary badges
+    const summaryEl = document.getElementById('hpTaskSummary');
+    if (summaryEl) {
+        const s = data.tasks_summary;
+        const parts = [];
+        if (s.alta) parts.push(`<span class="hp-badge hp-badge-alta">${s.alta} urgente${s.alta > 1 ? 's' : ''}</span>`);
+        if (s.media) parts.push(`<span class="hp-badge hp-badge-media">${s.media} media</span>`);
+        if (s.baja) parts.push(`<span class="hp-badge hp-badge-baja">${s.baja} baja</span>`);
+        summaryEl.innerHTML = parts.join('');
+    }
+
+    // Tasks list
+    const taskEl = document.getElementById('hpTaskList');
+    if (taskEl) {
+        if (data.tasks.length === 0) {
+            taskEl.innerHTML = '<div class="hp-empty">Sin tareas asignadas</div>';
+        } else {
+            taskEl.innerHTML = data.tasks.map(t => {
+                const label = t.ai_summary || (t.text || '').substring(0, 60);
+                const priorityClass = t.priority === 'alta' ? 'hp-priority-alta' : (t.priority === 'media' ? 'hp-priority-media' : 'hp-priority-baja');
+                const deadline = t.fecha_limite ? `<span class="hp-deadline">${new Date(t.fecha_limite).toLocaleDateString('es-CL')}</span>` : '';
+                return `<div class="hp-task-item hp-clickable ${priorityClass}" onclick="switchSection('ideas')">
+                    <div class="hp-task-text">${escapeHtml(label)}</div>
+                    <div class="hp-task-meta">
+                        ${t.area_name ? `<span class="hp-tag">${escapeHtml(t.area_name)}</span>` : ''}
+                        ${t.project_name ? `<span class="hp-tag">${escapeHtml(t.project_name)}</span>` : ''}
+                        ${deadline}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // Delegations
+    const delEl = document.getElementById('hpDelegations');
+    if (delEl) {
+        if (data.delegations.length === 0) {
+            delEl.innerHTML = '<div class="hp-empty">Sin delegaciones pendientes</div>';
+        } else {
+            delEl.innerHTML = data.delegations.map(d => {
+                const days = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000);
+                return `<div class="hp-deleg-item hp-clickable" onclick="switchSection('waiting')">
+                    <div class="hp-deleg-text">${escapeHtml((d.description || '').substring(0, 70))}</div>
+                    <div class="hp-task-meta">
+                        <span class="hp-tag">→ ${escapeHtml(d.delegated_to)}</span>
+                        ${d.area_name ? `<span class="hp-tag">${escapeHtml(d.area_name)}</span>` : ''}
+                        <span class="hp-days ${days > 3 ? 'hp-days-overdue' : ''}">${days}d</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // Reuniones
+    const reunEl = document.getElementById('hpReuniones');
+    if (reunEl) {
+        if (data.reuniones.length === 0) {
+            reunEl.innerHTML = '<div class="hp-empty">Sin reuniones recientes</div>';
+        } else {
+            reunEl.innerHTML = data.reuniones.map(r => {
+                const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
+                return `<div class="hp-reunion-item hp-clickable" onclick="switchSection('reuniones')">
+                    <span class="hp-reunion-date">${fecha}</span>
+                    <span class="hp-reunion-title">${escapeHtml(r.titulo || 'Sin título')}</span>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // Activity feed
+    const actEl = document.getElementById('hpActivity');
+    if (actEl) {
+        if (data.activity.length === 0) {
+            actEl.innerHTML = '<div class="hp-empty">Sin actividad reciente</div>';
+        } else {
+            actEl.innerHTML = data.activity.map(a => {
+                const label = a.ai_summary || (a.text || '').substring(0, 50);
+                const timeAgo = _timeAgo(a.created_at);
+                const stageColors = { captured: '#3498db', organized: '#f39c12', distilled: '#9b59b6', expressed: '#2ecc71' };
+                const stageColor = stageColors[a.code_stage] || '#888';
+                return `<div class="hp-activity-item hp-clickable" onclick="switchSection('ideas')">
+                    <div class="hp-activity-dot" style="background:${stageColor}"></div>
+                    <div class="hp-activity-content">
+                        <span class="hp-activity-text">${escapeHtml(label)}</span>
+                        <span class="hp-activity-meta">${a.assigned_to ? escapeHtml(a.assigned_to) + ' · ' : ''}${a.area_name ? escapeHtml(a.area_name) + ' · ' : ''}${timeAgo}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+}
+
 async function loadMyDashboard() {
     try {
         const res = await fetch('/api/my-dashboard');
-        if (!res.ok) {
-            // Clear spinners — show empty state
-            ['hpTaskList', 'hpDelegations', 'hpReunionsList', 'hpActivityFeed'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '<div class="hp-empty">Inicia sesión para ver tu dashboard</div>';
-            });
-            return;
-        }
-        const data = await res.json();
-
-        // Task summary badges
-        const summaryEl = document.getElementById('hpTaskSummary');
-        if (summaryEl) {
-            const s = data.tasks_summary;
-            const parts = [];
-            if (s.alta) parts.push(`<span class="hp-badge hp-badge-alta">${s.alta} urgente${s.alta > 1 ? 's' : ''}</span>`);
-            if (s.media) parts.push(`<span class="hp-badge hp-badge-media">${s.media} media</span>`);
-            if (s.baja) parts.push(`<span class="hp-badge hp-badge-baja">${s.baja} baja</span>`);
-            summaryEl.innerHTML = parts.join('');
-        }
-
-        // Tasks list
-        const taskEl = document.getElementById('hpTaskList');
-        if (taskEl) {
-            if (data.tasks.length === 0) {
-                taskEl.innerHTML = '<div class="hp-empty">Sin tareas asignadas</div>';
-            } else {
-                taskEl.innerHTML = data.tasks.map(t => {
-                    const label = t.ai_summary || (t.text || '').substring(0, 60);
-                    const priorityClass = t.priority === 'alta' ? 'hp-priority-alta' : (t.priority === 'media' ? 'hp-priority-media' : 'hp-priority-baja');
-                    const deadline = t.fecha_limite ? `<span class="hp-deadline">${new Date(t.fecha_limite).toLocaleDateString('es-CL')}</span>` : '';
-                    return `<div class="hp-task-item hp-clickable ${priorityClass}" onclick="switchSection('ideas')">
-                        <div class="hp-task-text">${escapeHtml(label)}</div>
-                        <div class="hp-task-meta">
-                            ${t.area_name ? `<span class="hp-tag">${escapeHtml(t.area_name)}</span>` : ''}
-                            ${t.project_name ? `<span class="hp-tag">${escapeHtml(t.project_name)}</span>` : ''}
-                            ${deadline}
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
-
-        // Delegations
-        const delEl = document.getElementById('hpDelegations');
-        if (delEl) {
-            if (data.delegations.length === 0) {
-                delEl.innerHTML = '<div class="hp-empty">Sin delegaciones pendientes</div>';
-            } else {
-                delEl.innerHTML = data.delegations.map(d => {
-                    const days = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000);
-                    return `<div class="hp-deleg-item hp-clickable" onclick="switchSection('waiting')">
-                        <div class="hp-deleg-text">${escapeHtml((d.description || '').substring(0, 70))}</div>
-                        <div class="hp-task-meta">
-                            <span class="hp-tag">→ ${escapeHtml(d.delegated_to)}</span>
-                            ${d.area_name ? `<span class="hp-tag">${escapeHtml(d.area_name)}</span>` : ''}
-                            <span class="hp-days ${days > 3 ? 'hp-days-overdue' : ''}">${days}d</span>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
-
-        // Reuniones
-        const reunEl = document.getElementById('hpReuniones');
-        if (reunEl) {
-            if (data.reuniones.length === 0) {
-                reunEl.innerHTML = '<div class="hp-empty">Sin reuniones recientes</div>';
-            } else {
-                reunEl.innerHTML = data.reuniones.map(r => {
-                    const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '';
-                    return `<div class="hp-reunion-item hp-clickable" onclick="switchSection('reuniones')">
-                        <span class="hp-reunion-date">${fecha}</span>
-                        <span class="hp-reunion-title">${escapeHtml(r.titulo || 'Sin título')}</span>
-                    </div>`;
-                }).join('');
-            }
-        }
-
-        // Activity feed
-        const actEl = document.getElementById('hpActivity');
-        if (actEl) {
-            if (data.activity.length === 0) {
-                actEl.innerHTML = '<div class="hp-empty">Sin actividad reciente</div>';
-            } else {
-                actEl.innerHTML = data.activity.map(a => {
-                    const label = a.ai_summary || (a.text || '').substring(0, 50);
-                    const timeAgo = _timeAgo(a.created_at);
-                    const stageColors = { captured: '#3498db', organized: '#f39c12', distilled: '#9b59b6', expressed: '#2ecc71' };
-                    const stageColor = stageColors[a.code_stage] || '#888';
-                    return `<div class="hp-activity-item hp-clickable" onclick="switchSection('ideas')">
-                        <div class="hp-activity-dot" style="background:${stageColor}"></div>
-                        <div class="hp-activity-content">
-                            <span class="hp-activity-text">${escapeHtml(label)}</span>
-                            <span class="hp-activity-meta">${a.assigned_to ? escapeHtml(a.assigned_to) + ' · ' : ''}${a.area_name ? escapeHtml(a.area_name) + ' · ' : ''}${timeAgo}</span>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
-    } catch (err) {
-        console.error('My dashboard error:', err);
-    }
+        _renderMyDashboard(res.ok ? await res.json() : null);
+    } catch (err) { console.error('My dashboard error:', err); }
 }
 
 function _timeAgo(dateStr) {
@@ -4325,8 +4345,8 @@ async function performSearch(q) {
 // NOTIFICATIONS (Browser Push for Urgent Tasks)
 // ═══════════════════════════════════════════════════════════════════════════════
 function initNotifications() {
-    checkNotifications();
-    // Poll every 5 minutes
+    // First check is done by home-bundle; poll every 5 min after
+    if (!window._notifInitialDone) checkNotifications();
     setInterval(checkNotifications, 5 * 60 * 1000);
 
     const bell = document.getElementById('notificationBell');
@@ -4340,10 +4360,25 @@ function initNotifications() {
     }
 }
 
+// Called from home-bundle with pre-fetched data
+function _renderNotifications(data) {
+    if (!data) return;
+    window._notifInitialDone = true;
+    _applyNotificationData(data);
+}
+
 async function checkNotifications() {
     try {
         const res = await fetch('/api/notifications/check');
         const data = await res.json();
+        _applyNotificationData(data);
+    } catch (err) {
+        console.error('Notification check error:', err);
+    }
+}
+
+function _applyNotificationData(data) {
+    try {
         const badge = document.getElementById('notificationBadge');
         const list = document.getElementById('notificationList');
 
