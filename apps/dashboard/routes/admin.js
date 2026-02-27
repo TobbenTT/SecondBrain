@@ -1951,6 +1951,161 @@ router.put('/db/table/:name/:id/restore', requireAdmin, async (req, res) => {
     }
 });
 
+// Export single table
+router.get('/db/export/:name', requireAdmin, async (req, res) => {
+    const tableName = req.params.name;
+    if (!DB_BROWSABLE_TABLES[tableName]) return res.status(400).json({ error: 'Table not allowed' });
+    const format = (req.query.format || 'json').toLowerCase();
+
+    try {
+        const rows = await all(`SELECT * FROM ${tableName} ORDER BY id`);
+        const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+        if (format === 'csv') {
+            const escapeCsv = v => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+            };
+            const csv = [cols.join(','), ...rows.map(r => cols.map(c => escapeCsv(r[c])).join(','))].join('\n');
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${tableName}_${new Date().toISOString().slice(0,10)}.csv"`);
+            return res.send('\uFEFF' + csv); // BOM for Excel
+        }
+
+        if (format === 'sql') {
+            let sql = `-- Export: ${tableName} — ${new Date().toISOString()}\n`;
+            sql += `-- ${rows.length} rows\n\n`;
+            for (const row of rows) {
+                const vals = cols.map(c => {
+                    if (row[c] === null || row[c] === undefined) return 'NULL';
+                    if (typeof row[c] === 'number') return String(row[c]);
+                    return `'${String(row[c]).replace(/'/g, "''")}'`;
+                });
+                sql += `INSERT INTO ${tableName} (${cols.join(', ')}) VALUES (${vals.join(', ')});\n`;
+            }
+            res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${tableName}_${new Date().toISOString().slice(0,10)}.sql"`);
+            return res.send(sql);
+        }
+
+        if (format === 'excel' || format === 'xlsx') {
+            const wb = new ExcelJS.Workbook();
+            wb.created = new Date();
+            const ws = wb.addWorksheet(DB_BROWSABLE_TABLES[tableName].label || tableName);
+            if (cols.length > 0) {
+                ws.columns = cols.map(c => ({ header: c, key: c, width: Math.min(30, Math.max(12, c.length + 4)) }));
+                // Style header row
+                ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+                ws.getRow(1).alignment = { vertical: 'middle' };
+            }
+            rows.forEach(r => ws.addRow(r));
+            // Auto-filter
+            if (rows.length > 0) ws.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + cols.length)}1` };
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${tableName}_${new Date().toISOString().slice(0,10)}.xlsx"`);
+            return wb.xlsx.write(res);
+        }
+
+        // Default: JSON
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${tableName}_${new Date().toISOString().slice(0,10)}.json"`);
+        res.json({ table: tableName, exported_at: new Date().toISOString(), count: rows.length, columns: cols, rows });
+    } catch (err) {
+        log.error('DB export error', { error: err.message, table: tableName });
+        res.status(500).json({ error: 'Failed to export table' });
+    }
+});
+
+// Export full database (all tables)
+router.get('/db/export-all', requireAdmin, async (req, res) => {
+    const format = (req.query.format || 'json').toLowerCase();
+
+    try {
+        const result = {};
+        for (const [name] of Object.entries(DB_BROWSABLE_TABLES)) {
+            result[name] = await all(`SELECT * FROM ${name} ORDER BY id`);
+        }
+        const dateStr = new Date().toISOString().slice(0, 10);
+
+        if (format === 'csv') {
+            // ZIP-like: return a JSON with each table as CSV string
+            const csvData = {};
+            for (const [name, rows] of Object.entries(result)) {
+                const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+                const escapeCsv = v => {
+                    if (v === null || v === undefined) return '';
+                    const s = String(v);
+                    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+                };
+                csvData[name] = [cols.join(','), ...rows.map(r => cols.map(c => escapeCsv(r[c])).join(','))].join('\n');
+            }
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="db_full_csv_${dateStr}.json"`);
+            return res.json({ format: 'csv_bundle', exported_at: new Date().toISOString(), tables: csvData });
+        }
+
+        if (format === 'sql') {
+            let sql = `-- Full database export — ${new Date().toISOString()}\n\n`;
+            for (const [name, rows] of Object.entries(result)) {
+                const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+                sql += `-- Table: ${name} (${rows.length} rows)\n`;
+                for (const row of rows) {
+                    const vals = cols.map(c => {
+                        if (row[c] === null || row[c] === undefined) return 'NULL';
+                        if (typeof row[c] === 'number') return String(row[c]);
+                        return `'${String(row[c]).replace(/'/g, "''")}'`;
+                    });
+                    sql += `INSERT INTO ${name} (${cols.join(', ')}) VALUES (${vals.join(', ')});\n`;
+                }
+                sql += '\n';
+            }
+            res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="db_full_${dateStr}.sql"`);
+            return res.send(sql);
+        }
+
+        if (format === 'excel' || format === 'xlsx') {
+            const wb = new ExcelJS.Workbook();
+            wb.created = new Date();
+            wb.creator = 'ValueStrategy Hub';
+            for (const [name, rows] of Object.entries(result)) {
+                const cfg = DB_BROWSABLE_TABLES[name];
+                const sheetName = (cfg.label || name).substring(0, 31); // Excel max 31 chars
+                const ws = wb.addWorksheet(sheetName);
+                const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+                if (cols.length > 0) {
+                    ws.columns = cols.map(c => ({ header: c, key: c, width: Math.min(30, Math.max(12, c.length + 4)) }));
+                    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+                    ws.getRow(1).alignment = { vertical: 'middle' };
+                }
+                rows.forEach(r => ws.addRow(r));
+                if (rows.length > 0 && cols.length <= 26) {
+                    ws.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + cols.length)}1` };
+                }
+            }
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="db_full_${dateStr}.xlsx"`);
+            return wb.xlsx.write(res);
+        }
+
+        // Default: JSON
+        const jsonExport = { exported_at: new Date().toISOString(), tables: {} };
+        for (const [name, rows] of Object.entries(result)) {
+            jsonExport.tables[name] = { count: rows.length, rows };
+        }
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="db_full_${dateStr}.json"`);
+        return res.json(jsonExport);
+    } catch (err) {
+        log.error('DB export-all error', { error: err.message });
+        res.status(500).json({ error: 'Failed to export database' });
+    }
+});
+
 // Permanently delete row
 router.delete('/db/table/:name/:id', requireAdmin, async (req, res) => {
     const tableName = req.params.name;

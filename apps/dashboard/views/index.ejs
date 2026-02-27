@@ -2282,6 +2282,14 @@
 
             <!-- DB Browser panel -->
             <div id="afDbPanel" style="display:none;">
+                <!-- Export all controls -->
+                <div id="dbExportAllBar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                    <span style="font-weight:600;font-size:0.88rem;color:var(--text-primary);">Exportar toda la BD:</span>
+                    <button class="btn btn-sm" onclick="dbExportAll('excel')" style="font-size:0.78rem;gap:4px;background:rgba(34,197,94,0.15);color:#16a34a;border-color:#16a34a;">📊 Excel / Power BI</button>
+                    <button class="btn btn-sm" onclick="dbExportAll('json')" style="font-size:0.78rem;gap:4px;">📦 JSON</button>
+                    <button class="btn btn-sm" onclick="dbExportAll('csv')" style="font-size:0.78rem;gap:4px;">📋 CSV</button>
+                    <button class="btn btn-sm" onclick="dbExportAll('sql')" style="font-size:0.78rem;gap:4px;">🗃️ SQL</button>
+                </div>
                 <!-- Table selector -->
                 <div id="dbTableList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
                     <div style="text-align:center;padding:32px;color:var(--text-muted);grid-column:1/-1;">Cargando tablas...</div>
@@ -2291,9 +2299,14 @@
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
                         <button class="btn btn-sm" onclick="loadDbTables()" style="font-size:0.8rem;">← Volver a tablas</button>
                         <h3 id="dbBrowserTitle" style="margin:0;font-size:1rem;font-weight:700;color:var(--text-primary);"></h3>
-                        <div style="display:flex;gap:6px;margin-left:auto;">
+                        <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;">
                             <button class="filter-chip active" id="dbTabLive" onclick="switchDbView('live')">Activos</button>
                             <button class="filter-chip" id="dbTabDeleted" onclick="switchDbView('deleted')">Eliminados</button>
+                            <span style="border-left:1px solid var(--border);margin:0 4px;"></span>
+                            <button class="btn btn-sm" onclick="dbExportTable('excel')" title="Exportar Excel" style="font-size:0.72rem;padding:3px 8px;background:rgba(34,197,94,0.15);color:#16a34a;border-color:#16a34a;">📊 Excel</button>
+                            <button class="btn btn-sm" onclick="dbExportTable('json')" title="Exportar JSON" style="font-size:0.72rem;padding:3px 8px;">📦 JSON</button>
+                            <button class="btn btn-sm" onclick="dbExportTable('csv')" title="Exportar CSV" style="font-size:0.72rem;padding:3px 8px;">📋 CSV</button>
+                            <button class="btn btn-sm" onclick="dbExportTable('sql')" title="Exportar SQL" style="font-size:0.72rem;padding:3px 8px;">🗃️ SQL</button>
                         </div>
                     </div>
                     <div class="au-table-wrap" style="overflow-x:auto;max-height:500px;overflow-y:auto;">

@@ -10664,9 +10664,34 @@ async function dbPurgeRow(table, id) {
     } catch (_) { showToast('Error de conexión', 'error'); }
 }
 
+function dbExportTable(format) {
+    if (!_dbCurrentTable) return showToast('Selecciona una tabla primero', 'error');
+    const url = `/api/db/export/${_dbCurrentTable}?format=${format}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast(`Exportando ${_dbCurrentTable} como ${format.toUpperCase()}...`, 'success');
+}
+
+function dbExportAll(format) {
+    const url = `/api/db/export-all?format=${format}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast(`Exportando toda la BD como ${format.toUpperCase()}...`, 'success');
+}
+
 window.loadDbTables = loadDbTables;
 window.browseDbTable = browseDbTable;
 window.switchDbView = switchDbView;
 window.dbRestoreRow = dbRestoreRow;
 window.dbPurgeRow = dbPurgeRow;
+window.dbExportTable = dbExportTable;
+window.dbExportAll = dbExportAll;
 
