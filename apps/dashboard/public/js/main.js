@@ -10550,7 +10550,7 @@ async function loadDbTables() {
     _dbCurrentTable = null;
 
     try {
-        const res = await fetch('/api/admin/db/tables');
+        const res = await fetch('/api/db/tables');
         const tables = await res.json();
         list.innerHTML = tables.map(t => `
             <div class="db-table-card" onclick="browseDbTable('${t.name}')">
@@ -10586,7 +10586,7 @@ async function browseDbTable(name, page = 1) {
     tbody.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>';
 
     try {
-        const url = `/api/admin/db/table/${name}?page=${page}&limit=30&deleted=${_dbShowDeleted ? '1' : '0'}`;
+        const url = `/api/db/table/${name}?page=${page}&limit=30&deleted=${_dbShowDeleted ? '1' : '0'}`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -10645,7 +10645,7 @@ function switchDbView(view) {
 async function dbRestoreRow(table, id) {
     if (!await confirmDialog({ title: 'Restaurar registro', message: `¿Restaurar registro #${id} de ${table}?`, icon: '♻️', confirmText: 'Restaurar', variant: 'primary' })) return;
     try {
-        const res = await fetch(`/api/admin/db/table/${table}/${id}/restore`, { method: 'PUT' });
+        const res = await fetch(`/api/db/table/${table}/${id}/restore`, { method: 'PUT' });
         if (res.ok) {
             showToast('Registro restaurado', 'success');
             browseDbTable(table, _dbCurrentPage);
@@ -10656,7 +10656,7 @@ async function dbRestoreRow(table, id) {
 async function dbPurgeRow(table, id) {
     if (!await confirmDialog({ title: 'Eliminar permanentemente', message: `¿Eliminar registro #${id} de ${table} PARA SIEMPRE?`, icon: '⛔', confirmText: 'Eliminar' })) return;
     try {
-        const res = await fetch(`/api/admin/db/table/${table}/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/db/table/${table}/${id}`, { method: 'DELETE' });
         if (res.ok) {
             showToast('Registro eliminado permanentemente', 'success');
             browseDbTable(table, _dbCurrentPage);
