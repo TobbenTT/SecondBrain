@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS projects (
     project_type TEXT,
     client_name TEXT,
     geography TEXT,
+    team_members TEXT,
+    links TEXT,
     deleted_at TIMESTAMP
 );
 

@@ -94,6 +94,7 @@ async function initDatabase() {
         await migrateAuditLog();
         await migrateWebAuthn();
         await migrateDigest();
+        await migrateProjectTeam();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -348,6 +349,11 @@ async function migrateDigest() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
     await pool.query("CREATE INDEX IF NOT EXISTS idx_digest_user ON daily_digests(user_id, created_at)");
+}
+
+async function migrateProjectTeam() {
+    await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS team_members TEXT");
+    await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS links TEXT");
 }
 
 // Start initialization

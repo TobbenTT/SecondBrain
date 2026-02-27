@@ -1028,6 +1028,76 @@ function initThemeToggle() {
 let allProjects = [];
 let projectAreas = [];
 
+// ─── Team selector helper ────────────────────────────────────────────────────
+let projectUsers = [];
+function initTeamSelector(selectId, chipsId, preselected = []) {
+    const select = document.getElementById(selectId);
+    const chipsEl = document.getElementById(chipsId);
+    if (!select || !chipsEl) return { getMembers: () => [] };
+    const selected = new Set(preselected);
+
+    function render() {
+        chipsEl.innerHTML = [...selected].map(u =>
+            `<span class="team-chip">${escapeHtml(u)} <span class="team-chip-remove" data-user="${escapeHtml(u)}">&times;</span></span>`
+        ).join('');
+        select.innerHTML = '<option value="">+ Agregar miembro...</option>' +
+            projectUsers.filter(u => !selected.has(u.username))
+                .map(u => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('');
+        chipsEl.querySelectorAll('.team-chip-remove').forEach(btn => {
+            btn.addEventListener('click', () => { selected.delete(btn.dataset.user); render(); });
+        });
+    }
+
+    select.addEventListener('change', () => {
+        if (select.value) { selected.add(select.value); render(); }
+    });
+    render();
+    return { getMembers: () => [...selected] };
+}
+
+// ─── Links editor helper ─────────────────────────────────────────────────────
+const LINK_TYPES = [
+    { value: 'github', label: 'GitHub' },
+    { value: 'web', label: 'Web' },
+    { value: 'video', label: 'Video' },
+    { value: 'docs', label: 'Docs' },
+    { value: 'figma', label: 'Figma' },
+    { value: 'otro', label: 'Otro' }
+];
+const LINK_ICONS = { github: '🔗', web: '🌐', video: '🎬', docs: '📄', figma: '🎨', otro: '🔗' };
+
+function initLinksEditor(listId, btnId, preLinks = []) {
+    const listEl = document.getElementById(listId);
+    const btnEl = document.getElementById(btnId);
+    if (!listEl || !btnEl) return { getLinks: () => [] };
+    const links = [...preLinks];
+
+    function render() {
+        listEl.innerHTML = links.map((l, i) => `
+            <div class="proj-link-row">
+                <select data-linkidx="${i}" class="proj-link-type-sel">
+                    ${LINK_TYPES.map(t => `<option value="${t.value}" ${l.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+                </select>
+                <input type="url" value="${escapeHtml(l.url || '')}" placeholder="https://..." data-linkidx="${i}" class="proj-link-url-inp">
+                <span class="proj-link-remove" data-linkidx="${i}">&times;</span>
+            </div>
+        `).join('');
+        listEl.querySelectorAll('.proj-link-type-sel').forEach(sel => {
+            sel.addEventListener('change', () => { links[+sel.dataset.linkidx].type = sel.value; });
+        });
+        listEl.querySelectorAll('.proj-link-url-inp').forEach(inp => {
+            inp.addEventListener('input', () => { links[+inp.dataset.linkidx].url = inp.value; });
+        });
+        listEl.querySelectorAll('.proj-link-remove').forEach(btn => {
+            btn.addEventListener('click', () => { links.splice(+btn.dataset.linkidx, 1); render(); });
+        });
+    }
+
+    btnEl.addEventListener('click', () => { links.push({ type: 'github', url: '' }); render(); });
+    render();
+    return { getLinks: () => links.filter(l => l.url) };
+}
+
 async function initProjects() {
     const toggleBtn = document.getElementById('toggleAddProject');
     const addBody = document.getElementById('addProjectBody');
@@ -1048,6 +1118,16 @@ async function initProjects() {
             }
         }
     } catch (_) { /* areas optional */ }
+
+    // Load users for team selector
+    try {
+        const uRes = await fetch('/api/users');
+        if (uRes.ok) projectUsers = await uRes.json();
+    } catch (_) { /* users optional */ }
+
+    // Init team selector and links editor for add form
+    const addTeamSelector = initTeamSelector('projTeamAdd', 'projTeamChips');
+    const addLinksEditor = initLinksEditor('projLinksList', 'projAddLinkBtn');
 
     // Toggle panel
     if (toggleBtn && addBody) {
@@ -1082,7 +1162,9 @@ async function initProjects() {
                 geography: document.getElementById('projGeography')?.value || '',
                 related_area_id: document.getElementById('projArea')?.value || null,
                 horizon: document.getElementById('projHorizon')?.value || '',
-                deadline: document.getElementById('projDeadline')?.value || ''
+                deadline: document.getElementById('projDeadline')?.value || '',
+                team_members: addTeamSelector.getMembers(),
+                links: addLinksEditor.getLinks()
             };
 
             try {
@@ -1224,6 +1306,14 @@ function renderProjectCard(p) {
 
     const urlBtn = p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" class="btn btn-sm">Abrir ↗</a>` : '';
 
+    const teamHtml = (p.team_members || []).length
+        ? `<div class="proj-team-avatars">${p.team_members.map(u => `<span class="proj-team-avatar">${escapeHtml(u)}</span>`).join('')}</div>`
+        : '';
+
+    const linksHtml = (p.links || []).length
+        ? `<div class="proj-card-links">${p.links.map(l => `<a href="${escapeHtml(l.url)}" target="_blank" class="proj-card-link">${LINK_ICONS[l.type] || '🔗'} ${escapeHtml(LINK_TYPES.find(t => t.value === l.type)?.label || l.type)}</a>`).join('')}</div>`
+        : '';
+
     return `
         <div class="project-card ${isCliente ? 'project-card--cliente' : ''}">
             <div class="project-card-top">
@@ -1236,6 +1326,8 @@ function renderProjectCard(p) {
             <h3>${escapeHtml(p.name)}</h3>
             <p>${escapeHtml(p.description || 'Sin descripción')}</p>
             ${metaHtml}
+            ${teamHtml}
+            ${linksHtml}
             <div class="project-tech">${techHtml || '<span class="tech-tag dim">—</span>'}</div>
             <div class="project-footer">
                 ${urlBtn}
@@ -1365,6 +1457,26 @@ async function openEditProject(id) {
             </div>
             <div class="apf-row">
                 <div class="apf-field apf-wide">
+                    <label>Equipo</label>
+                    <div class="team-selector">
+                        <div class="team-selected-chips" id="editTeamChips"></div>
+                        <select id="editTeamAdd" class="team-add-select">
+                            <option value="">+ Agregar miembro...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="apf-row">
+                <div class="apf-field apf-wide">
+                    <label>Links</label>
+                    <div class="proj-links-editor">
+                        <div class="proj-links-list" id="editLinksList"></div>
+                        <button type="button" class="btn btn-sm proj-add-link-btn" id="editAddLinkBtn">+ Agregar link</button>
+                    </div>
+                </div>
+            </div>
+            <div class="apf-row">
+                <div class="apf-field apf-wide">
                     <label>Tecnologías</label>
                     <input type="text" id="editProjTech" value="${escapeHtml((p.tech || []).join(', '))}">
                 </div>
@@ -1372,6 +1484,7 @@ async function openEditProject(id) {
         </form>
     `;
 
+    let editTeamSelector, editLinksEditor;
     const result = await showCustomModal({
         title: `Editar: ${p.name}`,
         message: formHtml,
@@ -1386,6 +1499,10 @@ async function openEditProject(id) {
                     editClientFields.style.display = editType.value === 'cliente' ? 'flex' : 'none';
                 });
             }
+            // Init team selector with current members
+            editTeamSelector = initTeamSelector('editTeamAdd', 'editTeamChips', p.team_members || []);
+            // Init links editor with current links
+            editLinksEditor = initLinksEditor('editLinksList', 'editAddLinkBtn', p.links || []);
         }
     });
 
@@ -1404,7 +1521,9 @@ async function openEditProject(id) {
         geography: document.getElementById('editProjGeo')?.value || '',
         related_area_id: document.getElementById('editProjArea')?.value || null,
         horizon: document.getElementById('editProjHorizon')?.value || '',
-        deadline: document.getElementById('editProjDeadline')?.value || ''
+        deadline: document.getElementById('editProjDeadline')?.value || '',
+        team_members: editTeamSelector ? editTeamSelector.getMembers() : [],
+        links: editLinksEditor ? editLinksEditor.getLinks() : []
     };
 
     try {

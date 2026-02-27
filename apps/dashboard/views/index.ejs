@@ -813,6 +813,26 @@
                         </div>
                         <div class="apf-row">
                             <div class="apf-field apf-wide">
+                                <label>Equipo</label>
+                                <div class="team-selector" id="projTeamSelector">
+                                    <div class="team-selected-chips" id="projTeamChips"></div>
+                                    <select id="projTeamAdd" class="team-add-select">
+                                        <option value="">+ Agregar miembro...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
+                                <label>Links (GitHub, Web, Video, etc.)</label>
+                                <div class="proj-links-editor" id="projLinksEditor">
+                                    <div class="proj-links-list" id="projLinksList"></div>
+                                    <button type="button" class="btn btn-sm proj-add-link-btn" id="projAddLinkBtn">+ Agregar link</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
                                 <label>Tecnologías (coma separadas)</label>
                                 <input type="text" id="projTech" placeholder="Node.js, React, Python...">
                             </div>
