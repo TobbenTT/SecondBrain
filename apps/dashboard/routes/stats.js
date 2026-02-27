@@ -294,10 +294,13 @@ router.get('/home-bundle', async (req, res) => {
                     FROM waiting_for WHERE delegated_by = ? AND status = 'waiting'
                     AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text
                     LIMIT 5`, [username]);
-                const pending_reviews = await all(`SELECT sr.id, s.name as skill_name
-                    FROM skill_reviews sr JOIN skills s ON sr.skill_id = s.id
-                    WHERE sr.reviewer = ? AND sr.status = 'pending'
-                    LIMIT 5`, [username]);
+                let pending_reviews = [];
+                try {
+                    pending_reviews = await all(`SELECT sr.id, s.name as skill_name
+                        FROM skill_reviews sr JOIN skills s ON sr.skill_id = s.id
+                        WHERE sr.reviewer = ? AND sr.status = 'pending'
+                        LIMIT 5`, [username]);
+                } catch (_) { /* skill_reviews table may not exist yet */ }
                 return {
                     urgent_tasks: urgent || [],
                     overdue_delegations: overdue || [],

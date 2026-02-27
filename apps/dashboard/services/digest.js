@@ -15,7 +15,7 @@ async function generateUserDigest(user) {
         all("SELECT description, delegated_to, due_date FROM waiting_for WHERE delegated_by = ? AND status = 'pending'", [username]),
         all("SELECT description, delegated_by, due_date FROM waiting_for WHERE delegated_to = ? AND status = 'pending'", [username]),
         all("SELECT titulo, fecha, compromisos FROM reuniones WHERE deleted_at IS NULL AND fecha > NOW() - INTERVAL '3 days' ORDER BY fecha DESC LIMIT 5"),
-        all("SELECT task, completed FROM daily_checklist WHERE username = ? AND date = CURRENT_DATE", [username]),
+        all("SELECT idea_id, completed FROM daily_checklist WHERE username = ? AND date = CURRENT_DATE::text", [username]),
         all("SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND fecha_renovacion IS NOT NULL AND fecha_renovacion::date <= (CURRENT_DATE + INTERVAL '15 days') AND fecha_renovacion::date >= CURRENT_DATE"),
         all("SELECT title, type, current_value, target_value, unit FROM okrs WHERE (owner = ? OR owner IS NULL) AND status = 'active' AND deleted_at IS NULL", [username])
     ]);
@@ -41,7 +41,7 @@ async function generateUserDigest(user) {
         ideas,
         projects,
         waitingFor: [...waitingFor, ...waitingFrom.map(w => ({ ...w, delegated_to: w.delegated_by, description: `[Para ti] ${w.description}` }))],
-        completedToday: completedToday.map(c => ({ text: c.task, assigned_to: username })),
+        completedToday: completedToday.map(c => ({ text: `idea #${c.idea_id}`, assigned_to: username })),
         userStats,
         areas: []
     };

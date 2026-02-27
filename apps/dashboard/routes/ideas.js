@@ -98,12 +98,13 @@ router.get('/', async (req, res) => {
         const pageNum = Math.max(1, parseInt(page) || 1);
         const limitNum = Math.min(100, Math.max(1, parseInt(lim) || 50));
         const offset = (pageNum - 1) * limitNum;
+        const countParams = [...params];
         sql += ' LIMIT ? OFFSET ?';
         params.push(limitNum, offset);
 
         const [ideas, countResult] = await Promise.all([
             all(sql, params),
-            all(countSql, params)
+            all(countSql, countParams)
         ]);
         const total = countResult[0]?.total || 0;
 
