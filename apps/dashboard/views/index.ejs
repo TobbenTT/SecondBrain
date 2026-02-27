@@ -2831,6 +2831,19 @@
         </div>
     </div>
 
+    <!-- Confirm Dialog (replaces native confirm()) -->
+    <div id="confirmDialog" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+            <div class="confirm-icon" id="confirmIcon">⚠️</div>
+            <h3 class="confirm-title" id="confirmTitle">¿Estás seguro?</h3>
+            <p class="confirm-msg" id="confirmMsg">Esta acción no se puede deshacer.</p>
+            <div class="confirm-btns">
+                <button class="confirm-btn confirm-btn-cancel" id="confirmBtnCancel">Cancelar</button>
+                <button class="confirm-btn confirm-btn-ok" id="confirmBtnOk">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom Generic Modal (Alert/Confirm/Prompt) -->
     <div id="customModal" class="modal" style="display: none; z-index: 2000;">
         <div class="modal-content" style="max-width: 400px; text-align: center; max-height: 90vh; display: flex; flex-direction: column;">

@@ -598,7 +598,7 @@ async function uploadGalleryPhoto() {
 }
 
 async function deleteGalleryPhoto(id) {
-    if (!confirm('Eliminar esta foto?')) return;
+    if (!await confirmDialog({ title: 'Eliminar foto', message: 'Esta foto se eliminará permanentemente.', icon: '🗑️', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/gallery/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -1740,7 +1740,7 @@ function renderArchivos(files) {
 }
 
 async function deleteArchivo(filename) {
-    if (!confirm(`¿Eliminar "${filename}"? Esta acción no se puede deshacer.`)) return;
+    if (!await confirmDialog({ title: 'Eliminar archivo', message: `¿Eliminar "${filename}"? Esta acción no se puede deshacer.`, icon: '📄', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/archivo/${encodeURIComponent(filename)}`, { method: 'DELETE' });
         const data = await res.json();
@@ -2881,7 +2881,7 @@ async function saveContext(e) {
 }
 
 async function deleteContext(id) {
-    if (!confirm('¿Eliminar este dato de la memoria de la IA?')) return;
+    if (!await confirmDialog({ title: 'Eliminar memoria IA', message: 'Este dato se eliminará de la memoria de la IA.', icon: '🧠', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/ai/context/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -3304,6 +3304,41 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
     });
 }
 window.showCustomModal = showCustomModal; // Make global just in case
+
+// ── Custom Confirm Dialog (replaces native confirm()) ──────────────────────
+function confirmDialog({ title = '¿Estás seguro?', message = '', icon = '⚠️', confirmText = 'Confirmar', cancelText = 'Cancelar', variant = 'danger' } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('confirmDialog');
+        const titleEl = document.getElementById('confirmTitle');
+        const msgEl = document.getElementById('confirmMsg');
+        const iconEl = document.getElementById('confirmIcon');
+        const btnOk = document.getElementById('confirmBtnOk');
+        const btnCancel = document.getElementById('confirmBtnCancel');
+        if (!overlay) return resolve(false);
+
+        iconEl.textContent = icon;
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        btnOk.textContent = confirmText;
+        btnCancel.textContent = cancelText;
+        btnOk.className = 'confirm-btn confirm-btn-ok' + (variant === 'danger' ? ' danger' : variant === 'warning' ? ' warning' : '');
+        overlay.style.display = 'flex';
+
+        const close = (val) => {
+            overlay.style.display = 'none';
+            btnOk.onclick = null;
+            btnCancel.onclick = null;
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') close(false); };
+        document.addEventListener('keydown', onKey);
+        btnOk.onclick = () => close(true);
+        btnCancel.onclick = () => close(false);
+        overlay.onclick = (e) => { if (e.target === overlay) close(false); };
+        btnCancel.focus();
+    });
+}
 
 // (showToast defined above in TOAST NOTIFICATIONS section)
 
@@ -3808,7 +3843,7 @@ async function completeWaiting(id) {
 }
 
 async function deleteWaiting(id) {
-    if (!confirm('¿Eliminar esta delegacion?')) return;
+    if (!await confirmDialog({ title: 'Eliminar delegación', message: '¿Eliminar este item de espera?', icon: '⏳', confirmText: 'Eliminar' })) return;
     try {
         await fetch(`/api/waiting-for/${id}`, { method: 'DELETE' });
         showToast('Eliminado', 'info');
@@ -5697,7 +5732,7 @@ async function reopenIdea(ideaId) {
 
 // ─── Decompose Idea into Project ────────────────────────────────────────────
 async function decomposeIdea(ideaId) {
-    if (!confirm('¿Convertir esta idea en un PROYECTO con sub-tareas?')) return;
+    if (!await confirmDialog({ title: 'Convertir en proyecto', message: 'Esta idea se transformará en un proyecto con sub-tareas.', icon: '📂', confirmText: 'Convertir', variant: 'primary' })) return;
     const btn = event.target;
     btn.disabled = true;
     btn.textContent = '⏳';
@@ -6442,7 +6477,7 @@ async function uploadSkillDocument() {
 }
 
 async function deleteSkillDocument(docId) {
-    if (!confirm('Eliminar este documento?')) return;
+    if (!await confirmDialog({ title: 'Eliminar documento', message: 'Este documento se eliminará del skill.', icon: '📄', confirmText: 'Eliminar' })) return;
     const skillPath = document.getElementById('skillModalPath')?.value;
 
     try {
@@ -7234,7 +7269,7 @@ async function loadAgentsSection() {
 async function seedDemoData() {
     const btn = document.getElementById('btnSeedData');
     if (!btn) return;
-    if (!confirm('Esto insertará proyectos e ideas de ejemplo en la base de datos. ¿Continuar?')) return;
+    if (!await confirmDialog({ title: 'Cargar datos de ejemplo', message: 'Se insertarán proyectos e ideas de ejemplo en la base de datos.', icon: '🗃️', confirmText: 'Continuar', variant: 'warning' })) return;
 
     btn.disabled = true;
     btn.textContent = '⏳ Sembrando...';
@@ -7360,7 +7395,7 @@ function renderReuniones(reuniones) {
 }
 
 async function deleteReunion(id, titulo) {
-    if (!confirm(`¿Eliminar la reunion "${titulo}"?`)) return;
+    if (!await confirmDialog({ title: 'Eliminar reunión', message: `¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`, icon: '📅', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/reuniones/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -7557,7 +7592,7 @@ async function addReunionLinkPrompt(reunionId, linkType) {
 async function removeReunionLink(el) {
     const linkId = el.dataset.linkId;
     const reunionId = el.dataset.reunionId;
-    if (!confirm('Eliminar este vinculo?')) return;
+    if (!await confirmDialog({ title: 'Eliminar vínculo', message: '¿Eliminar este vínculo de la reunión?', icon: '🔗', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/reuniones/${reunionId}/links/${linkId}`, { method: 'DELETE' });
         if (res.ok) {
@@ -7706,7 +7741,7 @@ async function toggleRecipient(id, activo) {
 }
 
 async function deleteRecipient(id, email) {
-    if (!confirm(`Eliminar ${email} de los destinatarios?`)) return;
+    if (!await confirmDialog({ title: 'Eliminar destinatario', message: `¿Eliminar ${email} de los destinatarios?`, icon: '✉️', confirmText: 'Eliminar' })) return;
     try {
         await fetch(`/api/reuniones/email-recipients/${id}`, { method: 'DELETE' });
         showToast(`${email} eliminado`, 'success');
@@ -8001,7 +8036,7 @@ async function loadFbAttachments(fbId) {
 }
 
 async function deleteFbAttachment(attachId, fbId) {
-    if (!confirm('Eliminar este adjunto?')) return;
+    if (!await confirmDialog({ title: 'Eliminar adjunto', message: '¿Eliminar este archivo adjunto?', icon: '📎', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/feedback/attachment/${attachId}`, { method: 'DELETE' });
         if (res.ok) {
@@ -8258,7 +8293,7 @@ async function submitFeedbackResponse() {
 }
 
 async function deleteFeedback(id) {
-    if (!confirm('Eliminar este feedback?')) return;
+    if (!await confirmDialog({ title: 'Eliminar feedback', message: '¿Eliminar este feedback permanentemente?', icon: '💬', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/feedback/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -8659,7 +8694,7 @@ async function registerPasskey() {
 }
 
 async function removePasskey(id) {
-    if (!confirm('Eliminar esta passkey?')) return;
+    if (!await confirmDialog({ title: 'Eliminar passkey', message: 'Esta passkey ya no servirá para iniciar sesión.', icon: '🔑', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/twofa/passkey/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -8938,7 +8973,7 @@ function closeUserEditModal() {
 })();
 
 async function deleteAdminUser(id, username) {
-    if (!confirm(`Eliminar al usuario "${username}"? Esta accion no se puede deshacer.`)) return;
+    if (!await confirmDialog({ title: 'Eliminar usuario', message: `¿Eliminar a "${username}"? Esta acción no se puede deshacer.`, icon: '👤', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -8963,7 +8998,7 @@ window.disableTwofa = disableTwofa;
 window.removeTrustedDevice = removeTrustedDevice;
 window.loadTwofaStatus = loadTwofaStatus;
 async function unlockUser(userId, username) {
-    if (!confirm(`Desbloquear la cuenta de ${username}?`)) return;
+    if (!await confirmDialog({ title: 'Desbloquear cuenta', message: `¿Desbloquear la cuenta de ${username}?`, icon: '🔓', confirmText: 'Desbloquear', variant: 'warning' })) return;
     try {
         const res = await fetch(`/api/users/${userId}/unlock`, { method: 'PUT' });
         if (res.ok) {
@@ -9529,7 +9564,7 @@ async function approveInboxItem(id) {
 }
 
 async function dismissInboxItem(id) {
-    if (!confirm('¿Descartar esta idea? Se eliminará de la bandeja.')) return;
+    if (!await confirmDialog({ title: 'Descartar idea', message: 'Esta idea se eliminará de la bandeja.', icon: '🗑️', confirmText: 'Descartar' })) return;
     try {
         const res = await fetch(`/api/inbox/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -10148,7 +10183,7 @@ async function saveHerramienta(e) {
 }
 
 async function deleteHerramienta(id, nombre) {
-    if (!confirm(`Eliminar "${nombre}"? Esta accion no se puede deshacer.`)) return;
+    if (!await confirmDialog({ title: 'Eliminar herramienta', message: `¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`, icon: '🔧', confirmText: 'Eliminar' })) return;
     try {
         const res = await fetch(`/api/herramientas/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -10401,7 +10436,7 @@ async function loadAdminFilesActive() {
 }
 
 async function adminDeleteFile(filename) {
-    if (!confirm(`Mover "${filename}" a la papelera?`)) return;
+    if (!await confirmDialog({ title: 'Mover a papelera', message: `¿Mover "${filename}" a la papelera?`, icon: '🗑️', confirmText: 'Mover', variant: 'warning' })) return;
     try {
         const res = await fetch(`/api/archivo/${encodeURIComponent(filename)}`, { method: 'DELETE' });
         if (res.ok) {
@@ -10452,7 +10487,7 @@ async function loadAdminFilesTrash() {
 }
 
 async function restoreTrashFile(trashName) {
-    if (!confirm('Restaurar este archivo?')) return;
+    if (!await confirmDialog({ title: 'Restaurar archivo', message: '¿Restaurar este archivo desde la papelera?', icon: '♻️', confirmText: 'Restaurar', variant: 'primary' })) return;
     try {
         const res = await fetch('/api/admin/files/restore', {
             method: 'POST',
@@ -10473,7 +10508,7 @@ async function restoreTrashFile(trashName) {
 }
 
 async function deleteTrashFile(trashName) {
-    if (!confirm('Eliminar PERMANENTEMENTE este archivo?\nEsta accion NO se puede deshacer.')) return;
+    if (!await confirmDialog({ title: 'Eliminar permanentemente', message: 'Este archivo se eliminará para siempre. Esta acción NO se puede deshacer.', icon: '⛔', confirmText: 'Eliminar para siempre' })) return;
     try {
         const res = await fetch(`/api/admin/files/trash/${encodeURIComponent(trashName)}`, { method: 'DELETE' });
         if (res.ok) {
