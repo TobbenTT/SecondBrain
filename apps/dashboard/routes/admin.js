@@ -1863,4 +1863,107 @@ router.delete('/audit-log/purge', requireAdmin, async (req, res) => {
     }
 });
 
+// ─── Database Browser (admin only) ────────────────────────────────────────────
+
+const DB_BROWSABLE_TABLES = {
+    ideas:                    { label: 'Ideas',           icon: '💡', softDelete: true },
+    projects:                 { label: 'Proyectos',       icon: '🎯', softDelete: true },
+    areas:                    { label: 'Áreas',           icon: '📂', softDelete: false },
+    reuniones:                { label: 'Reuniones',       icon: '📅', softDelete: true },
+    feedback:                 { label: 'Feedback',        icon: '💬', softDelete: true },
+    okrs:                     { label: 'OKRs',            icon: '🏆', softDelete: true },
+    context_items:            { label: 'Memoria IA',      icon: '🧠', softDelete: true },
+    waiting_for:              { label: 'Delegaciones',    icon: '⏳', softDelete: true },
+    comments:                 { label: 'Comentarios',     icon: '💭', softDelete: true },
+    herramientas_contratadas: { label: 'Herramientas',    icon: '🔧', softDelete: true },
+    gallery_photos:           { label: 'Galería',         icon: '🖼️', softDelete: true },
+    skill_documents:          { label: 'Skill Docs',      icon: '📄', softDelete: true },
+    users:                    { label: 'Usuarios',        icon: '👤', softDelete: false },
+    inbox_log:                { label: 'Inbox Log',       icon: '📥', softDelete: false },
+    audit_log:                { label: 'Audit Log',       icon: '📋', softDelete: false },
+};
+
+// List tables with counts
+router.get('/db/tables', requireAdmin, async (_req, res) => {
+    try {
+        const tables = [];
+        for (const [name, cfg] of Object.entries(DB_BROWSABLE_TABLES)) {
+            const total = await get(`SELECT count(*) as cnt FROM ${name}`);
+            let deleted = 0;
+            if (cfg.softDelete) {
+                const d = await get(`SELECT count(*) as cnt FROM ${name} WHERE deleted_at IS NOT NULL`);
+                deleted = d?.cnt || 0;
+            }
+            tables.push({ name, ...cfg, total: total?.cnt || 0, deleted });
+        }
+        res.json(tables);
+    } catch (err) {
+        log.error('DB tables error', { error: err.message });
+        res.status(500).json({ error: 'Failed to list tables' });
+    }
+});
+
+// Browse table rows
+router.get('/db/table/:name', requireAdmin, async (req, res) => {
+    const tableName = req.params.name;
+    if (!DB_BROWSABLE_TABLES[tableName]) return res.status(400).json({ error: 'Table not allowed' });
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const offset = (page - 1) * limit;
+    const showDeleted = req.query.deleted === '1';
+    const cfg = DB_BROWSABLE_TABLES[tableName];
+
+    try {
+        let where = '';
+        if (cfg.softDelete) {
+            where = showDeleted ? 'WHERE deleted_at IS NOT NULL' : 'WHERE deleted_at IS NULL';
+        }
+        const countRow = await get(`SELECT count(*) as cnt FROM ${tableName} ${where}`);
+        const total = countRow?.cnt || 0;
+
+        const orderCol = tableName === 'audit_log' ? 'created_at' : 'id';
+        const rows = await all(`SELECT * FROM ${tableName} ${where} ORDER BY ${orderCol} DESC LIMIT ${limit} OFFSET ${offset}`);
+
+        // Get column names
+        const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+        res.json({ rows, columns: cols, total, page, limit, pages: Math.ceil(total / limit) });
+    } catch (err) {
+        log.error('DB browse error', { error: err.message, table: tableName });
+        res.status(500).json({ error: 'Failed to browse table' });
+    }
+});
+
+// Restore soft-deleted row
+router.put('/db/table/:name/:id/restore', requireAdmin, async (req, res) => {
+    const tableName = req.params.name;
+    const cfg = DB_BROWSABLE_TABLES[tableName];
+    if (!cfg || !cfg.softDelete) return res.status(400).json({ error: 'Cannot restore in this table' });
+
+    try {
+        await run(`UPDATE ${tableName} SET deleted_at = NULL WHERE id = ?`, [req.params.id]);
+        auditLog('db_restore', { actor: req.session.user.username, ip: req.ip, details: { table: tableName, id: req.params.id } });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('DB restore error', { error: err.message });
+        res.status(500).json({ error: 'Failed to restore' });
+    }
+});
+
+// Permanently delete row
+router.delete('/db/table/:name/:id', requireAdmin, async (req, res) => {
+    const tableName = req.params.name;
+    if (!DB_BROWSABLE_TABLES[tableName]) return res.status(400).json({ error: 'Table not allowed' });
+
+    try {
+        await run(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id]);
+        auditLog('db_purge', { actor: req.session.user.username, ip: req.ip, details: { table: tableName, id: req.params.id } });
+        res.json({ success: true });
+    } catch (err) {
+        log.error('DB purge error', { error: err.message });
+        res.status(500).json({ error: 'Failed to delete' });
+    }
+});
+
 module.exports = router;

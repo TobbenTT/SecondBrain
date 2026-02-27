@@ -2233,6 +2233,7 @@
                 <div style="display:flex;gap:6px;">
                     <button class="filter-chip active" id="afTabActive" onclick="switchAdminFilesTab('active')">Archivos activos <span id="afTabActiveCount" style="background:rgba(255,255,255,0.2);padding:1px 7px;border-radius:10px;font-size:0.7rem;margin-left:4px;"></span></button>
                     <button class="filter-chip" id="afTabTrash" onclick="switchAdminFilesTab('trash')">Papelera <span id="afTabTrashCount" style="background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;font-size:0.7rem;margin-left:4px;"></span></button>
+                    <button class="filter-chip" id="afTabDb" onclick="switchAdminFilesTab('db')">🗄️ Base de Datos</button>
                 </div>
                 <div id="afSearchWrap" style="position:relative;max-width:280px;flex:1;">
                     <input type="text" id="afSearchInput" placeholder="Buscar archivos..." autocomplete="off" oninput="filterAdminFiles()" style="width:100%;padding:8px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.84rem;outline:none;">
@@ -2276,6 +2277,32 @@
                             <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- DB Browser panel -->
+            <div id="afDbPanel" style="display:none;">
+                <!-- Table selector -->
+                <div id="dbTableList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
+                    <div style="text-align:center;padding:32px;color:var(--text-muted);grid-column:1/-1;">Cargando tablas...</div>
+                </div>
+                <!-- Table browser (hidden until a table is selected) -->
+                <div id="dbBrowserWrap" style="display:none;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+                        <button class="btn btn-sm" onclick="loadDbTables()" style="font-size:0.8rem;">← Volver a tablas</button>
+                        <h3 id="dbBrowserTitle" style="margin:0;font-size:1rem;font-weight:700;color:var(--text-primary);"></h3>
+                        <div style="display:flex;gap:6px;margin-left:auto;">
+                            <button class="filter-chip active" id="dbTabLive" onclick="switchDbView('live')">Activos</button>
+                            <button class="filter-chip" id="dbTabDeleted" onclick="switchDbView('deleted')">Eliminados</button>
+                        </div>
+                    </div>
+                    <div class="au-table-wrap" style="overflow-x:auto;max-height:500px;overflow-y:auto;">
+                        <table class="au-table" style="font-size:0.78rem;">
+                            <thead id="dbBrowserThead"><tr><th>Cargando...</th></tr></thead>
+                            <tbody id="dbBrowserTbody"><tr><td style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="dbPagination" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;"></div>
                 </div>
             </div>
         </section>

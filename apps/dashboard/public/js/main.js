@@ -10311,12 +10311,19 @@ function switchAdminFilesTab(tab) {
     _afCurrentTab = tab;
     document.getElementById('afTabActive').className = tab === 'active' ? 'filter-chip active' : 'filter-chip';
     document.getElementById('afTabTrash').className = tab === 'trash' ? 'filter-chip active' : 'filter-chip';
+    const dbTab = document.getElementById('afTabDb');
+    if (dbTab) dbTab.className = tab === 'db' ? 'filter-chip active' : 'filter-chip';
     document.getElementById('afActivePanel').style.display = tab === 'active' ? '' : 'none';
     document.getElementById('afTrashPanel').style.display = tab === 'trash' ? '' : 'none';
+    const dbPanel = document.getElementById('afDbPanel');
+    if (dbPanel) dbPanel.style.display = tab === 'db' ? '' : 'none';
     const searchWrap = document.getElementById('afSearchWrap');
     if (searchWrap) searchWrap.style.display = tab === 'active' ? '' : 'none';
+    const summaryBar = document.getElementById('afSummary');
+    if (summaryBar) summaryBar.style.display = tab === 'db' ? 'none' : '';
     if (tab === 'active') loadAdminFilesActive();
-    else loadAdminFilesTrash();
+    else if (tab === 'trash') loadAdminFilesTrash();
+    else if (tab === 'db') loadDbTables();
 }
 
 function loadAdminFiles() {
@@ -10528,4 +10535,138 @@ window.filterAdminFiles = filterAdminFiles;
 window.adminDeleteFile = adminDeleteFile;
 window.restoreTrashFile = restoreTrashFile;
 window.deleteTrashFile = deleteTrashFile;
+
+// ── Database Browser ────────────────────────────────────────────────────────
+let _dbCurrentTable = null;
+let _dbCurrentPage = 1;
+let _dbShowDeleted = false;
+
+async function loadDbTables() {
+    const list = document.getElementById('dbTableList');
+    const browser = document.getElementById('dbBrowserWrap');
+    if (!list) return;
+    list.style.display = '';
+    if (browser) browser.style.display = 'none';
+    _dbCurrentTable = null;
+
+    try {
+        const res = await fetch('/api/admin/db/tables');
+        const tables = await res.json();
+        list.innerHTML = tables.map(t => `
+            <div class="db-table-card" onclick="browseDbTable('${t.name}')">
+                <div class="db-table-icon">${t.icon}</div>
+                <div class="db-table-info">
+                    <div class="db-table-name">${t.label}</div>
+                    <div class="db-table-meta">${t.total} registros${t.deleted > 0 ? ` · <span style="color:#ef4444;">${t.deleted} eliminados</span>` : ''}</div>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--danger);grid-column:1/-1;">Error al cargar tablas</div>';
+    }
+}
+
+async function browseDbTable(name, page = 1) {
+    _dbCurrentTable = name;
+    _dbCurrentPage = page;
+    const list = document.getElementById('dbTableList');
+    const browser = document.getElementById('dbBrowserWrap');
+    if (list) list.style.display = 'none';
+    if (browser) browser.style.display = '';
+
+    const titleEl = document.getElementById('dbBrowserTitle');
+    const thead = document.getElementById('dbBrowserThead');
+    const tbody = document.getElementById('dbBrowserTbody');
+    const pag = document.getElementById('dbPagination');
+    const tabLive = document.getElementById('dbTabLive');
+    const tabDel = document.getElementById('dbTabDeleted');
+    if (tabLive) tabLive.className = _dbShowDeleted ? 'filter-chip' : 'filter-chip active';
+    if (tabDel) tabDel.className = _dbShowDeleted ? 'filter-chip active' : 'filter-chip';
+
+    tbody.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--text-muted);">Cargando...</td></tr>';
+
+    try {
+        const url = `/api/admin/db/table/${name}?page=${page}&limit=30&deleted=${_dbShowDeleted ? '1' : '0'}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (titleEl) titleEl.textContent = `${name} (${data.total} registros)`;
+
+        // Columns — limit display to important ones, truncate long values
+        const skipCols = ['distilled_summary', 'ai_classification'];
+        const cols = (data.columns || []).filter(c => !skipCols.includes(c));
+        const displayCols = cols.slice(0, 10); // max 10 columns visible
+
+        thead.innerHTML = '<tr>' + displayCols.map(c => `<th style="white-space:nowrap;font-size:0.72rem;">${c}</th>`).join('') + '<th style="width:90px;text-align:right;">Acciones</th></tr>';
+
+        if (data.rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${displayCols.length + 1}" style="text-align:center;padding:32px;color:var(--text-muted);">Sin registros</td></tr>`;
+        } else {
+            tbody.innerHTML = data.rows.map(row => {
+                const cells = displayCols.map(c => {
+                    let val = row[c];
+                    if (val === null || val === undefined) return '<td style="color:var(--text-muted);font-style:italic;">null</td>';
+                    val = String(val);
+                    if (val.length > 60) val = val.substring(0, 57) + '...';
+                    return `<td title="${escapeHtml(String(row[c]))}">${escapeHtml(val)}</td>`;
+                }).join('');
+                const actions = _dbShowDeleted
+                    ? `<td style="text-align:right;white-space:nowrap;">
+                        <button class="btn btn-sm" onclick="dbRestoreRow('${name}',${row.id})" title="Restaurar" style="font-size:0.72rem;padding:3px 8px;">♻️</button>
+                        <button class="btn btn-sm" onclick="dbPurgeRow('${name}',${row.id})" title="Eliminar permanentemente" style="font-size:0.72rem;padding:3px 8px;">⛔</button>
+                       </td>`
+                    : `<td style="text-align:right;white-space:nowrap;">
+                        <button class="btn btn-sm" onclick="dbPurgeRow('${name}',${row.id})" title="Eliminar permanentemente" style="font-size:0.72rem;padding:3px 8px;">🗑️</button>
+                       </td>`;
+                return `<tr>${cells}${actions}</tr>`;
+            }).join('');
+        }
+
+        // Pagination
+        if (data.pages > 1) {
+            let pagHtml = '';
+            if (page > 1) pagHtml += `<button class="btn btn-sm" onclick="browseDbTable('${name}',${page - 1})">← Anterior</button>`;
+            pagHtml += `<span style="color:var(--text-muted);font-size:0.8rem;">Página ${page} de ${data.pages}</span>`;
+            if (page < data.pages) pagHtml += `<button class="btn btn-sm" onclick="browseDbTable('${name}',${page + 1})">Siguiente →</button>`;
+            pag.innerHTML = pagHtml;
+        } else {
+            pag.innerHTML = '';
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--danger);">Error al cargar tabla</td></tr>`;
+    }
+}
+
+function switchDbView(view) {
+    _dbShowDeleted = view === 'deleted';
+    if (_dbCurrentTable) browseDbTable(_dbCurrentTable, 1);
+}
+
+async function dbRestoreRow(table, id) {
+    if (!await confirmDialog({ title: 'Restaurar registro', message: `¿Restaurar registro #${id} de ${table}?`, icon: '♻️', confirmText: 'Restaurar', variant: 'primary' })) return;
+    try {
+        const res = await fetch(`/api/admin/db/table/${table}/${id}/restore`, { method: 'PUT' });
+        if (res.ok) {
+            showToast('Registro restaurado', 'success');
+            browseDbTable(table, _dbCurrentPage);
+        } else showToast('Error al restaurar', 'error');
+    } catch (_) { showToast('Error de conexión', 'error'); }
+}
+
+async function dbPurgeRow(table, id) {
+    if (!await confirmDialog({ title: 'Eliminar permanentemente', message: `¿Eliminar registro #${id} de ${table} PARA SIEMPRE?`, icon: '⛔', confirmText: 'Eliminar' })) return;
+    try {
+        const res = await fetch(`/api/admin/db/table/${table}/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Registro eliminado permanentemente', 'success');
+            browseDbTable(table, _dbCurrentPage);
+        } else showToast('Error al eliminar', 'error');
+    } catch (_) { showToast('Error de conexión', 'error'); }
+}
+
+window.loadDbTables = loadDbTables;
+window.browseDbTable = browseDbTable;
+window.switchDbView = switchDbView;
+window.dbRestoreRow = dbRestoreRow;
+window.dbPurgeRow = dbPurgeRow;
 

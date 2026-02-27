@@ -11767,6 +11767,51 @@ select option {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Database Browser
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.db-table-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.db-table-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-secondary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.db-table-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+.db-table-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+.db-table-meta {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+[data-theme="light"] .db-table-card {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+[data-theme="light"] .db-table-card:hover {
+    background: #f9fafb;
+    border-color: #3b82f6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Custom Confirm Dialog
    ═══════════════════════════════════════════════════════════════════════════ */
 
