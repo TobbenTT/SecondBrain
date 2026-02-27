@@ -332,19 +332,94 @@ app.post('/sync-to-dashboard', async (req, res) => {
     }
 });
 
+// ─── Auto-recovery: reconcile Fireflies vs DB every 30 min ──────────────────
+async function reconcileFireflies() {
+    const FIREFLIES_API_KEY = process.env.FIREFLIES_API_KEY;
+    if (!FIREFLIES_API_KEY) return;
+
+    try {
+        console.log('[RECONCILE] Checking for missed meetings...');
+
+        // 1. Fetch last 10 transcripts from Fireflies
+        const listRes = await fetch('https://api.fireflies.ai/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${FIREFLIES_API_KEY}` },
+            body: JSON.stringify({ query: `query { transcripts(limit: 10) { id title date } }` })
+        });
+        const listData = await listRes.json();
+        if (listData.errors || !listData.data?.transcripts) {
+            console.error('[RECONCILE] Fireflies API error:', listData.errors);
+            return;
+        }
+
+        const transcripts = listData.data.transcripts;
+
+        // 2. Check which ones exist in Supabase DB
+        const { pool } = require('./scripts/db');
+        const existing = await pool.query('SELECT titulo, fecha FROM reuniones_analisis WHERE fecha >= NOW() - INTERVAL \'7 days\'');
+        const existingKeys = new Set(existing.rows.map(r => {
+            const date = r.fecha ? new Date(r.fecha).toISOString().split('T')[0] : '';
+            return `${r.titulo?.toLowerCase().trim()}|${date}`;
+        }));
+
+        // 3. Filter only recent missing ones (last 3 days)
+        const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+        const missing = transcripts.filter(t => {
+            const ts = parseInt(t.date);
+            if (ts < threeDaysAgo) return false;
+            const date = new Date(ts).toISOString().split('T')[0];
+            const key = `${t.title?.toLowerCase().trim()}|${date}`;
+            return !existingKeys.has(key);
+        });
+
+        if (missing.length === 0) {
+            console.log(`[RECONCILE] All ${transcripts.length} recent meetings accounted for.`);
+            return;
+        }
+
+        console.log(`[RECONCILE] Found ${missing.length} missing meeting(s). Recovering...`);
+        for (const t of missing) {
+            try {
+                const reunion = await obtenerTranscripcionFireflies(t.id);
+                if (reunion) {
+                    await procesarReunionDiaria(reunion);
+                    console.log(`[RECONCILE] Recovered: ${t.title}`);
+                }
+            } catch (err) {
+                console.error(`[RECONCILE] Failed to recover ${t.title}: ${err.message}`);
+            }
+        }
+    } catch (err) {
+        console.error('[RECONCILE] Error:', err.message);
+    }
+}
+
 // Tarea Programada: Envío Semanal todos los viernes a las 12:00 PM (hora servidor local)
 // Sintaxis cron: 'minuto hora dia mes dia_semana' -> '0 12 * * 5'
 cron.schedule('0 12 * * 5', () => {
     console.log('[CRON] Ejecutando tarea programada: Envío Semanal de Compromisos (Viernes 12:00)');
     enviarReporteSemanal().catch(e => console.error('[CRON] Error en la tarea semanal:', e));
 }, {
-    timezone: "America/Santiago" // Ajustar timezone según ubicación de tu servidor (ej. America/Santiago)
+    timezone: "America/Santiago"
+});
+
+// Reconciliación automática: cada 30 min (lunes a viernes, 9-18h)
+cron.schedule('*/30 9-18 * * 1-5', () => {
+    reconcileFireflies().catch(e => console.error('[RECONCILE] Cron error:', e));
+}, {
+    timezone: "America/Santiago"
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor de Webhooks operativo en puerto ${PORT}`);
+    console.log(`Servidor de Webhooks operativo en puerto ${PORT}`);
     console.log(`URL de Webhook local: http://localhost:${PORT}/webhook/fireflies`);
     console.log(`Health check: http://localhost:${PORT}/health`);
-    console.log(`📅 Tarea automatizada activa: 'Reporte Semanal' configurado para los viernes a las 12:00 PM.`);
+    console.log(`Tarea automatizada: 'Reporte Semanal' viernes 12:00 PM`);
+    console.log(`Tarea automatizada: 'Reconciliacion Fireflies' cada 30 min (L-V 9-18h)`);
     console.log(`Esperando notificaciones de Fireflies...`);
+
+    // Run reconciliation once on startup (after 30s delay to let services warm up)
+    setTimeout(() => {
+        reconcileFireflies().catch(e => console.error('[RECONCILE] Startup check error:', e));
+    }, 30000);
 });
