@@ -278,7 +278,7 @@ router.get('/inbox/pending', async (req, res) => {
                     il.id as log_id, il.source, il.ai_classification, il.routed_to, il.reviewed
              FROM ideas i
              LEFT JOIN inbox_log il ON il.original_idea_id = i.id
-             WHERE i.code_stage = 'captured' AND (i.completada IS NULL OR i.completada = '0')
+             WHERE i.code_stage = 'captured' AND i.deleted_at IS NULL AND (i.completada IS NULL OR i.completada = '0')
              ORDER BY i.needs_review DESC, i.ai_confidence ASC, i.created_at DESC`
         );
         const needsReview = items.filter(i => i.needs_review == 1 || (i.ai_confidence !== null && i.ai_confidence < 0.6));
