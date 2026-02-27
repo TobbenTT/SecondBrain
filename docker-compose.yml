@@ -82,11 +82,13 @@ services:
       - internal
 
   # Email intelligence service: processes Fireflies webhooks, sends reports
-  # Only accessible from dashboard container via internal network (no public port)
+  # Port 3003 exposed for nginx reverse proxy (Fireflies webhook)
   inteligencia-correos:
     build: ./Inteligencia-de-correos
     container_name: secondbrain-correos
     restart: unless-stopped
+    ports:
+      - "3003:3003"
     env_file:
       - ./Inteligencia-de-correos/.env
     environment:
@@ -103,6 +105,7 @@ services:
       dashboard:
         condition: service_healthy
     networks:
+      - web
       - internal
 
   # One-shot service: pulls the Ollama model if not already present
