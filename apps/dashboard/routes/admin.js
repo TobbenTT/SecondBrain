@@ -1486,7 +1486,7 @@ router.get('/graph', async (req, res) => {
         const fechaFilter = days > 0 ? `AND fecha > NOW() - INTERVAL '${days} days'` : '';
 
         const [projects, areas, ideas, reuniones, users, skills, okrs, okrLinks] = await Promise.all([
-            all('SELECT id, name, status, related_area_id, tech FROM projects'),
+            all('SELECT id, name, status, related_area_id, tech, team_members FROM projects'),
             all('SELECT id, name, status FROM areas'),
             all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE deleted_at IS NULL AND (completada IS NULL OR completada = '0') ${dateFilter} LIMIT 200`),
             all(`SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones WHERE deleted_at IS NULL ${fechaFilter} ORDER BY fecha DESC LIMIT 50`),
@@ -1568,6 +1568,16 @@ router.get('/graph', async (req, res) => {
         // ── Edges: project → area ──
         projects.filter(p => p.related_area_id).forEach(p =>
             edges.push({ source: `project-${p.id}`, target: `area-${p.related_area_id}`, type: 'project-area' }));
+
+        // ── Edges: project → user (team_members) ──
+        projects.forEach(p => {
+            let members = [];
+            try { members = p.team_members ? JSON.parse(p.team_members) : []; } catch (_) {}
+            members.forEach(name => {
+                const u = userByName[(name || '').toLowerCase().trim()];
+                if (u) edges.push({ source: `project-${p.id}`, target: `user-${u.id}`, type: 'project-user' });
+            });
+        });
 
         // ── Edges: reunion ↔ project/area by smart name matching ──
         // Build searchable text per reunion + extract mentioned people

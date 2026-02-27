@@ -9457,7 +9457,7 @@ async function loadInboxTriage() {
     }
 }
 
-function renderInboxItem(item, users, showActions) {
+function renderInboxItem(item, users, needsReview) {
     const conf = item.ai_confidence ? `${Math.round(item.ai_confidence * 100)}%` : 'N/A';
     const confColor = item.ai_confidence >= 0.6 ? '#22c55e' : item.ai_confidence >= 0.3 ? '#f59e0b' : '#ef4444';
     const typeLabel = item.ai_type || 'Sin clasificar';
@@ -9468,20 +9468,6 @@ function renderInboxItem(item, users, showActions) {
     const userOpts = users.map(u => `<option value="${u.username}"${item.assigned_to === u.username ? ' selected' : ''}>${u.username}</option>`).join('');
     const typeOpts = ['Tarea', 'Proyecto', 'Idea', 'Referencia', 'Admin', 'Reunion']
         .map(t => `<option value="${t}"${typeLabel === t ? ' selected' : ''}>${t}</option>`).join('');
-
-    const actions = showActions ? `
-        <div class="inbox-actions">
-            <select class="inbox-select" id="inboxType_${item.id}" title="Tipo">${typeOpts}</select>
-            <select class="inbox-select" id="inboxAssign_${item.id}" title="Asignar a">
-                <option value="">Sin asignar</option>${userOpts}
-            </select>
-            <select class="inbox-select" id="inboxPriority_${item.id}" title="Prioridad">
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="baja">Baja</option>
-            </select>
-            <button class="btn btn-sm" onclick="approveInboxItem(${item.id})" title="Aprobar y mover a Organizado">✅ Aprobar</button>
-        </div>` : '';
 
     return `
         <div class="inbox-item" data-id="${item.id}">
@@ -9494,7 +9480,19 @@ function renderInboxItem(item, users, showActions) {
             </div>
             <div class="inbox-item-text">${escapeHtml(item.text || item.ai_summary || '(sin texto)')}</div>
             ${item.ai_summary && item.text !== item.ai_summary ? `<div class="inbox-summary">${escapeHtml(item.ai_summary)}</div>` : ''}
-            ${actions}
+            <div class="inbox-actions">
+                <select class="inbox-select" id="inboxType_${item.id}" title="Tipo">${typeOpts}</select>
+                <select class="inbox-select" id="inboxAssign_${item.id}" title="Asignar a">
+                    <option value="">Sin asignar</option>${userOpts}
+                </select>
+                <select class="inbox-select" id="inboxPriority_${item.id}" title="Prioridad">
+                    <option value="media">Media</option>
+                    <option value="alta">Alta</option>
+                    <option value="baja">Baja</option>
+                </select>
+                <button class="btn btn-sm inbox-approve-btn" onclick="approveInboxItem(${item.id})" title="Aprobar y mover a Organizado">✅ ${needsReview ? 'Aprobar' : 'Confirmar'}</button>
+                <button class="btn btn-sm inbox-dismiss-btn" onclick="dismissInboxItem(${item.id})" title="Descartar idea">🗑️</button>
+            </div>
         </div>`;
 }
 
@@ -9524,6 +9522,23 @@ async function approveInboxItem(id) {
             if (reviewCount) reviewCount.textContent = Math.max(0, parseInt(reviewCount.textContent) - 1);
         } else {
             showToast('Error al aprobar', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexion', 'error');
+    }
+}
+
+async function dismissInboxItem(id) {
+    if (!confirm('¿Descartar esta idea? Se eliminará de la bandeja.')) return;
+    try {
+        const res = await fetch(`/api/inbox/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Idea descartada', 'success');
+            const el = document.querySelector(`.inbox-item[data-id="${id}"]`);
+            if (el) el.remove();
+            updateInboxBadge();
+        } else {
+            showToast('Error al descartar', 'error');
         }
     } catch (err) {
         showToast('Error de conexion', 'error');

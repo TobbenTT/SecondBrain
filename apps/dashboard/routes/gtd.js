@@ -311,6 +311,18 @@ router.put('/inbox/:id/approve', async (req, res) => {
     }
 });
 
+// Dismiss inbox item → soft-delete
+router.delete('/inbox/:id', async (req, res) => {
+    try {
+        await run(`UPDATE ideas SET deleted_at = ? WHERE id = ?`, [new Date().toISOString(), req.params.id]);
+        await run('UPDATE inbox_log SET reviewed = 1 WHERE original_idea_id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Inbox dismiss error', { error: err.message });
+        res.status(500).json({ error: 'Failed to dismiss' });
+    }
+});
+
 // ─── Next Actions (cross-project) ──────────────────────────────────────────
 
 router.get('/next-actions', async (req, res) => {
