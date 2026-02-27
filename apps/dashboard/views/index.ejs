@@ -2833,9 +2833,9 @@
 
     <!-- Custom Generic Modal (Alert/Confirm/Prompt) -->
     <div id="customModal" class="modal" style="display: none; z-index: 2000;">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <h3 id="customModalTitle" class="modal-title" style="margin-bottom: 12px;">Título</h3>
-            <div id="customModalMessage" style="color: var(--text-secondary); margin-bottom: 20px;">Mensaje</div>
+        <div class="modal-content" style="max-width: 400px; text-align: center; max-height: 90vh; display: flex; flex-direction: column;">
+            <h3 id="customModalTitle" class="modal-title" style="margin-bottom: 12px; flex-shrink: 0;">Título</h3>
+            <div id="customModalMessage" style="color: var(--text-secondary); margin-bottom: 20px; overflow-y: auto; flex: 1;">Mensaje</div>
 
             <div id="customModalInputContainer" style="display:none; margin-bottom: 20px;">
                 <input type="text" id="customModalInput" class="form-input" placeholder="Escribe aquí..."

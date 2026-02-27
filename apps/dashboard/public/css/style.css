@@ -3099,6 +3099,38 @@ body,
     justify-content: flex-end;
 }
 
+/* Compact form inside modals */
+.modal-content .add-project-form {
+    gap: 8px;
+}
+.modal-content .apf-row {
+    gap: 8px;
+}
+.modal-content .apf-field label {
+    font-size: 0.68rem;
+    margin-bottom: 3px;
+}
+.modal-content .apf-field input,
+.modal-content .apf-field select {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+}
+.modal-content .team-selector {
+    min-height: 32px;
+    padding: 3px 6px;
+}
+.modal-content .proj-links-editor {
+    padding: 4px;
+}
+.modal-content .proj-link-row {
+    gap: 4px;
+}
+.modal-content .proj-link-row select,
+.modal-content .proj-link-row input {
+    padding: 4px 6px;
+    font-size: 0.78rem;
+}
+
 /* Team member selector */
 .team-selector {
     display: flex;

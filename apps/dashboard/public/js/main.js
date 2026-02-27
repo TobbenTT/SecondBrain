@@ -3252,7 +3252,8 @@ function showCustomModal({ title, message, inputPlaceholder = null, isConfirm = 
         // Widen modal for form content
         const modalContent = modal.querySelector('.modal-content');
         if (modalContent) {
-            modalContent.style.maxWidth = html ? '480px' : '400px';
+            const isForm = html && message.includes('apf-row');
+            modalContent.style.maxWidth = isForm ? '620px' : (html ? '480px' : '400px');
             modalContent.style.textAlign = html ? 'left' : 'center';
         }
 
