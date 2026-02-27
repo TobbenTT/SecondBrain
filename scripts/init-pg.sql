@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS context_items (
     source TEXT,
     related_project_id TEXT,
     related_area_id TEXT,
-    distilled_summary TEXT
+    distilled_summary TEXT,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Areas (PARA — ongoing responsibilities) ─────────────────────────────────
@@ -94,7 +95,8 @@ CREATE TABLE IF NOT EXISTS waiting_for (
     status TEXT DEFAULT 'waiting',
     due_date TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Chat History ─────────────────────────────────────────────────────────────
@@ -197,7 +199,8 @@ CREATE TABLE IF NOT EXISTS herramientas_contratadas (
     estado TEXT DEFAULT 'activo',
     notas TEXT,
     created_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Daily Checklist ──────────────────────────────────────────────────────────
@@ -254,7 +257,8 @@ CREATE TABLE IF NOT EXISTS comments (
     content TEXT NOT NULL,
     section TEXT,
     highlighted_text TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Skill Documents ─────────────────────────────────────────────────────────
@@ -266,7 +270,8 @@ CREATE TABLE IF NOT EXISTS skill_documents (
     description TEXT,
     file_path TEXT,
     created_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Reuniones (meetings intelligence) ────────────────────────────────────────
@@ -355,7 +360,8 @@ CREATE TABLE IF NOT EXISTS gallery_photos (
     caption TEXT,
     category TEXT DEFAULT 'general',
     uploaded_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- ─── Reunion Links ───────────────────────────────────────────────────────────

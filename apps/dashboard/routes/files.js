@@ -267,7 +267,7 @@ router.get('/api/skill-documents', async (req, res) => {
 
     try {
         const docs = await all(
-            'SELECT * FROM skill_documents WHERE skill_path = ? ORDER BY created_at DESC',
+            'SELECT * FROM skill_documents WHERE skill_path = ? AND deleted_at IS NULL ORDER BY created_at DESC',
             [skill]
         );
         res.json(docs);
@@ -361,13 +361,7 @@ router.delete('/api/skill-documents/:id', async (req, res) => {
         const doc = await get('SELECT * FROM skill_documents WHERE id = ?', [req.params.id]);
         if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-        // Delete file from disk if exists
-        if (doc.file_path) {
-            const fullPath = path.join(SKILL_DOCS_DIR, doc.file_path);
-            if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-        }
-
-        await run('DELETE FROM skill_documents WHERE id = ?', [req.params.id]);
+        await run('UPDATE skill_documents SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         log.info('Skill document deleted', { id: req.params.id, user: user.username });
         res.json({ success: true });
     } catch (err) {

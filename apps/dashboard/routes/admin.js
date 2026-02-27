@@ -1375,7 +1375,7 @@ const galleryUpload = multer({
 
 router.get('/gallery', async (_req, res) => {
     try {
-        const photos = await all('SELECT * FROM gallery_photos ORDER BY created_at DESC LIMIT 50');
+        const photos = await all('SELECT * FROM gallery_photos WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 50');
         res.json(photos);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch gallery' });
@@ -1405,10 +1405,7 @@ router.delete('/gallery/:id', requireAdmin, async (req, res) => {
         const photo = await get('SELECT * FROM gallery_photos WHERE id = ?', [req.params.id]);
         if (!photo) return res.status(404).json({ error: 'Not found' });
 
-        const filePath = path.join(__dirname, '..', 'public', photo.url);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-        await run('DELETE FROM gallery_photos WHERE id = ?', [req.params.id]);
+        await run('UPDATE gallery_photos SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'Failed to delete photo' });
@@ -1491,7 +1488,7 @@ router.get('/graph', async (req, res) => {
             all(`SELECT id, text, ai_summary, project_id, related_area_id, assigned_to, parent_idea_id, code_stage FROM ideas WHERE deleted_at IS NULL AND (completada IS NULL OR completada = '0') ${dateFilter} LIMIT 200`),
             all(`SELECT id, titulo, fecha, asistentes, puntos_clave, acuerdos, compromisos, temas_detectados FROM reuniones WHERE deleted_at IS NULL ${fechaFilter} ORDER BY fecha DESC LIMIT 50`),
             all('SELECT id, username, role, department FROM users'),
-            all("SELECT id, key, category, para_type, related_project_id, related_area_id, distilled_summary FROM context_items WHERE para_type = 'resource' OR category = 'core'"),
+            all("SELECT id, key, category, para_type, related_project_id, related_area_id, distilled_summary FROM context_items WHERE (para_type = 'resource' OR category = 'core') AND deleted_at IS NULL"),
             all("SELECT id, title, type, parent_id, owner, status FROM okrs WHERE deleted_at IS NULL AND status = 'active'"),
             all('SELECT okr_id, link_type, link_id FROM okr_links')
         ]);
@@ -1676,7 +1673,7 @@ router.get('/graph', async (req, res) => {
 router.get('/herramientas', async (req, res) => {
     try {
         const herramientas = await all(
-            'SELECT * FROM herramientas_contratadas ORDER BY estado ASC, categoria, nombre'
+            'SELECT * FROM herramientas_contratadas WHERE deleted_at IS NULL ORDER BY estado ASC, categoria, nombre'
         );
         res.json({ herramientas });
     } catch (err) {
@@ -1687,7 +1684,7 @@ router.get('/herramientas', async (req, res) => {
 
 router.get('/herramientas/resumen', async (req, res) => {
     try {
-        const activas = await all("SELECT * FROM herramientas_contratadas WHERE estado = 'activo'");
+        const activas = await all("SELECT * FROM herramientas_contratadas WHERE estado = 'activo' AND deleted_at IS NULL");
         let totalMensual = 0;
         activas.forEach(h => {
             const costo = (h.costo_mensual || 0) * (h.num_licencias || 1);
@@ -1700,7 +1697,7 @@ router.get('/herramientas/resumen', async (req, res) => {
         });
 
         const proxRenovacion = await get(
-            "SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND fecha_renovacion IS NOT NULL AND fecha_renovacion != '' ORDER BY fecha_renovacion ASC LIMIT 1"
+            "SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND deleted_at IS NULL AND fecha_renovacion IS NOT NULL AND fecha_renovacion != '' ORDER BY fecha_renovacion ASC LIMIT 1"
         );
 
         res.json({
@@ -1749,7 +1746,7 @@ router.put('/herramientas/:id', requireAdmin, async (req, res) => {
 
 router.delete('/herramientas/:id', requireAdmin, async (req, res) => {
     try {
-        await run('DELETE FROM herramientas_contratadas WHERE id = ?', [req.params.id]);
+        await run('UPDATE herramientas_contratadas SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         log.info('Herramienta deleted', { id: req.params.id, by: req.session.user.username });
         res.json({ success: true });
     } catch (err) {

@@ -95,6 +95,7 @@ async function initDatabase() {
         await migrateWebAuthn();
         await migrateDigest();
         await migrateProjectTeam();
+        await migrateSoftDeletes();
 
         log.info('Database tables and indexes initialized');
     } catch (err) {
@@ -354,6 +355,13 @@ async function migrateDigest() {
 async function migrateProjectTeam() {
     await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS team_members TEXT");
     await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS links TEXT");
+}
+
+async function migrateSoftDeletes() {
+    const tables = ['context_items', 'waiting_for', 'herramientas_contratadas', 'comments', 'skill_documents', 'gallery_photos'];
+    for (const t of tables) {
+        await pool.query(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+    }
 }
 
 // Start initialization

@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
                     u.role, u.department, u.avatar
              FROM comments c
              LEFT JOIN users u ON c.username = u.username
-             WHERE c.target_type = ? AND c.target_id = ?
+             WHERE c.target_type = ? AND c.target_id = ? AND c.deleted_at IS NULL
              ORDER BY c.created_at ASC`,
             [target_type, target_id]
         );
@@ -118,7 +118,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Can only delete your own comments' });
         }
 
-        await run('DELETE FROM comments WHERE id = ?', [req.params.id]);
+        await run('UPDATE comments SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ deleted: true });
     } catch (err) {
         log.error('Comment delete error', { error: err.message });

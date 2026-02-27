@@ -216,13 +216,13 @@ router.get('/context', async (req, res) => {
     try {
         const { para_type, code_stage } = req.query;
         let sql = 'SELECT * FROM context_items';
-        const conditions = [];
+        const conditions = ['deleted_at IS NULL'];
         const params = [];
 
         if (para_type) { conditions.push('para_type = ?'); params.push(para_type); }
         if (code_stage) { conditions.push('code_stage = ?'); params.push(code_stage); }
 
-        if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+        sql += ' WHERE ' + conditions.join(' AND ');
         sql += ' ORDER BY para_type, category, key';
 
         const items = await all(sql, params);
@@ -263,7 +263,7 @@ router.put('/context/:id', async (req, res) => {
 
 router.delete('/context/:id', async (req, res) => {
     try {
-        await run('DELETE FROM context_items WHERE id = ?', [req.params.id]);
+        await run('UPDATE context_items SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to delete context' });

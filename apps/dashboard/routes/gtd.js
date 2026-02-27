@@ -34,7 +34,7 @@ router.get('/gtd/daily-report', async (req, res) => {
                 (SELECT sub2.text FROM ideas sub2 WHERE sub2.parent_idea_id = i.id AND sub2.proxima_accion = '1' AND sub2.deleted_at IS NULL LIMIT 1) as next_action
             FROM ideas i WHERE i.is_project = '1' AND (i.completada IS NULL OR i.completada = '0') AND i.deleted_at IS NULL
         `);
-        const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting'");
+        const waitingFor = await all("SELECT * FROM waiting_for WHERE status = 'waiting' AND deleted_at IS NULL");
         const completedToday = await all("SELECT * FROM ideas WHERE fecha_finalizacion::date = ? AND deleted_at IS NULL", [today]);
 
         const users = await all('SELECT username FROM users');
@@ -153,7 +153,7 @@ router.put('/waiting-for/:id/complete', async (req, res) => {
 
 router.delete('/waiting-for/:id', async (req, res) => {
     try {
-        await run('DELETE FROM waiting_for WHERE id = ?', [req.params.id]);
+        await run('UPDATE waiting_for SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (_err) {
         res.status(500).json({ error: 'Failed to delete' });
@@ -227,7 +227,7 @@ router.get('/checklist/:username', async (req, res) => {
         const waiting = await all(
             `SELECT w.*, a.name as area_name FROM waiting_for w
              LEFT JOIN areas a ON w.related_area_id = a.id
-             WHERE w.delegated_to = ? AND w.status = 'waiting'`,
+             WHERE w.delegated_to = ? AND w.status = 'waiting' AND w.deleted_at IS NULL`,
             [username]
         );
 
