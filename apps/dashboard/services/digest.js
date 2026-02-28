@@ -14,9 +14,9 @@ async function generateUserDigest(user) {
         all("SELECT id, name, status, deadline FROM projects WHERE status IN ('active', 'development') AND deleted_at IS NULL"),
         all("SELECT description, delegated_to, due_date FROM waiting_for WHERE delegated_by = ? AND status = 'pending'", [username]),
         all("SELECT description, delegated_by, due_date FROM waiting_for WHERE delegated_to = ? AND status = 'pending'", [username]),
-        all("SELECT titulo, fecha, compromisos FROM reuniones WHERE deleted_at IS NULL AND fecha > NOW() - INTERVAL '3 days' ORDER BY fecha DESC LIMIT 5"),
+        all("SELECT titulo, fecha, compromisos FROM reuniones WHERE deleted_at IS NULL AND fecha IS NOT NULL AND fecha != '' AND fecha::date > (CURRENT_DATE - INTERVAL '3 days') ORDER BY fecha DESC LIMIT 5"),
         all("SELECT idea_id, completed FROM daily_checklist WHERE username = ? AND date = CURRENT_DATE::text", [username]),
-        all("SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND fecha_renovacion IS NOT NULL AND fecha_renovacion::date <= (CURRENT_DATE + INTERVAL '15 days') AND fecha_renovacion::date >= CURRENT_DATE"),
+        all("SELECT nombre, fecha_renovacion FROM herramientas_contratadas WHERE estado = 'activo' AND fecha_renovacion IS NOT NULL AND fecha_renovacion != '' AND fecha_renovacion::date <= (CURRENT_DATE + INTERVAL '15 days') AND fecha_renovacion::date >= CURRENT_DATE"),
         all("SELECT title, type, current_value, target_value, unit FROM okrs WHERE (owner = ? OR owner IS NULL) AND status = 'active' AND deleted_at IS NULL", [username])
     ]);
 
