@@ -136,7 +136,7 @@ async function runDailyDigest() {
 function startDigestScheduler() {
     try {
         const cron = require('node-cron');
-        const cronExpr = process.env.DIGEST_CRON || '0 8 * * 1-5'; // 8 AM weekdays
+        const cronExpr = process.env.DIGEST_CRON || '50 7 * * 1-5'; // 7:50 AM weekdays (buffer for Ollama fallback)
         const tz = process.env.DIGEST_TIMEZONE || 'America/Santiago';
 
         cron.schedule(cronExpr, () => {
