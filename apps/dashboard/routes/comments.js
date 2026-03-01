@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'target_type, target_id, and content required' });
     }
 
-    const validTypes = ['skill', 'output', 'idea'];
+    const validTypes = ['skill', 'output', 'idea', 'feedback'];
     if (!validTypes.includes(target_type)) {
         return res.status(400).json({ error: 'Invalid target_type' });
     }
@@ -91,6 +91,27 @@ router.post('/', async (req, res) => {
                         `INSERT INTO user_notifications (username, type, title, message, link_section, link_id) VALUES (?, ?, ?, ?, ?, ?)`,
                         [recipient, 'comment_on_output', 'Nuevo comentario en entregable',
                          `${user.username} comentó en un entregable`, 'revision', parseInt(target_id) || null]
+                    );
+                }
+            } else if (target_type === 'feedback') {
+                // Notify the feedback author + admins/managers + previous commenters
+                const fb = await get('SELECT username, title FROM feedback WHERE id = ?', [target_id]);
+                if (fb && fb.username !== user.username) recipients.add(fb.username);
+
+                const admins = await all("SELECT username FROM users WHERE role IN ('admin', 'ceo', 'manager') AND username != ?", [user.username]);
+                admins.forEach(a => recipients.add(a.username));
+
+                const prev = await all(
+                    `SELECT DISTINCT username FROM comments WHERE target_type = 'feedback' AND target_id = ? AND username != ?`,
+                    [target_id, user.username]
+                );
+                prev.forEach(r => recipients.add(r.username));
+
+                for (const recipient of recipients) {
+                    await run(
+                        `INSERT INTO user_notifications (username, type, title, message, link_section, link_id) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [recipient, 'comment_on_feedback', 'Nuevo comentario en feedback',
+                         `${user.username} comentó en "${fb?.title || 'Feedback #' + target_id}"`, 'feedback', parseInt(target_id) || null]
                     );
                 }
             }

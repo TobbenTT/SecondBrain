@@ -8135,8 +8135,31 @@ function renderFeedback() {
         if (fb.status === 'corregido' && isReporter) {
             rejectHtml = `<div class="fb-reject-fix">
                 <p>Este feedback fue marcado como corregido. ¿Funciona correctamente?</p>
-                <button class="fb-reject-btn fb-reject-ok" onclick="confirmFeedbackFix(${fb.id})">✅ Sí, funciona</button>
-                <button class="fb-reject-btn fb-reject-no" onclick="rejectFeedbackFix(${fb.id})">❌ No resuelto</button>
+                <div class="fb-reject-comment" id="fbRejectComment_${fb.id}" style="display:none;margin:8px 0;">
+                    <textarea id="fbRejectText_${fb.id}" rows="2" placeholder="Describe que sigue sin funcionar..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;resize:vertical;background:var(--bg-card);color:var(--text-primary);"></textarea>
+                </div>
+                <div class="fb-reject-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="fb-reject-btn fb-reject-ok" onclick="confirmFeedbackFix(${fb.id})">✅ Sí, funciona</button>
+                    <button class="fb-reject-btn fb-reject-no" onclick="showRejectComment(${fb.id})">❌ No resuelto</button>
+                    <button class="fb-reject-btn fb-reject-no" id="fbRejectSend_${fb.id}" style="display:none;" onclick="rejectFeedbackFix(${fb.id})">Enviar rechazo</button>
+                </div>
+            </div>`;
+        }
+
+        // Comment thread
+        let commentHtml = `<div class="fb-comments" id="fbComments_${fb.id}">
+            <button class="fb-comment-toggle" onclick="loadFbComments(${fb.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.8rem;padding:4px 0;">💬 Ver comentarios</button>
+            <div id="fbCommentThread_${fb.id}" style="display:none;"></div>
+        </div>`;
+
+        // Comment input: anyone involved (reporter or admin) can comment
+        let commentInputHtml = '';
+        if (isReporter || isAdmin) {
+            commentInputHtml = `<div class="fb-add-comment" id="fbAddComment_${fb.id}" style="display:none;margin-top:8px;">
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+                    <textarea id="fbCommentInput_${fb.id}" rows="2" placeholder="Escribe un comentario..." style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;resize:vertical;background:var(--bg-card);color:var(--text-primary);"></textarea>
+                    <button class="btn btn-sm btn-primary" onclick="submitFbComment(${fb.id})" style="white-space:nowrap;">Enviar</button>
+                </div>
             </div>`;
         }
 
@@ -8155,6 +8178,8 @@ function renderFeedback() {
             ${attachHtml}
             ${rejectHtml}
             ${responseHtml}
+            ${commentHtml}
+            ${commentInputHtml}
             ${actionsHtml}
         </div>`;
     }).join('');
@@ -8398,11 +8423,28 @@ async function updateFeedbackStatus(id, status) {
     }
 }
 
+function showRejectComment(id) {
+    const box = document.getElementById(`fbRejectComment_${id}`);
+    const sendBtn = document.getElementById(`fbRejectSend_${id}`);
+    if (box) box.style.display = 'block';
+    if (sendBtn) sendBtn.style.display = 'inline-flex';
+    const textarea = document.getElementById(`fbRejectText_${id}`);
+    if (textarea) textarea.focus();
+}
+
 async function rejectFeedbackFix(id) {
+    const textarea = document.getElementById(`fbRejectText_${id}`);
+    const comment = textarea ? textarea.value.trim() : '';
+    if (!comment) {
+        showToast('Describe brevemente que no funciona', 'warning');
+        if (textarea) textarea.focus();
+        return;
+    }
     try {
         const res = await fetch(`/api/feedback/${id}/reject-fix`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ comment })
         });
         if (res.ok) {
             showToast('Feedback reabierto — el equipo será notificado', 'info');
@@ -8466,6 +8508,82 @@ async function deleteFeedback(id) {
     }
 }
 
+// ─── Feedback comments ──────────────────────────────────────────────────────
+async function loadFbComments(fbId, forceOpen) {
+    const thread = document.getElementById(`fbCommentThread_${fbId}`);
+    const addBox = document.getElementById(`fbAddComment_${fbId}`);
+    if (!thread) return;
+
+    // Toggle visibility (unless forceOpen)
+    if (!forceOpen && thread.style.display !== 'none') {
+        thread.style.display = 'none';
+        if (addBox) addBox.style.display = 'none';
+        return;
+    }
+
+    thread.style.display = 'block';
+    if (addBox) addBox.style.display = 'block';
+    thread.innerHTML = '<div style="padding:8px;color:var(--text-secondary);font-size:0.8rem;">Cargando...</div>';
+
+    try {
+        const res = await fetch(`/api/comments?target_type=feedback&target_id=${fbId}`);
+        const comments = await res.json();
+
+        if (!comments.length) {
+            thread.innerHTML = '<div style="padding:8px;color:var(--text-secondary);font-size:0.8rem;font-style:italic;">Sin comentarios aun.</div>';
+            return;
+        }
+
+        thread.innerHTML = comments.map(c => {
+            const date = new Date(c.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const roleColor = c.role === 'admin' ? '#ef4444' : c.role === 'manager' ? '#3b82f6' : '#6b7280';
+            const canDel = window.__USER__ && (window.__USER__.username === c.username || ['admin', 'ceo'].includes(window.__USER__.role));
+            return `<div style="padding:8px 12px;margin:4px 0;background:var(--bg-secondary);border-radius:6px;border-left:3px solid ${roleColor};font-size:0.85rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-weight:600;color:var(--text-primary);">👤 ${escapeHtml(c.username)} <span style="font-size:0.75rem;color:${roleColor};font-weight:400;">${c.role || ''}</span></span>
+                    <span style="font-size:0.75rem;color:var(--text-secondary);">${date}${canDel ? ` <button onclick="deleteFbComment(${c.id},${fbId})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.75rem;">✕</button>` : ''}</span>
+                </div>
+                <div style="color:var(--text-primary);">${escapeHtml(c.content)}</div>
+            </div>`;
+        }).join('');
+    } catch (err) {
+        thread.innerHTML = '<div style="padding:8px;color:#ef4444;font-size:0.8rem;">Error al cargar comentarios</div>';
+    }
+}
+
+async function submitFbComment(fbId) {
+    const input = document.getElementById(`fbCommentInput_${fbId}`);
+    if (!input || !input.value.trim()) return;
+
+    try {
+        const res = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_type: 'feedback', target_id: fbId.toString(), content: input.value.trim() })
+        });
+        if (res.ok) {
+            input.value = '';
+            showToast('Comentario agregado', 'success');
+            loadFbComments(fbId, true);
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error', 'error');
+        }
+    } catch (err) {
+        showToast('Error al enviar comentario', 'error');
+    }
+}
+
+async function deleteFbComment(commentId, fbId) {
+    if (!confirm('¿Eliminar este comentario?')) return;
+    try {
+        await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+        loadFbComments(fbId, true);
+    } catch (err) {
+        showToast('Error al eliminar', 'error');
+    }
+}
+
 window.filterFeedback = filterFeedback;
 window.openFeedbackModal = openFeedbackModal;
 window.closeFeedbackModal = closeFeedbackModal;
@@ -8478,6 +8596,13 @@ window.loadFbAttachments = loadFbAttachments;
 window.deleteFbAttachment = deleteFbAttachment;
 window.openFbLightbox = openFbLightbox;
 window.closeFbLightbox = closeFbLightbox;
+window.showRejectComment = showRejectComment;
+window.rejectFeedbackFix = rejectFeedbackFix;
+window.confirmFeedbackFix = confirmFeedbackFix;
+window.queueFeedbackItem = queueFeedbackItem;
+window.loadFbComments = loadFbComments;
+window.submitFbComment = submitFbComment;
+window.deleteFbComment = deleteFbComment;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROFILE & ADMIN USERS
@@ -8986,18 +9111,26 @@ async function changeUserRole(select) {
             select.dataset.original = newRole;
             select.className = `au-role-select role-${newRole}`;
             user.role = newRole;
-            // Update stats
+            // Re-render stats bar with updated counts
             const statsBar = document.getElementById('auStatsBar');
             if (statsBar) {
                 const roleCounts = { admin: 0, ceo: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
                 _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
-                statsBar.querySelector('.au-stat-admin .au-stat-num').textContent = roleCounts.admin;
-                statsBar.querySelector('.au-stat-ceo .au-stat-num').textContent = roleCounts.ceo;
-                statsBar.querySelector('.au-stat-manager .au-stat-num').textContent = roleCounts.manager;
-                statsBar.querySelector('.au-stat-analyst .au-stat-num').textContent = roleCounts.analyst;
-                statsBar.querySelector('.au-stat-consultor .au-stat-num').textContent = roleCounts.consultor;
-                statsBar.querySelector('.au-stat-usuario .au-stat-num').textContent = roleCounts.usuario;
-                statsBar.querySelector('.au-stat-cliente .au-stat-num').textContent = roleCounts.cliente;
+                const roleColors = { admin: '#ef4444', ceo: '#f59e0b', manager: '#3b82f6', analyst: '#10b981', consultor: '#8b5cf6', usuario: '#6b7280', cliente: '#ec4899' };
+                const roleIcons = { admin: '🛡️', ceo: '👑', manager: '📊', analyst: '🔬', consultor: '💼', usuario: '👤', cliente: '🤝' };
+                const totalCard = `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(99,102,241,0.05));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:14px 16px;text-align:center;">
+                    <div style="font-size:1.6rem;font-weight:800;color:#6366f1;">${_adminUsers.length}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Total</div>
+                </div>`;
+                const roleCards = Object.entries(roleCounts).filter(([,c]) => c > 0).map(([role, count]) => {
+                    const color = roleColors[role] || '#6b7280';
+                    return `<div style="background:linear-gradient(135deg,${color}22,${color}08);border:1px solid ${color}33;border-radius:12px;padding:14px 16px;text-align:center;">
+                        <div style="font-size:0.85rem;">${roleIcons[role] || '👤'}</div>
+                        <div style="font-size:1.3rem;font-weight:700;color:${color};">${count}</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">${role}</div>
+                    </div>`;
+                }).join('');
+                statsBar.innerHTML = totalCard + roleCards;
             }
             showToast(`Rol de ${user.username} cambiado a ${newRole}`, 'success');
         } else {

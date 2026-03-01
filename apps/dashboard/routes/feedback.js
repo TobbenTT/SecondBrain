@@ -355,13 +355,25 @@ router.put('/:id/reject-fix', async (req, res) => {
             ['abierto', req.params.id]
         );
 
+        // Save rejection comment if provided
+        const { comment } = req.body;
+        if (comment && comment.trim()) {
+            await run(
+                'INSERT INTO comments (target_type, target_id, username, content) VALUES (?, ?, ?, ?)',
+                ['feedback', req.params.id.toString(), user.username, comment.trim()]
+            );
+        }
+
         // Notify admins that the fix was rejected
+        const rejectMsg = comment && comment.trim()
+            ? `${user.username} reporta que "${fb.title}" NO está resuelto: "${comment.trim().substring(0, 200)}"`
+            : `${user.username} reporta que "${fb.title}" NO está resuelto y necesita más trabajo.`;
         const admins = await all("SELECT username FROM users WHERE role IN ('admin', 'ceo', 'manager')");
         for (const admin of admins) {
             await run(
                 `INSERT INTO user_notifications (username, type, title, message, link_section, link_id)
                  VALUES (?, 'feedback_rejected', ?, ?, 'feedback', ?)`,
-                [admin.username, 'Corrección rechazada', `${user.username} reporta que "${fb.title}" NO está resuelto y necesita más trabajo.`, req.params.id]
+                [admin.username, 'Corrección rechazada', rejectMsg, req.params.id]
             );
         }
 
