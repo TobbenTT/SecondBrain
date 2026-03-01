@@ -703,7 +703,9 @@ DESIGN INSTRUCTIONS (MANDATORY):
 10. Responsive design: sidebar hidden on mobile
 11. If there is code, use blocks with dark background and copy button
 12. Corporate style of Value Strategy Consulting
-13. ALL TEXT CONTENT MUST BE IN ${lang.name.toUpperCase()} — TRANSLATE from the source language if needed. No mixed languages.${rtlInstructions}
+13. ALL TEXT CONTENT MUST BE IN ${lang.name.toUpperCase()} — TRANSLATE from the source language if needed. No mixed languages.
+14. FAVICON: Add this in <head>: <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+15. SIDEBAR LOGO: At the top of the sidebar, add the VSC logo using: <img src="/img/vsc.png" alt="VSC" class="w-10 h-10 rounded-lg"> next to the text "ValueStrategy" (bold) and "Consulting Hub" (smaller) below it.${rtlInstructions}
 
 RESPOND ONLY WITH THE COMPLETE HTML. No explanations, no markdown, no code fences. Only HTML from <!DOCTYPE html> to </html>.`;
 
