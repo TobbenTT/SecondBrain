@@ -62,18 +62,25 @@ router.get('/home-counts', cached('home-counts', 30000, async () => {
 router.get('/code', cached('code', 30000, async () => {
     const stages = await all(`SELECT code_stage, count(*) as count FROM ideas WHERE deleted_at IS NULL GROUP BY code_stage`);
     const result = { captured: 0, organized: 0, distilled: 0, expressed: 0 };
-    stages.forEach(s => { if (s.code_stage && result.hasOwnProperty(s.code_stage)) result[s.code_stage] = s.count; });
+    stages.forEach(s => { if (s.code_stage && result.hasOwnProperty(s.code_stage)) result[s.code_stage] = parseInt(s.count) || 0; });
     const nullCount = await get(`SELECT count(*) as c FROM ideas WHERE code_stage IS NULL AND deleted_at IS NULL`);
-    result.captured += nullCount ? nullCount.c : 0;
+    result.captured += nullCount ? parseInt(nullCount.c) || 0 : 0;
     return result;
 }));
 
 // ─── PARA Stats ──────────────────────────────────────────────────────────────
 
 router.get('/para', cached('para', 30000, async () => {
-    const types = await all(`SELECT para_type, count(*) as count FROM ideas WHERE para_type IS NOT NULL AND deleted_at IS NULL GROUP BY para_type`);
+    const [types, projCount, areaCount] = await Promise.all([
+        all(`SELECT para_type, count(*) as count FROM ideas WHERE para_type IS NOT NULL AND deleted_at IS NULL GROUP BY para_type`),
+        get(`SELECT count(*) as c FROM projects WHERE deleted_at IS NULL`),
+        get(`SELECT count(*) as c FROM areas WHERE status = 'active'`)
+    ]);
     const result = { project: 0, area: 0, resource: 0, archive: 0 };
-    types.forEach(t => { if (t.para_type && result.hasOwnProperty(t.para_type)) result[t.para_type] = t.count; });
+    types.forEach(t => { if (t.para_type && result.hasOwnProperty(t.para_type)) result[t.para_type] = parseInt(t.count) || 0; });
+    // Include actual projects and areas counts (not just ideas tagged with para_type)
+    result.project = Math.max(result.project, parseInt(projCount?.c) || 0);
+    result.area = Math.max(result.area, parseInt(areaCount?.c) || 0);
     return result;
 }));
 

@@ -209,7 +209,7 @@ function _applySectionSwitch(sectionId) {
 
     // Lazy-load section-specific data
     if (sectionId === 'archivos') { if (!_lazyInited.archivos) { _lazyInited.archivos = true; initArchivos(); } }
-    if (sectionId === 'overview') { loadScript(CDN_CHARTJS).then(() => { if (!_lazyInited.overview) { _lazyInited.overview = true; initOverviewStats(); } }); }
+    if (sectionId === 'overview') { loadScript(CDN_CHARTJS).then(() => { if (!_lazyInited.overview) { _lazyInited.overview = true; initOverviewStats(); } }); if (!_lazyInited.inboxLog) { _lazyInited.inboxLog = true; loadInboxLog(); } }
     if (sectionId === 'analytics') { loadScript(CDN_CHARTJS).then(() => { if (!_lazyInited.analytics) { _lazyInited.analytics = true; initAnalytics(); } loadAnalytics(); }); }
     if (sectionId === 'openclaw') loadOpenClawStatus();
     if (sectionId === 'agents') { if (!_lazyInited.agents) { _lazyInited.agents = true; initAgents(); } loadAgentsSection(); }
@@ -763,7 +763,8 @@ async function loadDigestWidget() {
 
         const date = new Date(digest.created_at).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
         const via = digest.delivered_via === 'email' ? ' · enviado por email' : '';
-        const contentPreview = (digest.summary || digest.content.substring(0, 200)) + '...';
+        const rawPreview = digest.summary || digest.content.substring(0, 300);
+        const contentPreview = rawPreview.replace(/^#+\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/- /g, '• ').substring(0, 200) + '...';
 
         container.innerHTML = `
             <div class="digest-widget-wrapper">
@@ -791,7 +792,12 @@ async function showFullDigest(id) {
         const { digest } = await res.json();
         if (!digest) return;
 
-        const content = digest.content.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/## (.*?)(<br>|$)/g, '<h4 style="margin:12px 0 6px;color:var(--text-primary);">$1</h4>');
+        const content = digest.content
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/## (.*?)(<br>|$)/g, '<h4 style="margin:12px 0 6px;color:var(--text-primary);">$1</h4>')
+            .replace(/# (.*?)(<br>|$)/g, '<h3 style="margin:16px 0 8px;color:var(--text-primary);">$1</h3>')
+            .replace(/- (.*?)(<br>|$)/g, '<span style="display:block;padding-left:12px;">• $1</span>');
         const modal = document.getElementById('genericModal') || createGenericModal();
         modal.querySelector('.modal-title').textContent = 'Digest del Dia';
         modal.querySelector('.modal-body').innerHTML = `<div style="font-size:0.9rem;line-height:1.7;color:var(--text-secondary);">${content}</div>`;
@@ -4005,7 +4011,7 @@ async function initOverviewStats() {
         // PARA Distribution counts
         set('paraProjects', para.project || 0);
         set('paraAreas', para.area || 0);
-        set('paraResources', (para.resource || 0) + (Array.isArray(archivos) ? archivos.length : 0));
+        set('paraResources', para.resource || 0);
         set('paraArchive', para.archive || 0);
 
         // Overview stats
