@@ -142,12 +142,12 @@ const SECTION_META = {
     context: { title: 'Base de Conocimiento', subtitle: 'Información organizada por Proyectos, Áreas, Recursos y Archivo' },
     waiting: { title: 'Delegaciones y Seguimiento', subtitle: 'Tareas delegadas pendientes de respuesta o acción de terceros' },
     reportability: { title: 'Avance del Equipo', subtitle: 'Checklist diario y progreso por consultor' },
-    analytics: { title: 'Indicadores y Métricas', subtitle: 'Tendencias, gráficos y estadísticas del equipo' },
+    analytics: { title: 'Metricas y Actividad', subtitle: 'Tendencias operativas, productividad por consultor y flujo de ideas (30 dias)' },
     agents: { title: 'Agentes IA', subtitle: 'Agentes especializados para automatizar tareas de negocio' },
     openclaw: { title: 'Monitor de Procesos IA', subtitle: 'Pipeline multi-agente — Seguimiento de tareas automatizadas' },
-    inbox: { title: 'Bandeja de Ideas', subtitle: 'Ideas pendientes de clasificar — Revisa, confirma y organiza' },
+    inbox: { title: 'Bandeja de Ideas', subtitle: 'Triage inteligente — La IA clasifica, tu confirmas y asignas destino' },
     okrs: { title: 'OKRs', subtitle: 'Objetivos y Resultados Clave — Vincular proyectos a metas estratégicas' },
-    'gtd-board': { title: 'Próximas Acciones (GTD)', subtitle: 'Tareas pendientes filtradas por contexto, energía y responsable' },
+    'gtd-board': { title: 'Proximas Acciones (GTD)', subtitle: 'Tareas con proxima accion definida — conectado al flujo CODE' },
     'gtd-projects': { title: 'Proyectos GTD', subtitle: 'Proyectos desglosados en sub-tareas con próxima acción definida' },
     'gtd-report': { title: 'Reporte Diario', subtitle: 'Resumen del día generado por IA — qué pasó, qué falta, quién debe actuar' },
     'revision': { title: 'Revisión de Entregables', subtitle: 'Cola de revisión de Skills y Outputs del equipo consultor' },
@@ -1164,7 +1164,8 @@ async function initProjects() {
                 horizon: document.getElementById('projHorizon')?.value || '',
                 deadline: document.getElementById('projDeadline')?.value || '',
                 team_members: addTeamSelector.getMembers(),
-                links: addLinksEditor.getLinks()
+                links: addLinksEditor.getLinks(),
+                milestones: (document.getElementById('projMilestones')?.value || '').split(',').map(m => m.trim()).filter(m => m)
             };
 
             try {
@@ -1214,6 +1215,7 @@ async function loadProjects() {
         const res = await fetch('/api/projects');
         allProjects = await res.json();
         updateProjectStats();
+        loadProjectExecDetail();
         filterAndRenderProjects();
     } catch (err) {
         console.error('Load projects error:', err);
@@ -1243,6 +1245,59 @@ function updateProjectStats() {
     set('projExecInternal', allProjects.filter(p => (p.project_type || 'interno') === 'interno').length);
     set('projExecClient', allProjects.filter(p => p.project_type === 'cliente').length);
     set('projExecWithDeadline', allProjects.filter(p => p.deadline).length);
+}
+
+function loadProjectExecDetail() {
+    const container = document.getElementById('projExecDetail');
+    if (!container || allProjects.length === 0) {
+        if (container) container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);">Sin proyectos</div>';
+        return;
+    }
+    const now = new Date().toISOString().slice(0, 10);
+    const active = allProjects.filter(p => ['active', 'development', 'beta'].includes(p.status));
+    const overdue = allProjects.filter(p => p.deadline && p.deadline < now && !['completed', 'cancelled'].includes(p.status));
+
+    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.85rem;">';
+    // Active projects mini-table
+    html += '<div><strong style="display:block;margin-bottom:8px;">Proyectos Activos (' + active.length + ')</strong>';
+    if (active.length > 0) {
+        html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+        active.slice(0, 8).forEach(p => {
+            const st = STATUS_MAP[p.status] || { label: p.status, cls: '' };
+            html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--bg-secondary);border-radius:6px;">
+                <span>${p.icon || '📦'}</span>
+                <span style="flex:1;">${escapeHtml(p.name)}</span>
+                <span class="badge proj-status-${st.cls}" style="font-size:0.7rem;">${st.label}</span>
+                ${p.deadline ? `<span style="font-size:0.75rem;color:${p.deadline < now ? 'var(--danger)' : 'var(--text-muted)'};">${p.deadline}</span>` : ''}
+            </div>`;
+        });
+        html += '</div>';
+    } else { html += '<span style="color:var(--text-muted);">Ninguno activo</span>'; }
+    html += '</div>';
+
+    // Overdue + deadlines
+    html += '<div><strong style="display:block;margin-bottom:8px;">Proximos Vencimientos</strong>';
+    const withDeadline = allProjects.filter(p => p.deadline && !['completed', 'cancelled'].includes(p.status)).sort((a, b) => a.deadline.localeCompare(b.deadline));
+    if (withDeadline.length > 0) {
+        html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+        withDeadline.slice(0, 8).forEach(p => {
+            const isOverdue = p.deadline < now;
+            const daysLeft = Math.ceil((new Date(p.deadline) - new Date(now)) / 86400000);
+            const daysText = isOverdue ? `<span style="color:var(--danger);font-weight:600;">Vencido (${Math.abs(daysLeft)}d)</span>` :
+                daysLeft <= 7 ? `<span style="color:var(--warning);font-weight:600;">${daysLeft}d</span>` :
+                `<span style="color:var(--text-muted);">${daysLeft}d</span>`;
+            html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--bg-secondary);border-radius:6px;">
+                <span>${p.icon || '📦'}</span>
+                <span style="flex:1;">${escapeHtml(p.name)}</span>
+                <span style="font-size:0.75rem;">${p.deadline}</span>
+                ${daysText}
+            </div>`;
+        });
+        html += '</div>';
+    } else { html += '<span style="color:var(--text-muted);">Sin plazos definidos</span>'; }
+    html += '</div></div>';
+
+    container.innerHTML = html;
 }
 
 function filterAndRenderProjects() {
@@ -1328,6 +1383,7 @@ function renderProjectCard(p) {
             ${metaHtml}
             ${teamHtml}
             ${linksHtml}
+            ${(p.milestones || []).length ? `<div class="proj-milestones" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">${p.milestones.map(m => `<span class="tech-tag" style="background:rgba(99,102,241,0.15);color:#818cf8;font-size:0.72rem;">🏁 ${escapeHtml(m)}</span>`).join('')}</div>` : ''}
             <div class="project-tech">${techHtml || '<span class="tech-tag dim">—</span>'}</div>
             <div class="project-footer">
                 ${urlBtn}
@@ -1733,10 +1789,48 @@ function renderArchivos(files) {
                     <a href="${href}" class="arc-action arc-view" ${(isApp || file.hasDynamic) ? 'target="_blank"' : ''}>Abrir</a>
                     ${file.hasDynamic && !isApp ? `<a href="/archivo/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Ver archivo original">Original</a>` : ''}
                     ${downloadBtn}
+                    ${interactiveBtn}
+                    ${(!isApp && ['pdf','markdown','other'].includes(file.type)) ? `<button class="arc-action arc-download" onclick="event.stopPropagation();previewDocument('${escapeHtml(file.name)}','${file.type}')">Vista Previa</button>` : ''}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+async function previewDocument(filename, type) {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;padding:20px;';
+    modal.innerHTML = `<div style="display:flex;justify-content:space-between;width:100%;max-width:900px;margin-bottom:10px;">
+        <h3 style="color:white;margin:0;">${escapeHtml(filename)}</h3>
+        <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;">&times;</button>
+    </div>
+    <div id="docPreviewBody" style="flex:1;width:100%;max-width:900px;background:var(--bg-secondary);border-radius:12px;overflow:auto;padding:20px;color:var(--text-primary);">
+        <div class="loading-sm"><div class="spinner-sm"></div> Cargando...</div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    const body = modal.querySelector('#docPreviewBody');
+    try {
+        if (type === 'pdf') {
+            body.innerHTML = `<iframe src="/descargar/${encodeURIComponent(filename)}" style="width:100%;height:80vh;border:none;border-radius:8px;"></iframe>`;
+        } else if (type === 'markdown') {
+            const res = await fetch(`/archivo/${encodeURIComponent(filename)}`);
+            const html = await res.text();
+            body.innerHTML = html.includes('<') ? html : `<pre style="white-space:pre-wrap;">${escapeHtml(html)}</pre>`;
+        } else if (filename.endsWith('.docx') && window.mammoth) {
+            const res = await fetch(`/descargar/${encodeURIComponent(filename)}`);
+            const arrayBuffer = await res.arrayBuffer();
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            body.innerHTML = `<div style="font-family:sans-serif;line-height:1.6;">${DOMPurify.sanitize(result.value)}</div>`;
+        } else {
+            const res = await fetch(`/descargar/${encodeURIComponent(filename)}`);
+            const text = await res.text();
+            body.innerHTML = `<pre style="white-space:pre-wrap;font-size:0.85rem;">${escapeHtml(text)}</pre>`;
+        }
+    } catch (err) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">No se pudo cargar la vista previa: ${escapeHtml(err.message)}</div>`;
+    }
 }
 
 async function deleteArchivo(filename) {
@@ -2954,8 +3048,12 @@ async function initSkills() {
     };
 
     try {
-        const res = await fetch('/api/skills');
+        const [res, reviewsRes] = await Promise.all([fetch('/api/skills'), fetch('/api/skill-reviews')]);
         const skills = await res.json();
+        const allReviews = reviewsRes.ok ? await reviewsRes.json() : [];
+        // Build review status map (latest review per skill_path)
+        const reviewMap = {};
+        allReviews.forEach(r => { if (!reviewMap[r.skill_path]) reviewMap[r.skill_path] = r; });
 
         // Ensure functionalGroup exists (fallback if server cache stale)
         const CAT_FALLBACK = { core: 'engineering', customizable: 'communication', integration: 'ai-dev' };
@@ -3053,6 +3151,11 @@ async function initSkills() {
                 const catIcon = skill.category === 'core' ? '🧠' : skill.category === 'integration' ? '🔗' : '🛠️';
                 const catLabel = skill.category === 'core' ? 'Core' : skill.category === 'integration' ? 'Integration' : 'Customizable';
 
+                const review = reviewMap[skill.path];
+                const reviewBadge = review ? (review.status === 'validated' ? '<span style="color:#10b981;font-size:0.7rem;font-weight:600;">✓ Validado</span>' :
+                    review.status === 'needs_update' ? '<span style="color:#f59e0b;font-size:0.7rem;font-weight:600;">⚠ Revisar</span>' :
+                    review.status === 'deprecated' ? '<span style="color:#ef4444;font-size:0.7rem;font-weight:600;">✗ Deprecado</span>' : '') : '';
+
                 card.innerHTML = `
                     <div class="skill-icon">${meta.icon}</div>
                     <div class="skill-info">
@@ -3060,6 +3163,7 @@ async function initSkills() {
                         <div class="skill-badges">
                             <span class="skill-category">${meta.label}</span>
                             <span class="skill-type-badge skill-type-${skill.category}">${catIcon} ${catLabel}</span>
+                            ${reviewBadge}
                         </div>
                     </div>
                 `;
@@ -3658,8 +3762,13 @@ async function loadAreas() {
                     <p class="area-desc">${escapeHtml(area.description || 'Sin descripción')}</p>
                     <div class="area-stats">
                         <span>💡 ${area.ideas_count || 0} ideas</span>
+                        <span>🚀 ${area.projects_count || 0} proyectos</span>
                         <span>🧠 ${area.context_count || 0} contexto</span>
+                        <span>📊 ${area.completion_rate || 0}%</span>
                     </div>
+                    ${(area.ideas_count || 0) > 0 ? `<div style="background:var(--bg-tertiary);border-radius:4px;height:6px;margin-top:6px;overflow:hidden;">
+                        <div style="background:var(--success);height:100%;width:${area.completion_rate || 0}%;border-radius:4px;transition:width 0.3s;"></div>
+                    </div>` : ''}
                     <div class="area-actions">
                         <button class="btn-icon" onclick="editArea(${area.id})" title="Editar">✏️</button>
                         ${area.status === 'active' ? `<button class="btn-icon delete" onclick="archiveArea(${area.id})" title="Archivar">🗄️</button>` : ''}
@@ -4941,6 +5050,13 @@ async function loadAnalytics() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
+        if (!data || typeof data !== 'object') {
+            document.querySelectorAll('#section-analytics .panel-body').forEach(el => {
+                el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);">Sin datos disponibles</div>';
+            });
+            return;
+        }
+
         const chartDefaults = {
             responsive: true,
             maintainAspectRatio: false,
@@ -5053,6 +5169,7 @@ async function loadAnalytics() {
         const pipeline = document.getElementById('codeFlowPipeline');
         if (pipeline && data.codeFlow) {
             const stageMap = { captured: 'Capturada', organized: 'Organizada', distilled: 'Destilada', expressed: 'Expresada' };
+            const stageTips = { captured: 'Ideas recibidas sin procesar', organized: 'Clasificadas y vinculadas a proyecto/area', distilled: 'Insight principal extraido', expressed: 'Entregable final generado' };
             const stageColors = { captured: '#3b82f6', organized: '#f59e0b', distilled: '#8b5cf6', expressed: '#10b981' };
             const stageIcons = { captured: '📥', organized: '📂', distilled: '🧪', expressed: '🚀' };
             const stages = ['captured', 'organized', 'distilled', 'expressed'];
@@ -5064,7 +5181,7 @@ async function loadAnalytics() {
                 const count = counts[key] || 0;
                 const pct = Math.round(count / total * 100);
                 return `
-                    <div class="cfp-stage">
+                    <div class="cfp-stage" title="${stageTips[key] || ''}">
                         <div class="cfp-icon">${stageIcons[key]}</div>
                         <div class="cfp-bar-wrap">
                             <div class="cfp-bar" style="width:${Math.max(pct, 4)}%;background:${stageColors[key]}"></div>
@@ -5079,7 +5196,15 @@ async function loadAnalytics() {
 
     } catch (err) {
         console.error('Analytics error:', err);
-        showToast('Error cargando analytics: ' + err.message, 'error');
+        const errBanner = document.getElementById('section-analytics');
+        if (errBanner) {
+            const firstPanel = errBanner.querySelector('.panel');
+            if (firstPanel) firstPanel.insertAdjacentHTML('beforebegin',
+                `<div class="inbox-explainer" style="border-left:3px solid var(--danger);margin-bottom:16px;">
+                    <div class="inbox-explainer-icon">⚠️</div>
+                    <div><strong>Error cargando metricas</strong><p>${escapeHtml(err.message)}. Intenta recargar la seccion.</p></div>
+                </div>`);
+        }
     }
 }
 

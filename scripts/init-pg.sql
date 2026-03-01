@@ -126,7 +126,19 @@ CREATE TABLE IF NOT EXISTS projects (
     geography TEXT,
     team_members TEXT,
     links TEXT,
+    milestones TEXT,
     deleted_at TIMESTAMP
+);
+
+-- ─── Skill Reviews ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS skill_reviews (
+    id SERIAL PRIMARY KEY,
+    skill_path TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─── Skills ───────────────────────────────────────────────────────────────────

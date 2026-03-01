@@ -100,34 +100,33 @@ router.get('/overview', cached('overview', 30000, async () => {
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 router.get('/analytics', async (req, res) => {
+    const safe = async (fn) => { try { return await fn(); } catch (e) { log.error('Analytics sub-query failed', { error: e.message }); return null; } };
+
     try {
-        const ideasPerDay = await all(`SELECT DATE(created_at) as date, count(*) as count
-            FROM ideas WHERE created_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL
-            GROUP BY DATE(created_at) ORDER BY date`);
-
-        const ideasPerWeek = await all(`SELECT TO_CHAR(created_at, 'IYYY-"W"IW') as week, count(*) as count
-            FROM ideas WHERE created_at >= NOW() - INTERVAL '84 days' AND deleted_at IS NULL
-            GROUP BY TO_CHAR(created_at, 'IYYY-"W"IW') ORDER BY week`);
-
-        const completionPerDay = await all(`SELECT date,
-            count(*) as total, sum(completed) as completed,
-            ROUND(CAST(sum(completed) AS NUMERIC) / count(*) * 100, 1) as rate
-            FROM daily_checklist WHERE date >= (CURRENT_DATE - INTERVAL '30 days')::text
-            GROUP BY date ORDER BY date`);
-
-        const activeAreas = await all(`SELECT a.name, a.icon, count(i.id) as idea_count
-            FROM areas a LEFT JOIN ideas i ON i.related_area_id = CAST(a.id AS TEXT) AND i.deleted_at IS NULL
-            WHERE a.status = 'active' GROUP BY a.id, a.name, a.icon ORDER BY idea_count DESC`);
-
-        const codeFlow = await all(`SELECT code_stage, count(*) as count FROM ideas WHERE deleted_at IS NULL GROUP BY code_stage`);
-        const byType = await all(`SELECT ai_type, count(*) as count FROM ideas WHERE ai_type IS NOT NULL AND deleted_at IS NULL GROUP BY ai_type ORDER BY count DESC`);
-        const byPriority = await all(`SELECT priority, count(*) as count FROM ideas WHERE priority IS NOT NULL AND deleted_at IS NULL GROUP BY priority`);
-
-        const userProductivity = await all(`SELECT assigned_to as username, count(*) as ideas_created,
-            sum(CASE WHEN code_stage = 'expressed' THEN 1 ELSE 0 END) as expressed,
-            sum(CASE WHEN code_stage = 'distilled' THEN 1 ELSE 0 END) as distilled
-            FROM ideas WHERE assigned_to IS NOT NULL AND created_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL
-            GROUP BY assigned_to`);
+        const [ideasPerDay, ideasPerWeek, completionPerDay, activeAreas, codeFlow, byType, byPriority, userProductivity] = await Promise.all([
+            safe(() => all(`SELECT DATE(created_at) as date, count(*) as count
+                FROM ideas WHERE created_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL
+                GROUP BY DATE(created_at) ORDER BY date`)),
+            safe(() => all(`SELECT TO_CHAR(created_at, 'IYYY-"W"IW') as week, count(*) as count
+                FROM ideas WHERE created_at >= NOW() - INTERVAL '84 days' AND deleted_at IS NULL
+                GROUP BY TO_CHAR(created_at, 'IYYY-"W"IW') ORDER BY week`)),
+            safe(() => all(`SELECT date,
+                count(*) as total, sum(completed) as completed,
+                ROUND(CAST(sum(completed) AS NUMERIC) / count(*) * 100, 1) as rate
+                FROM daily_checklist WHERE date >= (CURRENT_DATE - INTERVAL '30 days')::text
+                GROUP BY date ORDER BY date`)),
+            safe(() => all(`SELECT a.name, a.icon, count(i.id) as idea_count
+                FROM areas a LEFT JOIN ideas i ON i.related_area_id = CAST(a.id AS TEXT) AND i.deleted_at IS NULL
+                WHERE a.status = 'active' GROUP BY a.id, a.name, a.icon ORDER BY idea_count DESC`)),
+            safe(() => all(`SELECT code_stage, count(*) as count FROM ideas WHERE deleted_at IS NULL GROUP BY code_stage`)),
+            safe(() => all(`SELECT ai_type, count(*) as count FROM ideas WHERE ai_type IS NOT NULL AND deleted_at IS NULL GROUP BY ai_type ORDER BY count DESC`)),
+            safe(() => all(`SELECT priority, count(*) as count FROM ideas WHERE priority IS NOT NULL AND deleted_at IS NULL GROUP BY priority`)),
+            safe(() => all(`SELECT assigned_to as username, count(*) as ideas_created,
+                sum(CASE WHEN code_stage = 'expressed' THEN 1 ELSE 0 END) as expressed,
+                sum(CASE WHEN code_stage = 'distilled' THEN 1 ELSE 0 END) as distilled
+                FROM ideas WHERE assigned_to IS NOT NULL AND created_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL
+                GROUP BY assigned_to`))
+        ]);
 
         res.json({ ideasPerDay, ideasPerWeek, completionPerDay, activeAreas, codeFlow, byType, byPriority, userProductivity });
     } catch (err) {

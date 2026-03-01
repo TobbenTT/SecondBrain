@@ -95,6 +95,7 @@ async function initDatabase() {
         await migrateWebAuthn();
         await migrateDigest();
         await migrateProjectTeam();
+        await migrateFeedbackFeatures();
         await migrateSoftDeletes();
 
         log.info('Database tables and indexes initialized');
@@ -355,6 +356,19 @@ async function migrateDigest() {
 async function migrateProjectTeam() {
     await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS team_members TEXT");
     await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS links TEXT");
+}
+
+async function migrateFeedbackFeatures() {
+    await pool.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS milestones TEXT");
+    await pool.query(`CREATE TABLE IF NOT EXISTS skill_reviews (
+        id SERIAL PRIMARY KEY,
+        skill_path TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        reviewed_by TEXT,
+        reviewed_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
 }
 
 async function migrateSoftDeletes() {

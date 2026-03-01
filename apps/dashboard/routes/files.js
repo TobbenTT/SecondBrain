@@ -450,4 +450,61 @@ router.delete('/api/admin/files/trash/:trashName', requireAdmin, (req, res) => {
     }
 });
 
+// ─── Skill Reviews ──────────────────────────────────────────────────────────
+router.get('/api/skill-reviews', async (req, res) => {
+    try {
+        const reviews = await all('SELECT * FROM skill_reviews ORDER BY created_at DESC');
+        res.json(reviews);
+    } catch (_) { res.json([]); }
+});
+
+router.get('/api/skill-reviews/:skillPath', async (req, res) => {
+    try {
+        const reviews = await all('SELECT * FROM skill_reviews WHERE skill_path = ? ORDER BY created_at DESC', [req.params.skillPath]);
+        res.json(reviews);
+    } catch (_) { res.json([]); }
+});
+
+router.post('/api/skill-reviews', requireAdmin, async (req, res) => {
+    const { skill_path, status, notes } = req.body;
+    if (!skill_path) return res.status(400).json({ error: 'skill_path required' });
+    const validStatuses = ['pending', 'validated', 'needs_update', 'deprecated'];
+    const safeStatus = validStatuses.includes(status) ? status : 'pending';
+    try {
+        await run('INSERT INTO skill_reviews (skill_path, status, reviewed_by, reviewed_at, notes) VALUES (?, ?, ?, NOW(), ?)',
+            [skill_path, safeStatus, req.session.user.username, notes || '']);
+        res.json({ success: true });
+    } catch (err) {
+        log.error('Skill review error', { error: err.message });
+        res.status(500).json({ error: 'Failed to save review' });
+    }
+});
+
+// ─── Skill Git Info ─────────────────────────────────────────────────────────
+router.get('/api/skills/git-info', async (req, res) => {
+    const file = req.query.file;
+    if (!file) return res.json({ lastCommit: null, repoUrl: null });
+    try {
+        const fullPath = path.resolve(SKILLS_DIR, file);
+        if (!fullPath.startsWith(path.resolve(SKILLS_DIR))) return res.status(403).json({ error: 'denied' });
+        const relativePath = path.relative(REPO_ROOT, fullPath).replace(/\\/g, '/');
+        const logResult = await git.log({ file: relativePath, maxCount: 1 });
+        const latest = logResult.latest;
+
+        let repoUrl = null;
+        try {
+            const remotes = await git.getRemotes(true);
+            const origin = remotes.find(r => r.name === 'origin');
+            if (origin?.refs?.fetch) {
+                repoUrl = origin.refs.fetch.replace('.git', '').replace('git@github.com:', 'https://github.com/');
+            }
+        } catch (_) {}
+
+        res.json({
+            lastCommit: latest ? { message: latest.message, date: latest.date, author: latest.author_name } : null,
+            repoUrl: repoUrl ? `${repoUrl}/blob/main/${relativePath}` : null
+        });
+    } catch (_) { res.json({ lastCommit: null, repoUrl: null }); }
+});
+
 module.exports = router;

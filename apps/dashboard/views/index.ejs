@@ -15,6 +15,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
     <script defer src="https://unpkg.com/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 </head>
 
 <body>
@@ -33,7 +34,7 @@
 
         <nav class="sidebar-nav">
             <div class="nav-section">
-                <span class="nav-label">Principal</span>
+                <span class="nav-label" title="Vistas generales y resumen ejecutivo">Inicio</span>
                 <a href="#home" class="nav-link active" data-section="home">
                     <span class="nav-icon">🏠</span>
                     Inicio
@@ -42,13 +43,10 @@
                     <span class="nav-icon">📊</span>
                     Dashboard General
                 </a>
-                <a href="#analytics" class="nav-link" data-section="analytics">
-                    <span class="nav-icon">📈</span>
-                    Indicadores y Metricas
-                </a>
+                <!-- Analytics moved to Equipo y Seguimiento -->
             </div>
             <div class="nav-section">
-                <span class="nav-label">Gestion Operativa</span>
+                <span class="nav-label" title="Proyectos, areas, reuniones y seguimiento operativo">Gestion Operativa</span>
                 <a href="#projects" class="nav-link" data-section="projects">
                     <span class="nav-icon">🚀</span>
                     Proyectos
@@ -71,7 +69,7 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Captura e Ideas</span>
+                <span class="nav-label" title="Captura, clasificacion IA y procesamiento de ideas (CODE)">Captura y Procesamiento</span>
                 <a href="#inbox" class="nav-link" data-section="inbox">
                     <span class="nav-icon">📥</span>
                     Bandeja de Ideas
@@ -83,7 +81,7 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Documentos</span>
+                <span class="nav-label" title="Archivos, documentos y base de conocimiento">Documentos</span>
                 <a href="#archivos" class="nav-link" data-section="archivos">
                     <span class="nav-icon">📄</span>
                     Recursos y Documentos
@@ -94,7 +92,7 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Herramientas</span>
+                <span class="nav-label" title="Skills tecnicos, metodologias y agentes de IA">IA y Skills</span>
                 <a href="#skills" class="nav-link" data-section="skills">
                     <span class="nav-icon">📚</span>
                     Skills
@@ -113,7 +111,7 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Planificacion (GTD)</span>
+                <span class="nav-label" title="Proximas acciones, proyectos GTD y reporte diario">Planificacion (GTD)</span>
                 <a href="#gtd-board" class="nav-link" data-section="gtd-board">
                     <span class="nav-icon">🎯</span>
                     Proximas Acciones
@@ -128,7 +126,11 @@
                 </a>
             </div>
             <div class="nav-section">
-                <span class="nav-label">Equipo y Seguimiento</span>
+                <span class="nav-label" title="Avance del equipo, metricas y revision de entregables">Equipo y Seguimiento</span>
+                <a href="#analytics" class="nav-link" data-section="analytics">
+                    <span class="nav-icon">📈</span>
+                    Metricas y Actividad
+                </a>
                 <a href="#reportability" class="nav-link" data-section="reportability">
                     <span class="nav-icon">📋</span>
                     Avance del Equipo
@@ -246,19 +248,20 @@
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section active" id="section-home">
 
-            <!-- Hero -->
-            <div class="home-hero">
-                <div class="home-hero-bg"></div>
-                <div class="home-hero-content">
-                    <p class="home-hero-label">VALUE STRATEGY CONSULTING</p>
-                    <h2 class="home-hero-title">Hub Interno de<br>Operaciones</h2>
-                    <p class="home-hero-greeting" id="homeGreeting"></p>
-                    <div class="home-hero-divider"></div>
-                    <p class="home-hero-tagline">
-                        Plataforma centralizada para gestionar proyectos, documentacion,
-                        metodologias y skills del equipo.
-                    </p>
+            <!-- Hero (compact operational) -->
+            <div class="home-hero" style="padding:20px 24px;">
+                <div class="home-hero-content" style="text-align:left;max-width:100%;">
+                    <p class="home-hero-greeting" id="homeGreeting" style="font-size:1.3rem;margin:0;font-weight:600;"></p>
+                    <p style="font-size:0.85rem;margin:4px 0 0;opacity:0.65;">Plataforma centralizada para gestionar proyectos, documentacion y trabajo del equipo.</p>
                 </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <button class="btn btn-sm" onclick="switchSection('inbox')" style="font-size:0.82rem;">📥 Bandeja de Ideas</button>
+                <button class="btn btn-sm" onclick="switchSection('gtd-board')" style="font-size:0.82rem;">🎯 Proximas Acciones</button>
+                <button class="btn btn-sm" onclick="switchSection('reuniones')" style="font-size:0.82rem;">📅 Reuniones</button>
+                <button class="btn btn-sm" onclick="document.getElementById('quickCaptureInput').focus()" style="font-size:0.82rem;">🎤 Captura Rapida</button>
             </div>
 
             <!-- Stats Strip -->
@@ -343,10 +346,10 @@
                 </div>
             </div>
 
-            <!-- Gallery -->
+            <!-- Gallery (collapsed by default) -->
             <div class="home-gallery-section" id="homeGallerySection">
-                <div class="home-gallery-header">
-                    <h3 class="home-section-title">Galeria</h3>
+                <div class="home-gallery-header" style="cursor:pointer;" onclick="const g=document.getElementById('homeGalleryContent');g.style.display=g.style.display==='none'?'block':'none';this.querySelector('.gallery-toggle').textContent=g.style.display==='none'?'Mostrar ↓':'Ocultar ↑';">
+                    <h3 class="home-section-title">Galeria <span class="gallery-toggle" style="font-size:0.8rem;font-weight:400;opacity:0.6;">Mostrar ↓</span></h3>
                     <div class="gallery-header-actions">
                         <div class="gallery-filter-tabs" id="galleryFilterTabs">
                             <button class="gallery-filter-tab active" data-filter="all">Todas</button>
@@ -360,6 +363,7 @@
                         <% } %>
                     </div>
                 </div>
+                <div id="homeGalleryContent" style="display:none;">
                 <div class="home-gallery-grid" id="homeGalleryGrid"></div>
                 <div id="galleryUploadForm" class="gallery-upload-form" style="display:none;">
                     <div class="gallery-upload-row">
@@ -387,6 +391,7 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- /homeGalleryContent -->
             </div>
 
             <!-- Gallery Lightbox -->
@@ -520,22 +525,22 @@
                 </div>
                 <div class="ov-pipeline-track">
                     <div class="ov-pipeline-line"></div>
-                    <div class="ov-stage" onclick="switchSection('ideas')">
+                    <div class="ov-stage" onclick="switchSection('ideas')" title="Ideas recibidas sin procesar">
                         <div class="ov-stage-ring captured"><span>📥</span></div>
                         <div class="ov-stage-count" id="codeCaptured">0</div>
                         <div class="ov-stage-label">Capturadas</div>
                     </div>
-                    <div class="ov-stage" onclick="switchSection('ideas')">
+                    <div class="ov-stage" onclick="switchSection('ideas')" title="Clasificadas y vinculadas a proyecto o area">
                         <div class="ov-stage-ring organized"><span>📂</span></div>
                         <div class="ov-stage-count" id="codeOrganized">0</div>
                         <div class="ov-stage-label">Organizadas</div>
                     </div>
-                    <div class="ov-stage" onclick="switchSection('ideas')">
+                    <div class="ov-stage" onclick="switchSection('ideas')" title="Insight principal extraido y resumido">
                         <div class="ov-stage-ring distilled"><span>💎</span></div>
                         <div class="ov-stage-count" id="codeDistilled">0</div>
                         <div class="ov-stage-label">Destiladas</div>
                     </div>
-                    <div class="ov-stage" onclick="switchSection('ideas')">
+                    <div class="ov-stage" onclick="switchSection('ideas')" title="Entregable final generado">
                         <div class="ov-stage-ring expressed"><span>🚀</span></div>
                         <div class="ov-stage-count" id="codeExpressed">0</div>
                         <div class="ov-stage-label">Expresadas</div>
@@ -730,6 +735,16 @@
                 </div>
             </div>
 
+            <!-- Project Executive Detail -->
+            <div class="panel" style="margin-bottom:16px;" id="projExecDetailPanel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📋 Detalle Ejecutivo</h2>
+                </div>
+                <div class="panel-body" id="projExecDetail">
+                    <div class="loading-sm"><div class="spinner-sm"></div></div>
+                </div>
+            </div>
+
             <!-- Add Project Panel -->
             <div class="panel add-project-panel">
                 <div class="panel-header">
@@ -837,6 +852,12 @@
                                 <input type="text" id="projTech" placeholder="Node.js, React, Python...">
                             </div>
                         </div>
+                        <div class="apf-row">
+                            <div class="apf-field apf-wide">
+                                <label>Hitos / Milestones (coma separados)</label>
+                                <input type="text" id="projMilestones" placeholder="Kickoff, Entrega parcial, Demo, Cierre...">
+                            </div>
+                        </div>
                         <div class="apf-actions">
                             <button type="submit" class="btn btn-sm">Guardar Proyecto ✓</button>
                         </div>
@@ -880,6 +901,14 @@
              SECTION: ARCHIVOS
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-archivos">
+
+            <div class="inbox-explainer" style="margin-bottom:12px;opacity:0.7;">
+                <div class="inbox-explainer-icon">🔗</div>
+                <div>
+                    <strong>Proxima fase: Conexion con Microsoft 365</strong>
+                    <p>En desarrollo: acceso directo a documentos de SharePoint y OneDrive. Actualmente puedes previsualizar PDF, Markdown y DOCX directamente desde esta seccion.</p>
+                </div>
+            </div>
 
             <% if (user && ['admin', 'manager'].includes(user.role)) { %>
             <!-- Upload Panel (admin/manager only) -->
@@ -1594,6 +1623,13 @@
              SECTION: ANALYTICS (Trend Charts)
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-analytics">
+            <div class="inbox-explainer" style="margin-bottom:16px;">
+                <div class="inbox-explainer-icon">📊</div>
+                <div>
+                    <strong>Panel de Metricas — Actividad del Equipo</strong>
+                    <p>Tendencias operativas: volumen de ideas, tasas de completado, areas activas y productividad por consultor. Datos de los ultimos 30 dias, actualizacion automatica.</p>
+                </div>
+            </div>
             <div class="analytics-toolbar">
                 <button class="btn btn-sm" id="btnExportData" title="Exportar todos los datos">📦 Exportar Datos</button>
                 <label class="btn btn-sm" id="btnImportData" title="Importar datos">📥 Importar
@@ -2553,7 +2589,13 @@
                 <div class="inbox-explainer-icon">📥</div>
                 <div>
                     <strong>Bandeja de Entrada — Triage Inteligente</strong>
-                    <p>Aquí llegan las ideas capturadas que la IA clasificó automáticamente. Revisa las que tienen baja confianza, confirma o corrige la clasificación, y muévelas a su destino (Proyecto, Área, Recurso o Archivo).</p>
+                    <p style="margin-bottom:10px;">Punto de entrada de todas las ideas. La IA las clasifica automaticamente usando CODE+PARA.</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.82rem;">
+                        <div><strong>Que ingresa:</strong> Ideas de texto, captura rapida desde Home, correos procesados o captura por voz.</div>
+                        <div><strong>Que sale:</strong> Ideas clasificadas por tipo (PARA), etapa (CODE), area y prioridad.</div>
+                        <div><strong>Tu rol:</strong> Revisa clasificaciones con baja confianza (&lt;60%), confirma o corrige, y asigna destino final.</div>
+                        <div><strong>La IA hace:</strong> Clasifica tipo, sugiere area/proyecto, extrae resumen y asigna prioridad automaticamente.</div>
+                    </div>
                 </div>
             </div>
 
@@ -2618,7 +2660,14 @@
              SECTION: GTD BOARD — Proximas Acciones por Contexto
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-gtd-board">
-            <p class="section-desc">Tareas pendientes con proxima accion definida, organizadas por contexto (@computador, @oficina...), nivel de energia, persona responsable o tipo de compromiso. Arrastra tarjetas entre columnas para reclasificar.</p>
+            <div class="inbox-explainer" style="margin-bottom:12px;">
+                <div class="inbox-explainer-icon">🔗</div>
+                <div>
+                    <strong>Relacion CODE + GTD</strong>
+                    <p>La etapa "Capturada" del flujo CODE equivale a la bandeja de entrada GTD. Desde aqui, las ideas se organizan, destilan y expresan como entregables. Las "Proximas Acciones" son ideas con contexto GTD asignado (@oficina, @computador, @llamada, etc.).</p>
+                </div>
+            </div>
+            <p class="section-desc">Tareas pendientes con proxima accion definida, organizadas por contexto, nivel de energia, persona responsable o tipo de compromiso. Arrastra tarjetas entre columnas para reclasificar.</p>
             <!-- View Toggle -->
             <div class="gtd-board-toolbar">
                 <div class="skills-filters">

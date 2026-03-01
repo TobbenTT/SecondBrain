@@ -350,7 +350,7 @@ router.get('/projects', async (req, res) => {
 router.post('/projects', blockConsultor, async (req, res) => {
     const { name, description, url, icon, status, tech,
             project_type, client_name, geography,
-            related_area_id, horizon, deadline, team_members, links } = req.body;
+            related_area_id, horizon, deadline, team_members, links, milestones } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
 
     const validTypes = ['interno', 'cliente'];
@@ -361,17 +361,18 @@ router.post('/projects', blockConsultor, async (req, res) => {
         const techStr = Array.isArray(tech) ? tech.map(t => t.trim()).filter(t => t).join(',') : (tech || '');
         const teamStr = Array.isArray(team_members) ? JSON.stringify(team_members) : (team_members || null);
         const linksStr = Array.isArray(links) ? JSON.stringify(links.filter(l => l.url)) : (links || null);
+        const milestonesStr = Array.isArray(milestones) ? JSON.stringify(milestones) : (milestones || null);
         await run(`INSERT INTO projects (id, name, description, url, icon, status, tech,
-                    project_type, client_name, geography, related_area_id, horizon, deadline, team_members, links)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    project_type, client_name, geography, related_area_id, horizon, deadline, team_members, links, milestones)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [id, name, description || '', url || '', icon || '📦',
              status || 'active', techStr, safeType,
              client_name || null, geography || null,
-             related_area_id || null, horizon || null, deadline || null, teamStr, linksStr]
+             related_area_id || null, horizon || null, deadline || null, teamStr, linksStr, milestonesStr]
         );
         const created = await get(`SELECT p.*, a.name as area_name FROM projects p
             LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT) WHERE p.id = ?`, [id]);
-        res.json({ ...created, tech: created.tech ? created.tech.split(',').filter(t => t) : [], team_members: created.team_members ? JSON.parse(created.team_members) : [], links: created.links ? JSON.parse(created.links) : [] });
+        res.json({ ...created, tech: created.tech ? created.tech.split(',').filter(t => t) : [], team_members: created.team_members ? JSON.parse(created.team_members) : [], links: created.links ? JSON.parse(created.links) : [], milestones: created.milestones ? JSON.parse(created.milestones) : [] });
     } catch (err) {
         log.error('Create project error', { error: err.message });
         res.status(500).json({ error: 'Failed to save project' });
@@ -382,7 +383,7 @@ router.post('/projects', blockConsultor, async (req, res) => {
 router.put('/projects/:id', blockConsultor, async (req, res) => {
     const { name, description, url, icon, status, tech,
             project_type, client_name, geography,
-            related_area_id, horizon, deadline, team_members, links } = req.body;
+            related_area_id, horizon, deadline, team_members, links, milestones } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
 
     const validTypes = ['interno', 'cliente'];
@@ -395,18 +396,19 @@ router.put('/projects/:id', blockConsultor, async (req, res) => {
         const techStr = Array.isArray(tech) ? tech.map(t => t.trim()).filter(t => t).join(',') : (tech || '');
         const teamStr = Array.isArray(team_members) ? JSON.stringify(team_members) : (team_members || null);
         const linksStr = Array.isArray(links) ? JSON.stringify(links.filter(l => l.url)) : (links || null);
+        const milestonesStr = Array.isArray(milestones) ? JSON.stringify(milestones) : (milestones || null);
         await run(`UPDATE projects SET name=?, description=?, url=?, icon=?, status=?, tech=?,
                     project_type=?, client_name=?, geography=?,
-                    related_area_id=?, horizon=?, deadline=?, team_members=?, links=? WHERE id=?`,
+                    related_area_id=?, horizon=?, deadline=?, team_members=?, links=?, milestones=? WHERE id=?`,
             [name, description || '', url || '', icon || '📦',
              status || 'active', techStr, safeType,
              client_name || null, geography || null,
-             related_area_id || null, horizon || null, deadline || null, teamStr, linksStr,
+             related_area_id || null, horizon || null, deadline || null, teamStr, linksStr, milestonesStr,
              req.params.id]
         );
         const updated = await get(`SELECT p.*, a.name as area_name FROM projects p
             LEFT JOIN areas a ON p.related_area_id = CAST(a.id AS TEXT) WHERE p.id = ?`, [req.params.id]);
-        res.json({ ...updated, tech: updated.tech ? updated.tech.split(',').filter(t => t) : [], team_members: updated.team_members ? JSON.parse(updated.team_members) : [], links: updated.links ? JSON.parse(updated.links) : [] });
+        res.json({ ...updated, tech: updated.tech ? updated.tech.split(',').filter(t => t) : [], team_members: updated.team_members ? JSON.parse(updated.team_members) : [], links: updated.links ? JSON.parse(updated.links) : [], milestones: updated.milestones ? JSON.parse(updated.milestones) : [] });
     } catch (err) {
         log.error('Update project error', { error: err.message });
         res.status(500).json({ error: 'Failed to update project' });
