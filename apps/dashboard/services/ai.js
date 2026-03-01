@@ -660,8 +660,15 @@ async function generateDailyReport(data) {
 // ─── Generate Dynamic HTML Page from PDF text ───────────────────────────────
 function detectDocLang(title, text) {
     const t = (title + ' ' + text.substring(0, 2000)).toLowerCase();
-    if (/\b(the|and|with|this|from|for|that|have|are|will)\b/.test(t) && /_en[.\s_-]|english/i.test(title)) return { code: 'en', name: 'English' };
-    if (/\b(para|como|com|uma|sistema|dados|pelo|pela)\b/.test(t) && /_pt[.\s_-]|portugu/i.test(title)) return { code: 'pt', name: 'Portuguese' };
+    // 1. Check filename suffix first (most reliable)
+    if (/_ar[.\s_-]|_arab/i.test(title)) return { code: 'ar', name: 'Arabic', rtl: true };
+    if (/_en[.\s_-]|_english/i.test(title)) return { code: 'en', name: 'English' };
+    if (/_pt[.\s_-]|_portugu/i.test(title)) return { code: 'pt', name: 'Portuguese' };
+    if (/_es[.\s_-]|_spanish|_espanol/i.test(title)) return { code: 'es', name: 'Spanish' };
+    if (/_fr[.\s_-]|_french|_francais/i.test(title)) return { code: 'fr', name: 'French' };
+    // 2. Check content for Arabic characters
+    if (/[\u0600-\u06FF\u0750-\u077F]/.test(text.substring(0, 2000))) return { code: 'ar', name: 'Arabic', rtl: true };
+    // 3. Fallback to content keywords
     if (/\b(the|and|with|this|from|for|that|have|are|will)\b/.test(t)) return { code: 'en', name: 'English' };
     if (/\b(para|como|com|uma|dados|pelo|pela|também)\b/.test(t)) return { code: 'pt', name: 'Portuguese' };
     return { code: 'es', name: 'Spanish' };
@@ -669,7 +676,14 @@ function detectDocLang(title, text) {
 
 async function generateDynamicPage(docText, title) {
     const lang = detectDocLang(title, docText);
-    const prompt = `You are an expert web designer. Convert the following document content into a professional interactive HTML page. KEEP THE PAGE IN THE SAME LANGUAGE AS THE DOCUMENT (${lang.name}).
+    const rtlInstructions = lang.rtl ? `
+14. RTL LAYOUT: Use dir="rtl" on <html>. Sidebar on the RIGHT side. All text alignment right-to-left.
+15. Use Arabic-compatible font: Noto Sans Arabic via Google Fonts (alongside Inter for Latin text)
+16. Main content class: "md:mr-64 p-6 md:p-12 max-w-5xl mx-auto" (margin-right instead of margin-left)` : '';
+
+    const prompt = `You are an expert web designer. Convert the following document content into a professional interactive HTML page.
+
+CRITICAL: The page MUST be entirely in ${lang.name.toUpperCase()}. ALL headings, labels, navigation, footer text, and content must be in ${lang.name}. Do NOT use any other language.
 
 TITLE: "${title}"
 
@@ -677,19 +691,19 @@ DOCUMENT CONTENT:
 ${docText.substring(0, 30000)}
 
 DESIGN INSTRUCTIONS (MANDATORY):
-1. Complete HTML5, lang="${lang.code}", charset UTF-8
+1. Complete HTML5, lang="${lang.code}"${lang.rtl ? ' dir="rtl"' : ''}, charset UTF-8
 2. Use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
-3. Inter font via Google Fonts
+3. Inter font via Google Fonts${lang.rtl ? ' + Noto Sans Arabic' : ''}
 4. Configure Tailwind with brand colors: brand-50:#f0fdfa, brand-100:#ccfbf1, brand-500:#14b8a6, brand-700:#0f766e, brand-900:#134e4a
-5. Fixed sidebar on the left (desktop) with section navigation, hidden on mobile
-6. Main content with class "md:ml-64 p-6 md:p-12 max-w-5xl mx-auto"
+5. Fixed sidebar on the ${lang.rtl ? 'right' : 'left'} (desktop) with section navigation, hidden on mobile
+6. Main content with class "md:m${lang.rtl ? 'r' : 'l'}-64 p-6 md:p-12 max-w-5xl mx-auto"
 7. Each section must have an id and class "scroll-mt-24" for navigation
 8. Use cards, tables, colored badges, icon lists
 9. Header with category badge, large title and summary
 10. Responsive design: sidebar hidden on mobile
 11. If there is code, use blocks with dark background and copy button
 12. Corporate style of Value Strategy Consulting
-13. ALL TEXT CONTENT MUST REMAIN IN ${lang.name.toUpperCase()} — do NOT translate the document content
+13. ALL TEXT CONTENT MUST BE IN ${lang.name.toUpperCase()} — do NOT mix languages${rtlInstructions}
 
 RESPOND ONLY WITH THE COMPLETE HTML. No explanations, no markdown, no code fences. Only HTML from <!DOCTYPE html> to </html>.`;
 
