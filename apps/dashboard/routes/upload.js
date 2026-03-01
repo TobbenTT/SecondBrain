@@ -76,9 +76,11 @@ async function registerFileInDb(file, originalName, uploadedBy, hasDynamic) {
 // ─── Auto-generate dynamic page from PDF ────────────────────────────────────
 async function generateDynamicFromPdf(filePath, basename) {
     try {
-        const pdfParse = require('pdf-parse');
+        const { PDFParse } = require('pdf-parse');
         const buffer = fs.readFileSync(filePath);
-        const { text } = await pdfParse(buffer);
+        const parser = new PDFParse({ data: new Uint8Array(buffer) });
+        const { text } = await parser.getText();
+        await parser.destroy();
 
         if (!text || text.trim().length < 100) {
             log.info('PDF too short for dynamic page', { pdf: basename });
