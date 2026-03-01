@@ -196,15 +196,9 @@ function findDynamicPage(filename, dinamicsDir) {
     const dirs = fs.readdirSync(dinamicsDir, { withFileTypes: true })
         .filter(d => d.isDirectory() && d.name !== 'Proximamente');
 
+    // 1. Exact match (folder name === file basename, case-insensitive)
     for (const dir of dirs) {
-        const dirWords = dir.name.toLowerCase().split(/[\s\-_]+/).filter(w => w.length > 3);
-        const fileWords = base.split(/[\s\-_]+/).filter(w => w.length > 3);
-        const overlap = dirWords.filter(w => fileWords.some(fw => fw.includes(w) || w.includes(fw)));
-
-        // Require that most words from the shorter set match (>=75%), minimum 2
-        const shorter = Math.min(dirWords.length, fileWords.length);
-        const threshold = Math.max(2, Math.ceil(shorter * 0.75));
-        if (overlap.length >= threshold) {
+        if (dir.name.toLowerCase() === base) {
             const folderPath = path.join(dinamicsDir, dir.name);
             const htmlFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.html'));
             if (htmlFiles.length > 0) {
@@ -216,7 +210,39 @@ function findDynamicPage(filename, dinamicsDir) {
             }
         }
     }
-    return null;
+
+    // 2. Fuzzy match — include ALL words (no length filter) to distinguish ES/EN/PT variants
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const dir of dirs) {
+        const dirWords = dir.name.toLowerCase().split(/[\s\-_]+/);
+        const fileWords = base.split(/[\s\-_]+/);
+        const longer = Math.max(dirWords.length, fileWords.length);
+        const overlap = dirWords.filter(w => fileWords.some(fw => fw === w));
+
+        // Require exact equality: all words must match both ways
+        if (overlap.length === dirWords.length && overlap.length === fileWords.length) {
+            const folderPath = path.join(dinamicsDir, dir.name);
+            const htmlFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.html'));
+            if (htmlFiles.length > 0) {
+                return { folder: dir.name, htmlFile: htmlFiles[0], url: `/dinamicas/${encodeURIComponent(dir.name)}/${encodeURIComponent(htmlFiles[0])}` };
+            }
+        }
+
+        // Score by percentage of matching words (both directions)
+        const score = (overlap.length * 2) / (dirWords.length + fileWords.length);
+        const threshold = Math.max(2, Math.ceil(Math.min(dirWords.length, fileWords.length) * 0.75));
+        if (overlap.length >= threshold && score > bestScore) {
+            const folderPath = path.join(dinamicsDir, dir.name);
+            const htmlFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.html'));
+            if (htmlFiles.length > 0) {
+                bestScore = score;
+                bestMatch = { folder: dir.name, htmlFile: htmlFiles[0], url: `/dinamicas/${encodeURIComponent(dir.name)}/${encodeURIComponent(htmlFiles[0])}` };
+            }
+        }
+    }
+    return bestMatch;
 }
 
 function loadTags(tagsFile) {
