@@ -683,7 +683,7 @@ async function generateDynamicPage(docText, title) {
 
     const prompt = `You are an expert web designer. Convert the following document content into a professional interactive HTML page.
 
-CRITICAL: The page MUST be entirely in ${lang.name.toUpperCase()}. ALL headings, labels, navigation, footer text, and content must be in ${lang.name}. Do NOT use any other language.
+CRITICAL LANGUAGE REQUIREMENT: The ENTIRE page MUST be in ${lang.name.toUpperCase()}. If the document content below is in a DIFFERENT language, you MUST TRANSLATE it to ${lang.name} first. ALL headings, labels, sidebar navigation, footer text, badges, and body content must be written in ${lang.name}. Do NOT leave any text in another language.
 
 TITLE: "${title}"
 
@@ -703,7 +703,7 @@ DESIGN INSTRUCTIONS (MANDATORY):
 10. Responsive design: sidebar hidden on mobile
 11. If there is code, use blocks with dark background and copy button
 12. Corporate style of Value Strategy Consulting
-13. ALL TEXT CONTENT MUST BE IN ${lang.name.toUpperCase()} — do NOT mix languages${rtlInstructions}
+13. ALL TEXT CONTENT MUST BE IN ${lang.name.toUpperCase()} — TRANSLATE from the source language if needed. No mixed languages.${rtlInstructions}
 
 RESPOND ONLY WITH THE COMPLETE HTML. No explanations, no markdown, no code fences. Only HTML from <!DOCTYPE html> to </html>.`;
 
