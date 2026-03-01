@@ -458,7 +458,7 @@
                         <span class="exec-kpi-icon">📋</span>
                     </div>
                     <div class="exec-kpi-value" id="kpiCompromisos">—</div>
-                    <div class="exec-kpi-label">Compromisos Abiertos</div>
+                    <div class="exec-kpi-label">Compromisos Totales</div>
                     <div class="exec-kpi-bar-wrap">
                         <div class="exec-kpi-bar" id="kpiCompromisosBar" style="width:0%"></div>
                     </div>
@@ -1618,88 +1618,105 @@
              SECTION: ANALYTICS (Trend Charts)
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-analytics">
-            <div class="inbox-explainer" style="margin-bottom:16px;">
-                <div class="inbox-explainer-icon">📊</div>
-                <div>
-                    <strong>Panel de Metricas — Actividad del Equipo</strong>
-                    <p>Tendencias operativas: volumen de ideas, tasas de completado, areas activas y productividad por consultor. Datos de los ultimos 30 dias, actualizacion automatica.</p>
+            <!-- Executive KPI Strip -->
+            <div id="analyticsKpiStrip" class="exec-kpi-strip" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+                <div class="exec-kpi-card" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.05));border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:16px 20px;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Ideas (30d)</div>
+                    <div id="anKpiIdeas" style="font-size:1.8rem;font-weight:800;color:#3b82f6;">—</div>
+                    <div id="anKpiIdeasTrend" style="font-size:0.75rem;color:var(--text-muted);"></div>
+                </div>
+                <div class="exec-kpi-card" style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.05));border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:16px 20px;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Tasa Procesamiento</div>
+                    <div id="anKpiRate" style="font-size:1.8rem;font-weight:800;color:#10b981;">—</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">organizadas + destiladas + expresadas</div>
+                </div>
+                <div class="exec-kpi-card" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.05));border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:16px 20px;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Areas Activas</div>
+                    <div id="anKpiAreas" style="font-size:1.8rem;font-weight:800;color:#f59e0b;">—</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">con ideas recientes</div>
+                </div>
+                <div class="exec-kpi-card" style="background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.2);border-radius:12px;padding:16px 20px;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Consultores Activos</div>
+                    <div id="anKpiUsers" style="font-size:1.8rem;font-weight:800;color:#8b5cf6;">—</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">con actividad este mes</div>
                 </div>
             </div>
-            <div class="analytics-toolbar">
-                <button class="btn btn-sm" id="btnExportData" title="Exportar todos los datos">📦 Exportar Datos</button>
+
+            <!-- Toolbar -->
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;">
+                <button class="btn btn-sm" id="btnExportData" title="Exportar todos los datos">📦 Exportar</button>
                 <label class="btn btn-sm" id="btnImportData" title="Importar datos">📥 Importar
                     <input type="file" id="importFileInput" accept=".json" hidden>
                 </label>
                 <button class="btn btn-sm" id="btnVoiceCommands" title="Comandos de voz">🎤 Voz</button>
             </div>
 
-            <!-- Ideas Trend Chart -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">📈 Ideas por Dia (30 dias)</h2>
+            <!-- Main Trend + Areas -->
+            <div class="analytics-row">
+                <div class="panel" style="flex:2;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Volumen de Ideas — 30 dias</h2>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container" style="position:relative;height:220px;"><canvas id="chartIdeasPerDay"></canvas></div>
+                    </div>
                 </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartIdeasPerDay"></canvas></div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Areas Activas</h2>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container" style="position:relative;height:220px;"><canvas id="chartActiveAreas"></canvas></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Completion Rate Chart -->
+            <!-- Pipeline + Completion -->
             <div class="analytics-row">
                 <div class="panel" style="flex:1;">
                     <div class="panel-header">
-                        <h2 class="panel-title">📊 Tasa de Completado</h2>
+                        <h2 class="panel-title">Pipeline CODE</h2>
+                        <span style="font-size:0.75rem;color:var(--text-muted);">Capturar → Organizar → Destilar → Expresar</span>
                     </div>
                     <div class="panel-body">
-                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartCompletionRate"></canvas></div>
+                        <div id="codeFlowPipeline" class="code-flow-pipeline"></div>
                     </div>
                 </div>
                 <div class="panel" style="flex:1;">
                     <div class="panel-header">
-                        <h2 class="panel-title">🏢 Areas Mas Activas</h2>
+                        <h2 class="panel-title">Tasa de Completado</h2>
                     </div>
                     <div class="panel-body">
-                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartActiveAreas"></canvas></div>
+                        <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartCompletionRate"></canvas></div>
                     </div>
                 </div>
             </div>
 
-            <!-- CODE Flow Pipeline -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">🔄 Pipeline CODE (Capturar → Organizar → Destilar → Expresar)</h2>
-                </div>
-                <div class="panel-body">
-                    <div id="codeFlowPipeline" class="code-flow-pipeline"></div>
-                </div>
-            </div>
-
-            <!-- Type & Priority Charts -->
+            <!-- Distribution + Priority + Productivity -->
             <div class="analytics-row">
                 <div class="panel" style="flex:1;">
                     <div class="panel-header">
-                        <h2 class="panel-title">📋 Ideas por Tipo</h2>
+                        <h2 class="panel-title">Clasificacion</h2>
                     </div>
                     <div class="panel-body">
-                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartByType"></canvas></div>
+                        <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartByType"></canvas></div>
                     </div>
                 </div>
                 <div class="panel" style="flex:1;">
                     <div class="panel-header">
-                        <h2 class="panel-title">🎯 Por Prioridad</h2>
+                        <h2 class="panel-title">Prioridad</h2>
                     </div>
                     <div class="panel-body">
-                        <div class="chart-container" style="position:relative;height:250px;"><canvas id="chartByPriority"></canvas></div>
+                        <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartByPriority"></canvas></div>
                     </div>
                 </div>
-            </div>
-
-            <!-- User Productivity -->
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">👥 Productividad por Consultor</h2>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartUserProductivity"></canvas></div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Productividad</h2>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container" style="position:relative;height:200px;"><canvas id="chartUserProductivity"></canvas></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -2132,49 +2149,57 @@
              SECTION: ADMIN USERS
              ══════════════════════════════════════════════════════ -->
         <section class="dashboard-section" id="section-admin-users">
-            <!-- Stats bar -->
-            <div class="au-stats-bar" id="auStatsBar"></div>
+            <!-- Executive Summary Cards -->
+            <div id="auStatsBar" class="au-stats-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:20px;"></div>
 
             <!-- Controls -->
-            <div class="au-controls">
-                <div class="au-search-wrap">
-                    <svg class="au-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <input type="text" id="auSearchInput" class="au-search" placeholder="Buscar usuario..." autocomplete="off" oninput="filterAdminUsers()">
+            <div class="panel" style="margin-bottom:0;">
+                <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <h2 class="panel-title" style="margin:0;">Directorio de Usuarios</h2>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <div class="au-search-wrap">
+                            <svg class="au-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            <input type="text" id="auSearchInput" class="au-search" placeholder="Buscar..." autocomplete="off" oninput="filterAdminUsers()">
+                        </div>
+                        <select id="auFilterRole" class="au-filter-select" onchange="filterAdminUsers()">
+                            <option value="">Todos los roles</option>
+                            <option value="admin">Admin</option>
+                            <option value="ceo">CEO</option>
+                            <option value="manager">Manager</option>
+                            <option value="analyst">Analyst</option>
+                            <option value="consultor">Consultor</option>
+                            <option value="usuario">Usuario</option>
+                            <option value="cliente">Cliente</option>
+                        </select>
+                        <button class="au-add-btn" onclick="openUserEditModal()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                            Nuevo Usuario
+                        </button>
+                    </div>
                 </div>
-                <select id="auFilterRole" class="au-filter-select" onchange="filterAdminUsers()">
-                    <option value="">Todos los roles</option>
-                    <option value="admin">Admin</option>
-                    <option value="ceo">CEO</option>
-                    <option value="manager">Manager</option>
-                    <option value="analyst">Analyst</option>
-                    <option value="consultor">Consultor</option>
-                    <option value="usuario">Usuario</option>
-                    <option value="cliente">Cliente</option>
-                </select>
-                <button class="au-add-btn" onclick="openUserEditModal()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                    Nuevo Usuario
-                </button>
-            </div>
 
-            <!-- Users table -->
-            <div class="au-table-wrap">
-                <table class="au-table" id="adminUsersTable">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Email</th>
-                            <th>Rol</th>
-                            <th>Departamento</th>
-                            <th>Expertise</th>
-                            <th>Creado</th>
-                            <th class="au-th-actions">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminUsersTbody">
-                        <tr><td colspan="6" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>
-                    </tbody>
-                </table>
+                <!-- Users as cards grid (mobile-friendly) -->
+                <div class="panel-body" id="auCardsContainer" style="display:none;"></div>
+
+                <!-- Users table (desktop) -->
+                <div class="au-table-wrap">
+                    <table class="au-table" id="adminUsersTable">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Departamento</th>
+                                <th>Expertise</th>
+                                <th>Creado</th>
+                                <th class="au-th-actions">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersTbody">
+                            <tr><td colspan="7" style="text-align:center;padding:32px;"><div class="spinner-sm"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 

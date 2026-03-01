@@ -216,6 +216,7 @@ function _applySectionSwitch(sectionId) {
     if (sectionId === 'gtd-board') { if (!_lazyInited.nextActions) { _lazyInited.nextActions = true; initNextActions(); } loadGtdBoard('context'); loadNextActionsPanel(); }
     if (sectionId === 'gtd-projects') loadGtdProjects();
     if (sectionId === 'ideas') { if (!_lazyInited.inboxLog) { _lazyInited.inboxLog = true; loadInboxLog(); } initGtdFilterDropdowns(); }
+    if (sectionId === 'context') { if (!_lazyInited.context) { _lazyInited.context = true; initContext(); } }
     if (sectionId === 'revision') { loadReviewQueue(); loadAuditTrail(); }
     if (sectionId === 'reportability') { if (!_lazyInited.reportability) { _lazyInited.reportability = true; initReportability(); } }
     if (sectionId === 'reuniones') loadReuniones();
@@ -793,11 +794,16 @@ async function showFullDigest(id) {
         if (!digest) return;
 
         const content = digest.content
+            .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">')
             .replace(/\n/g, '<br>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/## (.*?)(<br>|$)/g, '<h4 style="margin:12px 0 6px;color:var(--text-primary);">$1</h4>')
-            .replace(/# (.*?)(<br>|$)/g, '<h3 style="margin:16px 0 8px;color:var(--text-primary);">$1</h3>')
-            .replace(/- (.*?)(<br>|$)/g, '<span style="display:block;padding-left:12px;">• $1</span>');
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/<br>#{3,}\s*(<br>|$)/g, '<br>')
+            .replace(/<br>## (.*?)(<br>|$)/g, '<h4 style="margin:14px 0 6px;color:var(--accent);">$1</h4>')
+            .replace(/<br># (.*?)(<br>|$)/g, '<h3 style="margin:18px 0 8px;color:var(--text-primary);font-size:1.1rem;">$1</h3>')
+            .replace(/^# (.*?)(<br>|$)/, '<h3 style="margin:0 0 8px;color:var(--text-primary);font-size:1.1rem;">$1</h3>')
+            .replace(/<br>#\s*(<br>|$)/g, '')
+            .replace(/<br>- (.*?)(<br>|$)/g, '<div style="padding-left:16px;margin:2px 0;">• $1</div>');
         const modal = document.getElementById('genericModal') || createGenericModal();
         modal.querySelector('.modal-title').textContent = 'Digest del Dia';
         modal.querySelector('.modal-body').innerHTML = `<div style="font-size:0.9rem;line-height:1.7;color:var(--text-secondary);">${content}</div>`;
@@ -810,7 +816,10 @@ function createGenericModal() {
     modal.id = 'genericModal';
     modal.className = 'modal';
     modal.innerHTML = `<div class="modal-content" style="max-width:700px;">
-        <div class="modal-header"><h3 class="modal-title"></h3><button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button></div>
+        <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);">
+            <h3 class="modal-title" style="margin:0;padding:0;border:none;background:none;font-size:1.1rem;"></h3>
+            <button class="close-modal" style="position:static;float:none;font-size:24px;line-height:1;padding:4px 8px;" onclick="this.closest('.modal').style.display='none'">&times;</button>
+        </div>
         <div class="modal-body" style="max-height:70vh;overflow-y:auto;"></div>
     </div>`;
     document.body.appendChild(modal);
@@ -5063,13 +5072,34 @@ async function loadAnalytics() {
             return;
         }
 
+        // Executive KPI strip
+        const totalIdeas30d = data.ideasPerDay ? data.ideasPerDay.reduce((s, d) => s + (parseInt(d.count) || 0), 0) : 0;
+        const codeFlowArr = data.codeFlow || [];
+        const codeCounts = {};
+        codeFlowArr.forEach(r => { codeCounts[r.code_stage] = parseInt(r.count) || 0; });
+        const processed = (codeCounts.organized || 0) + (codeCounts.distilled || 0) + (codeCounts.expressed || 0);
+        const totalCode = processed + (codeCounts.captured || 0);
+        const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setKpi('anKpiIdeas', totalIdeas30d);
+        setKpi('anKpiRate', totalCode > 0 ? Math.round(processed / totalCode * 100) + '%' : '0%');
+        setKpi('anKpiAreas', data.activeAreas ? data.activeAreas.length : 0);
+        setKpi('anKpiUsers', data.userProductivity ? data.userProductivity.length : 0);
+        const trendEl = document.getElementById('anKpiIdeasTrend');
+        if (trendEl && data.ideasPerWeek) {
+            const weeks = data.ideasPerWeek;
+            const thisW = weeks.length > 0 ? parseInt(weeks[weeks.length - 1].count) || 0 : 0;
+            const lastW = weeks.length > 1 ? parseInt(weeks[weeks.length - 2].count) || 0 : 0;
+            const pct = lastW > 0 ? Math.round(((thisW - lastW) / lastW) * 100) : 0;
+            trendEl.innerHTML = pct > 0 ? `<span style="color:#10b981;">+${pct}% vs semana anterior</span>` : pct < 0 ? `<span style="color:#ef4444;">${pct}% vs semana anterior</span>` : 'sin cambio vs semana anterior';
+        }
+
         const chartDefaults = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#9ca3af' } } },
+            plugins: { legend: { display: false } },
             scales: {
-                x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156,163,175,0.1)' } },
-                y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156,163,175,0.1)' } }
+                x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(156,163,175,0.08)' } },
+                y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(156,163,175,0.08)' } }
             }
         };
 
@@ -8847,21 +8877,26 @@ async function loadAdminUsers() {
     try {
         _adminUsers = await getCachedUsers();
 
-        // Stats bar
+        // Stats bar — executive role cards
         const statsBar = document.getElementById('auStatsBar');
         if (statsBar) {
             const roleCounts = { admin: 0, ceo: 0, manager: 0, analyst: 0, consultor: 0, usuario: 0, cliente: 0 };
             _adminUsers.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
-            statsBar.innerHTML = `
-                <div class="au-stat"><span class="au-stat-num">${_adminUsers.length}</span><span class="au-stat-label">Total</span></div>
-                <div class="au-stat au-stat-admin"><span class="au-stat-num">${roleCounts.admin}</span><span class="au-stat-label">Admins</span></div>
-                <div class="au-stat au-stat-ceo"><span class="au-stat-num">${roleCounts.ceo}</span><span class="au-stat-label">CEO</span></div>
-                <div class="au-stat au-stat-manager"><span class="au-stat-num">${roleCounts.manager}</span><span class="au-stat-label">Managers</span></div>
-                <div class="au-stat au-stat-analyst"><span class="au-stat-num">${roleCounts.analyst}</span><span class="au-stat-label">Analysts</span></div>
-                <div class="au-stat au-stat-consultor"><span class="au-stat-num">${roleCounts.consultor}</span><span class="au-stat-label">Consultores</span></div>
-                <div class="au-stat au-stat-usuario"><span class="au-stat-num">${roleCounts.usuario}</span><span class="au-stat-label">Usuarios</span></div>
-                <div class="au-stat au-stat-cliente"><span class="au-stat-num">${roleCounts.cliente}</span><span class="au-stat-label">Clientes</span></div>
-            `;
+            const roleColors = { admin: '#ef4444', ceo: '#f59e0b', manager: '#3b82f6', analyst: '#10b981', consultor: '#8b5cf6', usuario: '#6b7280', cliente: '#ec4899' };
+            const roleIcons = { admin: '🛡️', ceo: '👑', manager: '📊', analyst: '🔬', consultor: '💼', usuario: '👤', cliente: '🤝' };
+            const totalCard = `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(99,102,241,0.05));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:14px 16px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#6366f1;">${_adminUsers.length}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Total</div>
+            </div>`;
+            const roleCards = Object.entries(roleCounts).filter(([,c]) => c > 0).map(([role, count]) => {
+                const color = roleColors[role] || '#6b7280';
+                return `<div style="background:linear-gradient(135deg,${color}22,${color}08);border:1px solid ${color}33;border-radius:12px;padding:14px 16px;text-align:center;">
+                    <div style="font-size:0.85rem;">${roleIcons[role] || '👤'}</div>
+                    <div style="font-size:1.3rem;font-weight:700;color:${color};">${count}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">${role}</div>
+                </div>`;
+            }).join('');
+            statsBar.innerHTML = totalCard + roleCards;
         }
 
         renderAdminUsersTable(_adminUsers);
