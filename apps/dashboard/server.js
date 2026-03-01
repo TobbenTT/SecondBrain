@@ -364,14 +364,13 @@ app.use(authRoutes);
 app.use(twofaPublicRoutes); // GET /2fa, POST /2fa (before requireAuth)
 
 // ─── CSRF Protection for API routes ─────────────────────────────────────────
-// HTML forms can only submit GET/POST. For POST, we require application/json
-// (which triggers CORS preflight cross-origin), blocking form-based CSRF.
-// PUT/DELETE/PATCH require JavaScript (fetch/XHR) → already CORS-protected.
-// X-Requested-With header cannot be set by HTML forms → proves request is from JS.
+// Protects POST, PUT, DELETE, PATCH against cross-site requests.
+// Requires application/json content-type or X-Requested-With header,
+// which triggers CORS preflight for cross-origin requests.
 app.use('/api/', (req, res, next) => {
-    if (req.method !== 'POST') return next();
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
     if (req.isApiRequest) return next(); // X-API-Key authenticated
-    // For empty-body POSTs (action endpoints like /complete), require X-Requested-With
+    // For empty-body requests (action endpoints like /complete, DELETE), require X-Requested-With
     const cl = req.headers['content-length'];
     if (!cl || cl === '0') {
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') return next();

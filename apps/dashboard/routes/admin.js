@@ -154,7 +154,7 @@ router.post('/users', requireAdmin, async (req, res) => {
         const existing = await get('SELECT id FROM users WHERE username = ?', [username.toLowerCase().trim()]);
         if (existing) return res.status(409).json({ error: 'Username already exists' });
 
-        const hash = await bcrypt.hash(password, 10);
+        const hash = await bcrypt.hash(password, 12);
         const result = await run(
             'INSERT INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
             [username.toLowerCase().trim(), hash, safeRole, (department || '').trim(), (expertise || '').trim()]
@@ -218,7 +218,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
             }
         } else if (newPassword) {
             // Local fallback password reset
-            const hash = await bcrypt.hash(newPassword, 10);
+            const hash = await bcrypt.hash(newPassword, 12);
             await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
         }
 

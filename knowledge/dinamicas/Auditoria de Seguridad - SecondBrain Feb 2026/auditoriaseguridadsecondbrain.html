@@ -391,12 +391,12 @@
             <div class="score-label">Vulnerabilidades encontradas</div>
         </div>
         <div class="score-card">
-            <div class="score-big" style="color:var(--fixed);">11</div>
+            <div class="score-big" style="color:var(--fixed);">14</div>
             <div class="score-label">Corregidas</div>
         </div>
         <div class="score-card">
-            <div class="score-big" style="color:var(--medium);">6</div>
-            <div class="score-label">Aceptadas / Pendientes</div>
+            <div class="score-big" style="color:var(--medium);">3</div>
+            <div class="score-label">Aceptadas</div>
         </div>
         <div class="score-card">
             <div class="score-big" style="color:var(--info);">5</div>
@@ -415,11 +415,11 @@
         </div>
         <div class="sev-bar medium">
             <div><span class="sev-name" style="color:var(--medium);">MEDIA</span></div>
-            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">3 fixed</span><span class="badge-rate">60%</span></div>
+            <div><span class="sev-count" style="color:var(--medium);">5</span><span class="badge-fixed">5 fixed</span><span class="badge-rate">100%</span></div>
         </div>
         <div class="sev-bar low">
             <div><span class="sev-name" style="color:var(--low);">BAJA</span></div>
-            <div><span class="sev-count" style="color:var(--low);">4</span><span class="badge-rate">0% aceptadas</span></div>
+            <div><span class="sev-count" style="color:var(--low);">4</span><span class="badge-fixed">1 fixed</span><span class="badge-rate">25%</span></div>
         </div>
     </div>
 
@@ -639,7 +639,7 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-02</span>
                 <span class="finding-title">CSRF parcial &mdash; DELETE/PUT sin verificacion</span>
-                <span class="finding-status accepted">ACEPTADO</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A5 &mdash; Security Misconfiguration</span>
@@ -648,7 +648,7 @@
             </div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> La proteccion CSRF basada en content-type solo aplica a <code>POST</code>. Los metodos <code>DELETE</code> y <code>PUT</code> saltan la verificacion, dependiendo unicamente de CORS.</p>
-                <p><strong>Justificacion:</strong> Con C-01 corregido (XSS eliminado), el vector de ataque principal esta cerrado. CORS bloquea requests cross-origin. Riesgo residual aceptable.</p>
+                <p><strong>Fix:</strong> Middleware CSRF extendido para validar todos los metodos mutantes (POST, PUT, DELETE, PATCH). Requiere <code>Content-Type: application/json</code> o <code>X-Requested-With: XMLHttpRequest</code>. Frontend ya incluye interceptor global que agrega el header automaticamente.</p>
             </div>
         </div>
 
@@ -674,13 +674,12 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-04</span>
                 <span class="finding-title">Audit log sin retencion automatica</span>
-                <span class="finding-status pending">PENDIENTE</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta"><span>Tabla audit_log</span></div>
             <div class="finding-body">
                 <p><strong>Problema:</strong> La tabla crece indefinidamente sin politica de retencion. Puede degradar rendimiento y consumir espacio en disco.</p>
-                <p><strong>Recomendacion:</strong> Cron job que elimine registros &gt;90 dias. Exportar antes de eliminar.</p>
-                <p><strong>Nota 1-Mar:</strong> Sigue pendiente. La tabla ahora registra 20+ tipos de eventos. Prioridad media &mdash; no urgente con volumen actual.</p>
+                <p><strong>Fix:</strong> Cron job implementado en <code>server.js:475-488</code> que ejecuta <code>DELETE FROM audit_log WHERE created_at &lt; NOW() - INTERVAL '90 days'</code> diariamente a las 2 AM (node-cron).</p>
             </div>
         </div>
 
@@ -709,10 +708,13 @@
             <div class="finding-header">
                 <span class="finding-id low">B-01</span>
                 <span class="finding-title">bcrypt cost factor 10</span>
-                <span class="finding-status accepted">ACEPTADO</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta"><span>OWASP A2 &mdash; Cryptographic Failures</span></div>
-            <div class="finding-body"><p>OWASP recomienda 12+ para 2026. Factor 10 sigue siendo computacionalmente costoso para ataques offline. Aceptado con plan de incrementar a 12 en proxima iteracion.</p></div>
+            <div class="finding-body">
+                <p><strong>Problema:</strong> OWASP recomienda cost factor 12+ para 2026. Factor 10 era suboptimo.</p>
+                <p><strong>Fix:</strong> Cost factor incrementado a <strong>12</strong> en los 6 archivos que usan <code>bcrypt.hash()</code>: <code>database.js</code>, <code>admin.js</code>, <code>auth.js</code>, <code>twofa.js</code>.</p>
+            </div>
         </div>
         <div class="finding-card">
             <div class="finding-header">
@@ -895,31 +897,31 @@
         <h3 style="margin-bottom:16px; color:var(--accent);">Recomendaciones a Futuro</h3>
         <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Mejoras priorizadas para el proximo ciclo de mantenimiento.</p>
 
-        <div class="reco-card">
-            <div class="reco-priority p1">1</div>
+        <div class="reco-card" style="opacity:0.5; text-decoration:line-through;">
+            <div class="reco-priority p1" style="background:var(--fixed);">&#10003;</div>
             <div class="reco-body">
                 <div class="reco-title">Implementar retencion automatica de audit_log</div>
-                <div class="reco-ref">Referencia: M-04 &mdash; Cron job para eliminar registros &gt;90 dias</div>
+                <div class="reco-ref">M-04 &mdash; Cron job diario a las 2 AM, elimina &gt;90 dias</div>
             </div>
-            <span class="reco-effort">~1 hora</span>
+            <span class="reco-effort" style="background:var(--fixed);color:white;">HECHO</span>
         </div>
 
-        <div class="reco-card">
-            <div class="reco-priority p2">2</div>
+        <div class="reco-card" style="opacity:0.5; text-decoration:line-through;">
+            <div class="reco-priority p2" style="background:var(--fixed);">&#10003;</div>
             <div class="reco-body">
                 <div class="reco-title">Incrementar bcrypt cost factor a 12</div>
-                <div class="reco-ref">Referencia: B-01 &mdash; OWASP recomienda 12+ para 2026</div>
+                <div class="reco-ref">B-01 &mdash; Actualizado en 6 ubicaciones (database, admin, auth, twofa)</div>
             </div>
-            <span class="reco-effort">~5 min</span>
+            <span class="reco-effort" style="background:var(--fixed);color:white;">HECHO</span>
         </div>
 
-        <div class="reco-card">
-            <div class="reco-priority p3">3</div>
+        <div class="reco-card" style="opacity:0.5; text-decoration:line-through;">
+            <div class="reco-priority p3" style="background:var(--fixed);">&#10003;</div>
             <div class="reco-body">
                 <div class="reco-title">Agregar CSRF tokens para DELETE/PUT</div>
-                <div class="reco-ref">Referencia: M-02 &mdash; Proteccion completa contra CSRF</div>
+                <div class="reco-ref">M-02 &mdash; Middleware extendido a todos los metodos mutantes</div>
             </div>
-            <span class="reco-effort">~2 horas</span>
+            <span class="reco-effort" style="background:var(--fixed);color:white;">HECHO</span>
         </div>
 
         <div class="reco-card">

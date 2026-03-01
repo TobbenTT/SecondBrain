@@ -325,7 +325,7 @@ router.put('/api/profile/password', async (req, res) => {
         if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
             return res.status(403).json({ error: 'Current password is incorrect' });
         }
-        const hash = await bcrypt.hash(newPassword, 10);
+        const hash = await bcrypt.hash(newPassword, 12);
         await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
         auditLog('password_change', { actor: user.username, target: user.username, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'local' } });
         res.json({ success: true });

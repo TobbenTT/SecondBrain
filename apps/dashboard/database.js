@@ -136,7 +136,7 @@ async function seedUsers() {
         log.info('Seeding initial users (PostgreSQL)');
         try {
             const bcrypt = require('bcryptjs');
-            const hash = await bcrypt.hash('vsc2026', 10);
+            const hash = await bcrypt.hash('vsc2026', 12);
             const users = [
                 { username: 'david', role: 'admin', department: 'Direccion', expertise: 'Estrategia,Operaciones,Gestion' },
                 { username: 'gonzalo', role: 'manager', department: 'Operaciones', expertise: 'HSE,Ejecucion,Contratos' },
@@ -211,7 +211,7 @@ async function seedConsultor() {
     if (!row) {
         try {
             const bcrypt = require('bcryptjs');
-            const hash = await bcrypt.hash('vsc2026', 10);
+            const hash = await bcrypt.hash('vsc2026', 12);
             await run(
                 'INSERT INTO users (username, password_hash, role, department, expertise) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (username) DO NOTHING',
                 ['consultor', hash, 'consultor', 'Consultoria', 'Gestion de Activos,Confiabilidad,Normativa']

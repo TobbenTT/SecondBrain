@@ -372,7 +372,7 @@ protectedRouter.post('/verify-setup', async (req, res) => {
         await run('DELETE FROM user_recovery_codes WHERE user_id = ?', [userId]);
         // Insert new ones (hashed)
         for (const code of plainCodes) {
-            const hash = await bcrypt.hash(code, 10);
+            const hash = await bcrypt.hash(code, 12);
             await run('INSERT INTO user_recovery_codes (user_id, code_hash) VALUES (?, ?)', [userId, hash]);
         }
 
