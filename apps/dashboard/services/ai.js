@@ -658,29 +658,40 @@ async function generateDailyReport(data) {
 }
 
 // ─── Generate Dynamic HTML Page from PDF text ───────────────────────────────
+function detectDocLang(title, text) {
+    const t = (title + ' ' + text.substring(0, 2000)).toLowerCase();
+    if (/\b(the|and|with|this|from|for|that|have|are|will)\b/.test(t) && /_en[.\s_-]|english/i.test(title)) return { code: 'en', name: 'English' };
+    if (/\b(para|como|com|uma|sistema|dados|pelo|pela)\b/.test(t) && /_pt[.\s_-]|portugu/i.test(title)) return { code: 'pt', name: 'Portuguese' };
+    if (/\b(the|and|with|this|from|for|that|have|are|will)\b/.test(t)) return { code: 'en', name: 'English' };
+    if (/\b(para|como|com|uma|dados|pelo|pela|também)\b/.test(t)) return { code: 'pt', name: 'Portuguese' };
+    return { code: 'es', name: 'Spanish' };
+}
+
 async function generateDynamicPage(docText, title) {
-    const prompt = `Eres un diseñador web experto. Convierte el siguiente contenido de un documento en una página HTML interactiva profesional.
+    const lang = detectDocLang(title, docText);
+    const prompt = `You are an expert web designer. Convert the following document content into a professional interactive HTML page. KEEP THE PAGE IN THE SAME LANGUAGE AS THE DOCUMENT (${lang.name}).
 
-TÍTULO: "${title}"
+TITLE: "${title}"
 
-CONTENIDO DEL DOCUMENTO:
+DOCUMENT CONTENT:
 ${docText.substring(0, 30000)}
 
-INSTRUCCIONES DE DISEÑO (OBLIGATORIAS):
-1. HTML5 completo, lang="es", charset UTF-8
-2. Usa Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
-3. Fuente Inter via Google Fonts
-4. Configura Tailwind con colores brand: brand-50:#f0fdfa, brand-100:#ccfbf1, brand-500:#14b8a6, brand-700:#0f766e, brand-900:#134e4a
-5. Sidebar fija a la izquierda (desktop) con navegación por secciones, oculta en mobile
-6. Contenido principal con clase "md:ml-64 p-6 md:p-12 max-w-5xl mx-auto"
-7. Cada sección debe tener un id y clase "scroll-mt-24" para navegación
-8. Usa cards, tablas, badges de colores, listas con iconos
-9. Header con badge de categoría, título grande y resumen
-10. Diseño responsivo: sidebar oculta en mobile
-11. Si hay código, usa bloques con fondo oscuro y botón de copiar
-12. Estilo corporativo de Value Strategy Consulting
+DESIGN INSTRUCTIONS (MANDATORY):
+1. Complete HTML5, lang="${lang.code}", charset UTF-8
+2. Use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
+3. Inter font via Google Fonts
+4. Configure Tailwind with brand colors: brand-50:#f0fdfa, brand-100:#ccfbf1, brand-500:#14b8a6, brand-700:#0f766e, brand-900:#134e4a
+5. Fixed sidebar on the left (desktop) with section navigation, hidden on mobile
+6. Main content with class "md:ml-64 p-6 md:p-12 max-w-5xl mx-auto"
+7. Each section must have an id and class "scroll-mt-24" for navigation
+8. Use cards, tables, colored badges, icon lists
+9. Header with category badge, large title and summary
+10. Responsive design: sidebar hidden on mobile
+11. If there is code, use blocks with dark background and copy button
+12. Corporate style of Value Strategy Consulting
+13. ALL TEXT CONTENT MUST REMAIN IN ${lang.name.toUpperCase()} — do NOT translate the document content
 
-RESPONDE SOLO CON EL HTML COMPLETO. Sin explicaciones, sin markdown, sin bloques \`\`\`. Solo el HTML desde <!DOCTYPE html> hasta </html>.`;
+RESPOND ONLY WITH THE COMPLETE HTML. No explanations, no markdown, no code fences. Only HTML from <!DOCTYPE html> to </html>.`;
 
     try {
         if (model) {
