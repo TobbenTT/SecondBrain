@@ -374,7 +374,7 @@
         <h1 style="margin-top:16px;">Auditoria de Seguridad</h1>
         <div class="subtitle">Intranet VCS (SecondBrain) &mdash; Plataforma de Gestion del Conocimiento</div>
         <div class="date">25 de febrero de 2026</div>
-        <div class="update-badge">Actualizado: 28 de febrero de 2026 &mdash; Verificacion post-despliegue</div>
+        <div class="update-badge">Actualizado: 1 de marzo de 2026 &mdash; Verificacion post-despliegue + mejoras interactivas</div>
         <div class="doc-meta">
             <div class="doc-meta-item"><span class="label">Documento:</span> <span class="value">SEC-AUDIT-2026-001</span></div>
             <div class="doc-meta-item"><span class="label">Version:</span> <span class="value">1.0 &mdash; Final</span></div>
@@ -460,7 +460,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-01</span>
                 <span class="finding-title">Stored XSS en renderizado de Ideas</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
@@ -481,7 +481,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-02</span>
                 <span class="finding-title">Stored XSS via Markdown sin sanitizar</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Cross-Site Scripting</span>
@@ -501,7 +501,7 @@
             <div class="finding-header">
                 <span class="finding-id critical">C-03</span>
                 <span class="finding-title">Command Injection en Orchestrator Bridge</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A3 &mdash; Injection</span>
@@ -524,7 +524,7 @@
             <div class="finding-header">
                 <span class="finding-id high">A-01</span>
                 <span class="finding-title">Politica de contrasenas debil (minimo 4 chars)</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A7 &mdash; Authentication Failures</span>
@@ -542,7 +542,7 @@
             <div class="finding-header">
                 <span class="finding-id high">A-02</span>
                 <span class="finding-title">API Key expuesta en URL query string</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A2 &mdash; Cryptographic Failures</span>
@@ -560,7 +560,7 @@
             <div class="finding-header">
                 <span class="finding-id high">A-03</span>
                 <span class="finding-title">Creacion de API Keys sin control de acceso</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A1 &mdash; Broken Access Control</span>
@@ -578,7 +578,7 @@
             <div class="finding-header">
                 <span class="finding-id high">A-04</span>
                 <span class="finding-title">Endpoints sensibles sin restriccion de rol</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A1 &mdash; Broken Access Control</span>
@@ -600,7 +600,7 @@
             <div class="finding-header">
                 <span class="finding-id high">A-05</span>
                 <span class="finding-title">Webhook Fireflies sin autenticacion</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A1 &mdash; Broken Access Control</span>
@@ -621,7 +621,7 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-01</span>
                 <span class="finding-title">Session cookie sin flag secure</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A5 &mdash; Security Misconfiguration</span>
@@ -656,7 +656,7 @@
             <div class="finding-header">
                 <span class="finding-id medium">M-03</span>
                 <span class="finding-title">SQL con LIMIT/OFFSET interpolado</span>
-                <span class="finding-status verified">VERIFICADO 28-FEB</span>
+                <span class="finding-status verified">VERIFICADO 1-MAR</span>
             </div>
             <div class="finding-meta">
                 <span>OWASP A3 &mdash; Injection</span>
@@ -680,7 +680,7 @@
             <div class="finding-body">
                 <p><strong>Problema:</strong> La tabla crece indefinidamente sin politica de retencion. Puede degradar rendimiento y consumir espacio en disco.</p>
                 <p><strong>Recomendacion:</strong> Cron job que elimine registros &gt;90 dias. Exportar antes de eliminar.</p>
-                <p><strong>Nota 28-Feb:</strong> Sigue pendiente. La tabla ahora registra 20+ tipos de eventos. Prioridad media &mdash; no urgente con volumen actual.</p>
+                <p><strong>Nota 1-Mar:</strong> Sigue pendiente. La tabla ahora registra 20+ tipos de eventos. Prioridad media &mdash; no urgente con volumen actual.</p>
             </div>
         </div>
 
@@ -747,7 +747,7 @@
     <div id="nuevas" class="findings">
         <div class="new-features">
             <h3>Funciones desplegadas post-auditoria &mdash; Verificacion de seguridad</h3>
-            <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Funciones activadas entre el 25 y 28 de febrero de 2026. Verificadas en produccion (aiprowork.com) y staging.</p>
+            <p style="color:var(--text2); margin-bottom:16px; font-size:0.9rem;">Funciones activadas entre el 25 de febrero y 1 de marzo de 2026. Verificadas en produccion (aiprowork.com) y staging.</p>
 
             <div class="feature-card">
                 <h4>2FA con TOTP (Autenticacion de dos factores)</h4>
@@ -774,7 +774,7 @@
                 <p><strong>Autorizacion:</strong> <code>/digest/latest</code> y <code>/digest/history</code> requieren sesion. <code>/digest/trigger</code> solo admin.</p>
                 <p><strong>Cadena IA:</strong> Gemini (primario) &rarr; Ollama llama3 (fallback) &rarr; texto plano (ultimo recurso).</p>
                 <p><strong>API keys:</strong> Solo desde variables de entorno (<code>process.env.GEMINI_API_KEY</code>). Ninguna hardcodeada.</p>
-                <p><strong>Bug corregido (28-Feb):</strong> SQL type mismatch en columnas TEXT vs TIMESTAMP. Fix: guards <code>IS NOT NULL AND != ''</code> + cast <code>::date</code>.</p>
+                <p><strong>Bug corregido:</strong> SQL type mismatch en columnas TEXT vs TIMESTAMP. Fix: guards <code>IS NOT NULL AND != ''</code> + cast <code>::date</code>.</p>
                 <span class="security-status secure">SEGURO</span>
             </div>
 
