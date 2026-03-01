@@ -1777,10 +1777,6 @@ function renderArchivos(files) {
         const downloadBtn = file.type === 'pdf'
             ? `<a href="/descargar/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Descargar PDF" onclick="event.stopPropagation();">Descargar</a>`
             : '';
-        // For MD/PDF that have a linked interactive guide, show an extra button
-        const interactiveBtn = file.hasDynamic && !isApp
-            ? `<a href="${file.dynamicUrl}" class="arc-action arc-download" target="_blank" title="Ver guía interactiva" onclick="event.stopPropagation();">Interactivo</a>`
-            : '';
         const dynamicBadge = file.hasDynamic && !isApp ? `<span class="arc-interactive-badge">Interactivo</span>` : '';
         const canDelete = window.__USER__?.role === 'admin' || window.__USER__?.role === 'ceo' || window.__USER__?.role === 'manager';
         const deleteBtn = canDelete && !isApp
@@ -1802,9 +1798,7 @@ function renderArchivos(files) {
                 </div>
                 <div class="arc-footer">
                     <a href="${href}" class="arc-action arc-view" ${(isApp || file.hasDynamic) ? 'target="_blank"' : ''}>Abrir</a>
-                    ${file.hasDynamic && !isApp ? `<a href="/archivo/${encodeURIComponent(file.name)}" class="arc-action arc-download" title="Ver archivo original">Original</a>` : ''}
                     ${downloadBtn}
-                    ${interactiveBtn}
                     ${(!isApp && ['pdf','markdown','other'].includes(file.type)) ? `<button class="arc-action arc-download" onclick="event.stopPropagation();previewDocument('${escapeHtml(file.name)}','${file.type}')">Vista Previa</button>` : ''}
                 </div>
             </div>
