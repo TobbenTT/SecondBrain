@@ -24,7 +24,7 @@ beforeAll(async () => {
     });
 
     // Create test user
-    const hash = await bcrypt.hash('testpass123', 10);
+    const hash = await bcrypt.hash('testpass123', 12);
     await run('INSERT OR IGNORE INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
         ['testuser', hash, 'admin', 'engineering', 'testing']);
 
@@ -191,7 +191,7 @@ describe('Ideas API', () => {
     it('DELETE /api/ideas (mass) requires admin', async () => {
         // Our test user IS admin, so this would succeed
         // Test with a non-admin by creating a separate session
-        const nonAdminHash = await bcrypt.hash('nonadmin', 10);
+        const nonAdminHash = await bcrypt.hash('nonadmin', 12);
         await run('INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)',
             ['viewer', nonAdminHash, 'viewer']);
 

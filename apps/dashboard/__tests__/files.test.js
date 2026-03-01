@@ -874,17 +874,15 @@ describe('DELETE /api/skill-documents/:id — role-based access', () => {
         expect(res.status).toHaveBeenCalledWith(404);
     });
 
-    it('deletes document and file from disk', async () => {
+    it('soft-deletes document record', async () => {
         get.mockResolvedValue({ id: 1, skill_path: 'core/test.md', document_name: 'doc.pdf', file_path: '1700000000_doc.pdf' });
-        fs.existsSync = jest.fn().mockReturnValue(true);
 
         const req = mockReq({ params: { id: '1' } });
         const res = mockRes();
 
         await callRoute(filesRouter, 'delete', '/api/skill-documents/:id', req, res);
 
-        expect(fs.unlinkSync).toHaveBeenCalled();
-        expect(run).toHaveBeenCalled();
+        expect(run).toHaveBeenCalledWith('UPDATE skill_documents SET deleted_at = NOW() WHERE id = ?', ['1']);
         expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 

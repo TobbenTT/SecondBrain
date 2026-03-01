@@ -811,7 +811,7 @@ describe('PUT /users/:id — password reset', () => {
 
         // Should hash and update password
         const bcrypt = require('bcryptjs');
-        expect(bcrypt.hash).toHaveBeenCalledWith('NewP@ss123!', 10);
+        expect(bcrypt.hash).toHaveBeenCalledWith('NewP@ss123!', 12);
         expect(res.json).toHaveBeenCalledWith(existing);
     });
 
@@ -1689,7 +1689,6 @@ describe('DELETE /gallery/:id', () => {
     const handler = getHandler(router, 'delete', '/gallery/:id');
 
     it('deletes photo and removes file', async () => {
-        const fs = require('fs');
         get.mockResolvedValue({ id: 1, url: '/gallery/test.jpg' });
         run.mockResolvedValue({});
 
@@ -1697,8 +1696,7 @@ describe('DELETE /gallery/:id', () => {
         const res = mockRes();
         await handler(req, res);
 
-        expect(fs.existsSync).toHaveBeenCalled();
-        expect(run).toHaveBeenCalledWith('DELETE FROM gallery_photos WHERE id = ?', ['1']);
+        expect(run).toHaveBeenCalledWith('UPDATE gallery_photos SET deleted_at = NOW() WHERE id = ?', ['1']);
         expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
@@ -1927,7 +1925,7 @@ describe('DELETE /herramientas/:id', () => {
         const res = mockRes();
         await handler(req, res);
 
-        expect(run).toHaveBeenCalledWith('DELETE FROM herramientas_contratadas WHERE id = ?', ['5']);
+        expect(run).toHaveBeenCalledWith('UPDATE herramientas_contratadas SET deleted_at = NOW() WHERE id = ?', ['5']);
         expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 

@@ -26,7 +26,7 @@ beforeAll(async () => {
         check();
     });
 
-    const hash = await bcrypt.hash('testpass', 10);
+    const hash = await bcrypt.hash('testpass', 12);
     await run('INSERT OR IGNORE INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)',
         ['reun_admin', hash, 'admin', 'engineering', 'testing']);
     await run('INSERT OR IGNORE INTO users (username, password_hash, role, department, expertise) VALUES (?, ?, ?, ?, ?)',

@@ -826,6 +826,7 @@
                 <div class="positive-item new-item"><span class="check">&#10003;</span> AI API keys solo desde env vars<span class="new-tag">NUEVO</span></div>
                 <div class="positive-item new-item"><span class="check">&#10003;</span> Webhooks protegidos con API key (3 endpoints)<span class="new-tag">NUEVO</span></div>
                 <div class="positive-item new-item"><span class="check">&#10003;</span> Digest solo trigger por admin<span class="new-tag">NUEVO</span></div>
+                <div class="positive-item new-item"><span class="check">&#10003;</span> Test suite: 9/9 suites, 463/463 tests passing (unit + integration)<span class="new-tag">NUEVO</span></div>
             </div>
         </div>
     </div>
@@ -842,6 +843,7 @@
             <div class="lesson new-lesson"><strong>6. Tipos de columna SQL importan.</strong> Columnas TEXT comparadas con TIMESTAMP causan errores silenciosos. Siempre usar guards (<code>IS NOT NULL AND != ''</code>) y casts explicitos (<code>::date</code>).</div>
             <div class="lesson new-lesson"><strong>7. Verificar configuracion por entorno.</strong> <code>APP_DOMAIN</code> apuntaba a staging en produccion. Cada entorno debe tener su configuracion revisada independientemente.</div>
             <div class="lesson new-lesson"><strong>8. AI fallbacks deben ser resilientes.</strong> La cadena Gemini &rarr; Ollama &rarr; texto plano garantiza que el servicio nunca falle completamente, incluso con API keys invalidas o timeouts.</div>
+            <div class="lesson new-lesson"><strong>9. Tests deben reflejar el codigo actual.</strong> Tests con assertions de hard-delete (<code>DELETE FROM</code>) cuando el codigo usa soft-delete (<code>SET deleted_at</code>) dan falsos negativos. Mocks de ESM modules (<code>isomorphic-dompurify</code>, <code>otplib</code>) necesarios para Jest CJS.</div>
         </div>
     </div>
 

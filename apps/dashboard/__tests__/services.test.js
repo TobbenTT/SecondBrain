@@ -372,20 +372,21 @@ describe('AI Service', () => {
 
 jest.mock('child_process', () => ({
     exec: jest.fn(),
+    execFile: jest.fn(),
 }));
 
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const { executeCommand } = require('../services/orchestratorBridge');
 
 describe('OrchestratorBridge', () => {
     beforeEach(() => jest.clearAllMocks());
 
     it('opens project folder', async () => {
-        exec.mockImplementation((_cmd, callback) => callback(null, 'ok', ''));
+        execFile.mockImplementation((_exe, _args, callback) => callback(null, 'ok', ''));
 
         const result = await executeCommand('open-project', ['C:\\Projects\\test']);
         expect(result.success).toBe(true);
-        expect(exec).toHaveBeenCalled();
+        expect(execFile).toHaveBeenCalled();
     });
 
     it('rejects open-project without path', async () => {
@@ -409,7 +410,7 @@ describe('OrchestratorBridge', () => {
     });
 
     it('handles exec errors gracefully', async () => {
-        exec.mockImplementation((_cmd, callback) =>
+        execFile.mockImplementation((_exe, _args, callback) =>
             callback(new Error('Process failed'), '', 'error output'));
 
         const result = await executeCommand('open-project', ['C:\\test']);

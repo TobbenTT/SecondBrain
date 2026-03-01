@@ -709,7 +709,7 @@ describe('POST /api/twofa/verify-setup', () => {
         verifyTOTP.mockReturnValue(true);
         run.mockResolvedValue({});
         generateRecoveryCodes.mockReturnValue(['code1', 'code2', 'code3']);
-        bcrypt.hash.mockResolvedValue('$2a$10$hashed');
+        bcrypt.hash.mockResolvedValue('$2a$12$hashed');
 
         const req = mockReq({ session: { ...authedSession }, body: { token: '123456' } });
         const res = mockRes();
